@@ -181,6 +181,8 @@ function soriyaPdfs_(msg) {
 // ---------- Drive ----------
 
 function soriyaRootFolder_() {
+  // Dossier partagé depuis un autre compte Google (ex. le Drive de diabymohamed85@gmail.com).
+  if (SORIYA_CONFIG.DRIVE_FOLDER_ID) return DriveApp.getFolderById(SORIYA_CONFIG.DRIVE_FOLDER_ID);
   const it = DriveApp.getFoldersByName(SORIYA_CONFIG.DRIVE_ROOT_FOLDER);
   return it.hasNext() ? it.next() : DriveApp.createFolder(SORIYA_CONFIG.DRIVE_ROOT_FOLDER);
 }
@@ -277,7 +279,7 @@ function soriyaNotify_(report) {
   }
   lines.push('', '— Soriya');
   MailApp.sendEmail(
-    Session.getEffectiveUser().getEmail(),
+    SORIYA_CONFIG.NOTIFY_EMAIL || Session.getEffectiveUser().getEmail(),
     'Soriya — ' + report.archived.length + ' confirmation(s) archivée(s)' +
       (report.errors.length ? ', ' + report.errors.length + ' problème(s)' : ''),
     lines.join('\n'));
