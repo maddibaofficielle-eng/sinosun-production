@@ -37,7 +37,10 @@ Tout est visible dans le Journal (filtres et tableaux croisés possibles) et dan
 3. Créez trois fichiers de script et collez-y le contenu de ce dossier :
    `Config.gs`, `Soriya.gs`, `Code.gs` (supprimez le `Code.gs` vide d'origine avant de coller le vôtre).
 4. **Paramètres du projet** (roue dentée) :
-   - cochez *Afficher le fichier manifeste « appsscript.json »*, puis collez le contenu de `appsscript.json` ;
+   - **Fuseau horaire** : choisissez *(GMT+01:00) Paris*. C'est le seul réglage utile du fichier
+     `appsscript.json` : **inutile de créer ce fichier**, Google demande de lui-même les autorisations
+     nécessaires au premier lancement. (Il existe déjà, caché ; pour le voir, cochez *Afficher le fichier
+     manifeste « appsscript.json » dans l'éditeur*. On ne le crée jamais avec le bouton « + ».)
    - dans **Propriétés du script**, ajoutez `CLAUDE_API_KEY` = votre clé API Anthropic
      (à créer sur <https://console.anthropic.com>). La clé reste stockée dans votre projet, jamais dans le code.
 5. Dans l'éditeur, choisissez la fonction **`apercuSoriya`** → **Exécuter** → acceptez les autorisations.
