@@ -1,4 +1,6 @@
-# Soriya — agent IA d'archivage des confirmations d'affrètement
+# Soriya · Mailing — archivage IA des confirmations d'affrètement
+
+*Mailing* est l'activité de Soriya qui traite les mails : elle archive les PDF reçus dans Gmail vers Google Drive.
 
 Soriya surveille le libellé Gmail **`ecotime`**, récupère chaque PDF reçu, le **lit** (Claude),
 le **renomme** proprement, le **range** dans Google Drive et tient un **journal** dans Google Sheets.
