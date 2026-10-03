@@ -58,8 +58,10 @@ const SORIYA_CONFIG = {
   // comme « Ecotime - Confirmations d'affrètement ». Make le désigne par son identifiant.
   WHATSAPP_INBOX_FOLDER: 'Soriya - Entrée WhatsApp',
   WHATSAPP_INBOX_FOLDER_ID: '1oviHzQyky-42psksAhTUEuZtnRQfKhiu',
-  // Seuls les PDF envoyés par ces numéros sont traités (format 06…, 07… ou +33…).
-  WHATSAPP_ALLOWED_SENDERS: ['0769391541', '0651516936'],
+  // Numéros autorisés à envoyer des PDF (format 06…, 07… ou +33…).
+  // Liste vide [] = tous les PDF reçus sur le WhatsApp de Soriya sont traités, quel que soit l'expéditeur.
+  // Pour filtrer à nouveau, par exemple : ['0769391541', '0651516936']
+  WHATSAPP_ALLOWED_SENDERS: [],
 
   // Marge de sécurité : Apps Script coupe une exécution à 6 minutes.
   MAX_RUNTIME_MS: 5 * 60 * 1000,

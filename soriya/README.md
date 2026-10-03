@@ -89,7 +89,7 @@ Lecture Claude : quelques centimes par confirmation (selon le nombre de pages).
 ## Activité WhatsApp
 
 Soriya traite aussi les **lettres de voiture** reçues en PDF sur son numéro WhatsApp **06 52 13 53 08**,
-envoyées par **07 69 39 15 41** ou **06 51 51 69 36** (liste `WHATSAPP_ALLOWED_SENDERS` dans `Config.gs`).
+quel que soit l'expéditeur (filtre possible avec `WHATSAPP_ALLOWED_SENDERS` dans `Config.gs`).
 Elles sont rangées à part des confirmations d'affrètement, dans le dossier Drive **« Ecotime - Lettres de Voiture »**
 (par année/mois, ou « À vérifier »), avec leur propre **« Journal Lettres de voiture »** : n° de lettre de voiture,
 référence de commande, expéditeur, destinataire, transporteur, prise en charge, livraison, colis, poids,

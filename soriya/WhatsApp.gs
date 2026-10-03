@@ -41,7 +41,7 @@ function apercuSoriyaWhatsApp() {
   let count = 0;
   soriyaWhatsAppPdfs_(inbox).forEach(function (file) {
     const info = soriyaWhatsAppParseName_(file.getName());
-    const ok = info && allowed.has(info.sender);
+    const ok = !allowed.size || (info && allowed.has(info.sender));
     if (ok) count++;
     Logger.log('[%s] %s — expéditeur %s', ok ? 'À TRAITER' : 'IGNORÉ', file.getName(),
       info ? '+' + info.sender : 'inconnu (nom de fichier non reconnu)');
@@ -98,7 +98,7 @@ function soriyaWhatsAppRun() {
       const file = files[i];
       try {
         const info = soriyaWhatsAppParseName_(file.getName());
-        if (!info || !allowed.has(info.sender)) {
+        if (allowed.size && (!info || !allowed.has(info.sender))) {
           // Ni lu ni archivé : mis de côté pour que vous décidiez.
           file.moveTo(soriyaSubFolder_(inbox, ['Expéditeur non autorisé']));
           journal.append([
@@ -109,7 +109,9 @@ function soriyaWhatsAppRun() {
           report.errors.push(file.getName() + ' : expéditeur non autorisé, mis de côté');
           continue;
         }
-        const outcome = soriyaWhatsAppArchive_(file, info, inbox, root, journal, aiEnabled);
+        const outcome = soriyaWhatsAppArchive_(
+          file, info || { sender: 'inconnu', date: null, originalName: file.getName() },
+          inbox, root, journal, aiEnabled);
         if (outcome.duplicate) report.duplicates++;
         else report.archived.push(outcome);
       } catch (e) {
@@ -133,7 +135,7 @@ function soriyaWhatsAppArchive_(file, info, inbox, root, journal, aiEnabled) {
   const key = 'wa:' + file.getId();
   const blob = file.getBlob().setName(info.originalName);
   const hash = soriyaSha256_(blob.getBytes());
-  const sender = '+' + info.sender + ' (WhatsApp)';
+  const sender = (info.sender === 'inconnu' ? 'inconnu' : '+' + info.sender) + ' (WhatsApp)';
   const received = info.date || file.getDateCreated();
   const base = [new Date(), received, sender, 'WhatsApp', info.originalName];
 
