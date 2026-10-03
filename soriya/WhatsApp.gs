@@ -12,6 +12,7 @@
  *   soriyaWhatsAppRun()          → un passage manuel
  *   apercuSoriyaWhatsApp()       → prépare les dossiers et liste ce qui attend, sans rien traiter
  *   desinstallerSoriyaWhatsApp() → arrête le déclencheur
+ *   reprendreMisDeCoteWhatsApp() → reprend les PDF mis de côté (après ajout de numéros autorisés)
  */
 
 function installerSoriyaWhatsApp() {
@@ -46,6 +47,35 @@ function apercuSoriyaWhatsApp() {
       info ? '+' + info.sender : 'inconnu (nom de fichier non reconnu)');
   });
   Logger.log('%s PDF WhatsApp en attente dans « %s ».', count, SORIYA_CONFIG.WHATSAPP_INBOX_FOLDER);
+}
+
+/**
+ * Remet dans le dossier de dépôt les PDF mis de côté (« Expéditeur non autorisé »), puis relance un passage.
+ * À utiliser après avoir ajouté des numéros à WHATSAPP_ALLOWED_SENDERS dans Config.gs.
+ * Les PDF dont l'expéditeur n'est toujours pas autorisé retournent simplement dans « Expéditeur non autorisé ».
+ */
+function reprendreMisDeCoteWhatsApp() {
+  const inbox = soriyaWhatsAppInbox_();
+  const it = inbox.getFoldersByName('Expéditeur non autorisé');
+  if (!it.hasNext()) {
+    Logger.log('Aucun PDF mis de côté.');
+    return;
+  }
+  const setAside = it.next();
+  const senders = {};
+  const files = setAside.getFiles();
+  let count = 0;
+  while (files.hasNext()) {
+    const f = files.next();
+    const info = soriyaWhatsAppParseName_(f.getName());
+    const who = info ? '+' + info.sender : 'nom de fichier non reconnu';
+    senders[who] = (senders[who] || 0) + 1;
+    f.moveTo(inbox);
+    count++;
+  }
+  Logger.log('%s PDF remis en traitement. Expéditeurs : %s', count, JSON.stringify(senders));
+  Logger.log('Numéros autorisés : %s', JSON.stringify(Array.from(soriyaAllowedSenders_())));
+  soriyaWhatsAppRun();
 }
 
 function soriyaWhatsAppRun() {
