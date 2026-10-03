@@ -118,32 +118,8 @@ function soriyaArchive_(msg, att, key, root, journal, aiEnabled) {
     return { duplicate: true };
   }
 
-  let data = null;
-  let status = 'Archivé';
-  if (!aiEnabled) {
-    status = 'Archivé (sans lecture IA)';
-  } else if (blob.getBytes().length > SORIYA_CONFIG.MAX_PDF_MB_FOR_AI * 1024 * 1024) {
-    status = 'Archivé (PDF trop lourd pour la lecture IA)';
-  } else {
-    try {
-      data = soriyaReadPdf(blob, msg.getSubject());
-    } catch (e) {
-      status = 'Archivé — lecture IA impossible : ' + e.message;
-    }
-  }
-
-  const toReview = data !== null && (!data.est_confirmation_affretement || data.confiance === 'basse');
-  if (toReview) status = 'À vérifier — ' + (data.remarques || 'lecture incertaine');
-
-  const refDate = soriyaParseDate_(data && (data.date_chargement || data.date_confirmation)) || msg.getDate();
-  const folder = toReview
-    ? soriyaSubFolder_(root, [SORIYA_CONFIG.REVIEW_FOLDER])
-    : soriyaSubFolder_(root, [
-      Utilities.formatDate(refDate, Session.getScriptTimeZone(), 'yyyy'),
-      Utilities.formatDate(refDate, Session.getScriptTimeZone(), 'MM'),
-    ]);
-
-  const name = soriyaFileName_(refDate, data, att.getName());
+  const c = soriyaClassify_(blob, msg.getSubject(), msg.getDate(), root, aiEnabled);
+  const data = c.data, status = c.status, folder = c.folder, name = c.name;
   const file = folder.createFile(blob.setName(name));
   file.setDescription([
     'Archivé par Soriya depuis Gmail (' + SORIYA_CONFIG.GMAIL_LABEL + ').',
@@ -153,14 +129,49 @@ function soriyaArchive_(msg, att, key, root, journal, aiEnabled) {
     data ? 'Extraction : ' + JSON.stringify(data) : '',
   ].join('\n'));
 
-  const fields = data
-    ? SORIYA_FIELDS.filter(function (f) { return f !== 'remarques'; })
-      .map(function (f) { return data[f] || ''; })
-      .concat([data.confiance, data.remarques || ''])
-    : soriyaEmptyFields_();
-  journal.append(base.concat([name, file.getUrl(), status], fields, [key, hash]));
+  journal.append(base.concat([name, file.getUrl(), status], soriyaFieldsRow_(data), [key, hash]));
 
   return { name: name, url: file.getUrl(), status: status };
+}
+
+/**
+ * Lecture IA + choix du dossier et du nom. Partagé par toutes les activités de Soriya.
+ * @return {{data: ?Object, status: string, folder: GoogleAppsScript.Drive.Folder, name: string}}
+ */
+function soriyaClassify_(blob, context, fallbackDate, root, aiEnabled) {
+  let data = null;
+  let status = 'Archivé';
+  if (!aiEnabled) {
+    status = 'Archivé (sans lecture IA)';
+  } else if (blob.getBytes().length > SORIYA_CONFIG.MAX_PDF_MB_FOR_AI * 1024 * 1024) {
+    status = 'Archivé (PDF trop lourd pour la lecture IA)';
+  } else {
+    try {
+      data = soriyaReadPdf(blob, context);
+    } catch (e) {
+      status = 'Archivé — lecture IA impossible : ' + e.message;
+    }
+  }
+
+  const toReview = data !== null && (!data.est_confirmation_affretement || data.confiance === 'basse');
+  if (toReview) status = 'À vérifier — ' + (data.remarques || 'lecture incertaine');
+
+  const refDate = soriyaParseDate_(data && (data.date_chargement || data.date_confirmation)) || fallbackDate;
+  const folder = toReview
+    ? soriyaSubFolder_(root, [SORIYA_CONFIG.REVIEW_FOLDER])
+    : soriyaSubFolder_(root, [
+      Utilities.formatDate(refDate, Session.getScriptTimeZone(), 'yyyy'),
+      Utilities.formatDate(refDate, Session.getScriptTimeZone(), 'MM'),
+    ]);
+  return { data: data, status: status, folder: folder, name: soriyaFileName_(refDate, data, blob.getName() || 'document.pdf') };
+}
+
+/** Colonnes extraites du Journal (sans "remarques"), puis confiance et remarques. */
+function soriyaFieldsRow_(data) {
+  if (!data) return soriyaEmptyFields_();
+  return SORIYA_FIELDS.filter(function (f) { return f !== 'remarques'; })
+    .map(function (f) { return data[f] || ''; })
+    .concat([data.confiance, data.remarques || '']);
 }
 
 // ---------- Gmail ----------
@@ -263,10 +274,11 @@ function soriyaParseDate_(s) {
   return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
 }
 
-function soriyaNotify_(report) {
+function soriyaNotify_(report, activity) {
+  const who = 'Soriya · ' + (activity || 'Mailing');
   if (!SORIYA_CONFIG.SEND_SUMMARY_EMAIL) return;
   if (!report.archived.length && !report.errors.length) return;
-  const lines = ['Bonjour,', '', 'Voici le compte rendu de Soriya · Mailing :', ''];
+  const lines = ['Bonjour,', '', 'Voici le compte rendu de ' + who + ' :', ''];
   if (report.archived.length) {
     lines.push(report.archived.length + ' confirmation(s) archivée(s) :');
     report.archived.forEach(function (a) { lines.push('• ' + a.name + ' — ' + a.status + '\n  ' + a.url); });
@@ -277,10 +289,10 @@ function soriyaNotify_(report) {
     lines.push('Problèmes (nouvel essai automatique au prochain passage) :');
     report.errors.forEach(function (e) { lines.push('• ' + e); });
   }
-  lines.push('', '— Soriya · Mailing');
+  lines.push('', '— ' + who);
   MailApp.sendEmail(
     SORIYA_CONFIG.NOTIFY_EMAIL || Session.getEffectiveUser().getEmail(),
-    'Soriya · Mailing — ' + report.archived.length + ' confirmation(s) archivée(s)' +
+    who + ' — ' + report.archived.length + ' confirmation(s) archivée(s)' +
       (report.errors.length ? ', ' + report.errors.length + ' problème(s)' : ''),
     lines.join('\n'));
 }

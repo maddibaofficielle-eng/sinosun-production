@@ -45,6 +45,13 @@ const SORIYA_CONFIG = {
   // Destinataire du compte rendu ('' = le compte qui exécute Soriya).
   NOTIFY_EMAIL: '',
 
+  // ---------- Activité WhatsApp ----------
+  // Make dépose les PDF reçus sur le WhatsApp de Soriya (06 52 13 53 08) dans ce sous-dossier
+  // du dossier racine, nommés WA_<expéditeur>_<horodatage>_<nom d'origine>.pdf
+  WHATSAPP_INBOX_FOLDER: 'Entrée WhatsApp',
+  // Seuls les PDF envoyés par ces numéros sont traités (format 06…, 07… ou +33…).
+  WHATSAPP_ALLOWED_SENDERS: ['0769391541', '0651516936'],
+
   // Marge de sécurité : Apps Script coupe une exécution à 6 minutes.
   MAX_RUNTIME_MS: 5 * 60 * 1000,
 };
