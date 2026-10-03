@@ -52,9 +52,12 @@ const SORIYA_CONFIG = {
   LDV_ROOT_FOLDER: 'Ecotime - Lettres de Voiture',
   LDV_JOURNAL_NAME: 'Journal Lettres de voiture',
 
-  // Make dépose les PDF reçus sur le WhatsApp de Soriya (06 52 13 53 08) dans ce sous-dossier
-  // de « Ecotime - Lettres de Voiture », nommés WA_<expéditeur>_<horodatage>_<nom d'origine>.pdf
-  WHATSAPP_INBOX_FOLDER: 'Entrée WhatsApp',
+  // Make dépose les PDF reçus sur le WhatsApp de Soriya (06 52 13 53 08) dans ce dossier de dépôt,
+  // à la racine de Mon Drive, nommés WA_<expéditeur>_<horodatage>_<nom d'origine>.pdf.
+  // Il reste hors de « Ecotime - Lettres de Voiture » pour que ce dossier soit rangé exactement
+  // comme « Ecotime - Confirmations d'affrètement ». Make le désigne par son identifiant.
+  WHATSAPP_INBOX_FOLDER: 'Soriya - Entrée WhatsApp',
+  WHATSAPP_INBOX_FOLDER_ID: '1oviHzQyky-42psksAhTUEuZtnRQfKhiu',
   // Seuls les PDF envoyés par ces numéros sont traités (format 06…, 07… ou +33…).
   WHATSAPP_ALLOWED_SENDERS: ['0769391541', '0651516936'],
 

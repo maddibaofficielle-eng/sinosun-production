@@ -2,7 +2,7 @@
  * Soriya · WhatsApp — lettres de voiture reçues sur WhatsApp → Google Drive + Journal.
  *
  * Make récupère les PDF arrivés sur le numéro WhatsApp de Soriya (API WhatsApp Business)
- * et les dépose dans le dossier « Ecotime - Lettres de Voiture / Entrée WhatsApp », nommés :
+ * et les dépose dans le dossier « Soriya - Entrée WhatsApp » (racine de Mon Drive), nommés :
  *   WA_<numéro expéditeur>_<horodatage Unix>_<nom d'origine>.pdf   (ex. WA_33769391541_1759480000_confirmation.pdf)
  * Soriya les lit comme des lettres de voiture, les renomme et les range dans « Ecotime - Lettres de Voiture »,
  * avec leur propre journal (« Journal Lettres de voiture »).
@@ -10,7 +10,7 @@
  * Fonctions à lancer depuis l'éditeur :
  *   installerSoriyaWhatsApp()    → déclencheur automatique + premier passage
  *   soriyaWhatsAppRun()          → un passage manuel
- *   apercuSoriyaWhatsApp()       → liste ce qui attend dans « Entrée WhatsApp », sans rien traiter
+ *   apercuSoriyaWhatsApp()       → prépare les dossiers et liste ce qui attend, sans rien traiter
  *   desinstallerSoriyaWhatsApp() → arrête le déclencheur
  */
 
@@ -32,7 +32,10 @@ function desinstallerSoriyaWhatsApp() {
 }
 
 function apercuSoriyaWhatsApp() {
-  const inbox = soriyaWhatsAppInbox_(soriyaRootFolder_('lettre_voiture'));
+  const root = soriyaRootFolder_('lettre_voiture');
+  soriyaEnsureStructure_(root);
+  soriyaJournal_(root, 'lettre_voiture');
+  const inbox = soriyaWhatsAppInbox_();
   const allowed = soriyaAllowedSenders_();
   let count = 0;
   soriyaWhatsAppPdfs_(inbox).forEach(function (file) {
@@ -53,7 +56,8 @@ function soriyaWhatsAppRun() {
 
   try {
     const root = soriyaRootFolder_('lettre_voiture');
-    const inbox = soriyaWhatsAppInbox_(root);
+    soriyaEnsureStructure_(root);
+    const inbox = soriyaWhatsAppInbox_();
     const journal = soriyaJournal_(root, 'lettre_voiture');
     const allowed = soriyaAllowedSenders_();
     const aiEnabled = !!PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY');
@@ -74,7 +78,7 @@ function soriyaWhatsAppRun() {
         if (outcome.duplicate) report.duplicates++;
         else report.archived.push(outcome);
       } catch (e) {
-        // Le fichier reste dans « Entrée WhatsApp » → nouvel essai au prochain passage.
+        // Le fichier reste dans le dossier de dépôt → nouvel essai au prochain passage.
         report.errors.push(file.getName() + ' : ' + e.message);
       }
     }
@@ -122,8 +126,18 @@ function soriyaWhatsAppArchive_(file, info, inbox, root, journal, aiEnabled) {
 
 // ---------- Outils WhatsApp ----------
 
-function soriyaWhatsAppInbox_(root) {
-  return soriyaSubFolder_(root, [SORIYA_CONFIG.WHATSAPP_INBOX_FOLDER]);
+/** Dossier de dépôt de Make, à la racine de Mon Drive (déplacé et renommé si besoin). */
+function soriyaWhatsAppInbox_() {
+  const driveRoot = DriveApp.getRootFolder();
+  const name = SORIYA_CONFIG.WHATSAPP_INBOX_FOLDER;
+  if (SORIYA_CONFIG.WHATSAPP_INBOX_FOLDER_ID) {
+    const inbox = DriveApp.getFolderById(SORIYA_CONFIG.WHATSAPP_INBOX_FOLDER_ID);
+    if (inbox.getName() !== name) inbox.setName(name);
+    const parents = inbox.getParents();
+    if (!parents.hasNext() || parents.next().getId() !== driveRoot.getId()) inbox.moveTo(driveRoot);
+    return inbox;
+  }
+  return soriyaSubFolder_(driveRoot, [name]);
 }
 
 function soriyaWhatsAppPdfs_(inbox) {

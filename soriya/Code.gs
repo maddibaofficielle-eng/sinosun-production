@@ -32,7 +32,9 @@ function desinstallerSoriya() {
 
 function apercuSoriya() {
   const threads = GmailApp.search(soriyaQuery_(), 0, 50);
-  const journal = soriyaJournal_(soriyaRootFolder_('confirmation'), 'confirmation');
+  const root = soriyaRootFolder_('confirmation');
+  soriyaEnsureStructure_(root);
+  const journal = soriyaJournal_(root, 'confirmation');
   let count = 0;
   threads.forEach(function (thread) {
     thread.getMessages().forEach(function (msg) {
@@ -55,6 +57,7 @@ function soriyaRun() {
 
   try {
     const root = soriyaRootFolder_('confirmation');
+    soriyaEnsureStructure_(root);
     const journal = soriyaJournal_(root, 'confirmation');
     const doneLabel = GmailApp.getUserLabelByName(SORIYA_CONFIG.PROCESSED_LABEL) ||
       GmailApp.createLabel(SORIYA_CONFIG.PROCESSED_LABEL);
@@ -208,6 +211,19 @@ function soriyaRootFolder_(typeKey) {
   }
   const it = DriveApp.getFoldersByName(name);
   return it.hasNext() ? it.next() : DriveApp.createFolder(name);
+}
+
+/**
+ * Même rangement pour chaque dossier de documents : <année>/<mois> du mois en cours et « À vérifier ».
+ * Les autres mois se créent au fil des documents archivés.
+ */
+function soriyaEnsureStructure_(root) {
+  const now = new Date();
+  soriyaSubFolder_(root, [
+    Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy'),
+    Utilities.formatDate(now, Session.getScriptTimeZone(), 'MM'),
+  ]);
+  soriyaSubFolder_(root, [SORIYA_CONFIG.REVIEW_FOLDER]);
 }
 
 function soriyaSubFolder_(parent, path) {

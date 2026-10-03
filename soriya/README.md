@@ -98,7 +98,7 @@ immatriculation, réserves, signature du destinataire.
 ```
 Expéditeur autorisé ──PDF──▶ WhatsApp 06 52 13 53 08 (API WhatsApp Business Cloud)
       ──▶ Make : détecte le message, filtre les PDF, télécharge le fichier
-      ──▶ Drive : « Ecotime - Lettres de Voiture/Entrée WhatsApp » (fichier nommé WA_<expéditeur>_<horodatage>_<nom>.pdf)
+      ──▶ Drive : « Soriya - Entrée WhatsApp » (racine de Mon Drive) (fichier nommé WA_<expéditeur>_<horodatage>_<nom>.pdf)
       ──▶ Soriya (WhatsApp.gs, toutes les 15 min) : lecture Claude, renommage, classement, Journal Lettres de voiture
 ```
 
@@ -107,12 +107,12 @@ Expéditeur autorisé ──PDF──▶ WhatsApp 06 52 13 53 08 (API WhatsApp B
 1. WhatsApp Business Cloud — *Watch Events* (numéro 06 52 13 53 08).
 2. Filtre : type de message = `document` **et** type MIME = `application/pdf`.
 3. WhatsApp Business Cloud — *Download a Media* (identifiant du document).
-4. Google Drive (compte gfd.logistic) — *Upload a File* dans `Ecotime - Lettres de Voiture/Entrée WhatsApp`
+4. Google Drive (compte gfd.logistic) — *Upload a File* dans `Soriya - Entrée WhatsApp`
    (désigné par son identifiant, donc insensible à un renommage du dossier),
    nom : `WA_{{expéditeur}}_{{horodatage}}_{{nom du fichier}}`.
 
 Le filtre sur l'expéditeur est fait par Soriya : un PDF d'un numéro non autorisé est mis de côté dans
-`Entrée WhatsApp/Expéditeur non autorisé`, sans être lu.
+`Soriya - Entrée WhatsApp/Expéditeur non autorisé`, sans être lu.
 
 **Installation côté Soriya** : ajouter le fichier `WhatsApp.gs` au projet, remplacer `Config.gs`, `Soriya.gs`
 et `Code.gs` par leur nouvelle version, puis exécuter `apercuSoriyaWhatsApp` et `installerSoriyaWhatsApp`.
