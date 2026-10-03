@@ -117,3 +117,16 @@ Le filtre sur l'expéditeur est fait par Soriya : un PDF d'un numéro non autori
 
 **Installation côté Soriya** : ajouter le fichier `WhatsApp.gs` au projet, remplacer `Config.gs`, `Soriya.gs`
 et `Code.gs` par leur nouvelle version, puis exécuter `apercuSoriyaWhatsApp` et `installerSoriyaWhatsApp`.
+
+## Remise à zéro (`Maintenance.gs`)
+
+`reinitialiserSoriya()` repart sur des données propres pour les deux activités :
+
+- **Mailing** : journal vidé, PDF archivés mis à la corbeille puis re-téléchargés depuis Gmail
+  (tout l'historique est relu pendant 6 h).
+- **WhatsApp** : aucun PDF supprimé (WhatsApp ne permet pas de les re-télécharger) ; tous sont remis
+  dans « Soriya - Entrée WhatsApp » sous leur nom d'origine, une seule copie par contenu identique,
+  journal vidé.
+- Les deux activités repartent seules (1er passage sous 1 à 5 min, puis toutes les 15 min).
+
+Les doublons ne polluent plus le journal : ils sont notés dans un onglet **« Doublons »** séparé.

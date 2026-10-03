@@ -63,11 +63,14 @@ function soriyaRun() {
       GmailApp.createLabel(SORIYA_CONFIG.PROCESSED_LABEL);
     const aiEnabled = !!PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY');
 
-    // Du plus ancien au plus récent, pour un journal chronologique.
-    const threads = GmailApp.search(soriyaQuery_(), 0, 100).reverse();
-
-    for (let t = 0; t < threads.length; t++) {
-      if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS) break; // la suite au prochain passage
+    // Recherche par pages de 100 conversations : rien n'est oublié, même avec un long historique.
+    const query = soriyaQuery_();
+    let timeUp = false;
+    for (let start = 0; !timeUp; start += 100) {
+     const threads = GmailApp.search(query, start, 100);
+     if (!threads.length) break;
+     for (let t = 0; t < threads.length; t++) {
+      if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS) { timeUp = true; break; } // suite au prochain passage
       const thread = threads[t];
       let threadComplete = true;
 
@@ -92,6 +95,7 @@ function soriyaRun() {
         }
       }
       if (threadComplete) thread.addLabel(doneLabel);
+     }
     }
   } catch (e) {
     report.errors.push('Erreur générale : ' + e.message);
@@ -114,7 +118,7 @@ function soriyaArchive_(msg, att, key, root, journal, aiEnabled) {
 
   // Même PDF déjà reçu dans un autre mail : on ne le stocke pas deux fois.
   if (journal.hashes.has(hash)) {
-    journal.append(base.concat(['', '', 'Doublon (déjà archivé)'], soriyaEmptyFields_('confirmation'), [key, hash]));
+    journal.appendDuplicate(base.concat(['', '', 'Doublon (déjà archivé)'], soriyaEmptyFields_('confirmation'), [key, hash]));
     return { duplicate: true };
   }
 
@@ -186,8 +190,10 @@ function soriyaFieldsRow_(data, typeKey) {
 function soriyaQuery_() {
   // Dans la recherche Gmail, espaces et "/" d'un libellé s'écrivent avec des tirets.
   const label = SORIYA_CONFIG.GMAIL_LABEL.toLowerCase().replace(/[\s\/]+/g, '-');
-  return 'label:' + label + ' has:attachment filename:pdf newer_than:' +
-    SORIYA_CONFIG.SEARCH_WINDOW_DAYS + 'd';
+  // Après reinitialiserSoriya(), tout l'historique est relu pendant quelques heures.
+  const rescanUntil = Number(PropertiesService.getScriptProperties().getProperty('SORIYA_RESCAN_UNTIL') || 0);
+  const days = Date.now() < rescanUntil ? 3650 : SORIYA_CONFIG.SEARCH_WINDOW_DAYS;
+  return 'label:' + label + ' has:attachment filename:pdf newer_than:' + days + 'd';
 }
 
 function soriyaPdfs_(msg) {
@@ -270,11 +276,16 @@ function soriyaFileName_(date, data, originalName, typeKey) {
 
 // ---------- Journal (Google Sheet) ----------
 
-function soriyaJournal_(root, typeKey) {
-  const name = typeKey === 'lettre_voiture' ? SORIYA_CONFIG.LDV_JOURNAL_NAME : SORIYA_CONFIG.JOURNAL_NAME;
-  const headers = JOURNAL_BASE_HEADERS
+function soriyaJournalHeaders_(typeKey) {
+  return JOURNAL_BASE_HEADERS
     .concat(soriyaDocType_(typeKey).fields.map(function (f) { return f[1]; }))
     .concat(['Confiance', 'Remarques', 'Clé', 'Empreinte SHA-256']);
+}
+
+/** Ouvre (ou crée) le journal d'un type de document : onglet « Journal » + onglet « Doublons ». */
+function soriyaJournalSpreadsheet_(root, typeKey) {
+  const name = typeKey === 'lettre_voiture' ? SORIYA_CONFIG.LDV_JOURNAL_NAME : SORIYA_CONFIG.JOURNAL_NAME;
+  const headers = soriyaJournalHeaders_(typeKey);
   const it = root.getFilesByName(name);
   let ss;
   if (it.hasNext()) {
@@ -282,30 +293,41 @@ function soriyaJournal_(root, typeKey) {
   } else {
     ss = SpreadsheetApp.create(name);
     DriveApp.getFileById(ss.getId()).moveTo(root);
-    const sh = ss.getSheets()[0];
-    sh.setName('Journal');
-    sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
-    sh.setFrozenRows(1);
+    ss.getSheets()[0].setName('Journal');
   }
-  const sheet = ss.getSheets()[0];
+  const main = ss.getSheets()[0];
+  const dup = ss.getSheetByName('Doublons') || ss.insertSheet('Doublons');
+  [main, dup].forEach(function (sh) {
+    if (sh.getLastRow() === 0) {
+      sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+      sh.setFrozenRows(1);
+    }
+  });
+  return { ss: ss, main: main, dup: dup, headers: headers };
+}
+
+function soriyaJournal_(root, typeKey) {
+  const j = soriyaJournalSpreadsheet_(root, typeKey);
   const keys = new Set();
   const hashes = new Set();
-  const lastRow = sheet.getLastRow();
-  if (lastRow > 1) {
-    const keyCol = headers.length - 1;
-    sheet.getRange(2, keyCol, lastRow - 1, 2).getValues().forEach(function (r) {
+  const keyCol = j.headers.length - 1;
+  [j.main, j.dup].forEach(function (sh) {
+    const lastRow = sh.getLastRow();
+    if (lastRow < 2) return;
+    sh.getRange(2, keyCol, lastRow - 1, 2).getValues().forEach(function (r) {
       if (r[0]) keys.add(String(r[0]));
-      if (r[1]) hashes.add(String(r[1]));
+      if (r[1] && sh === j.main) hashes.add(String(r[1])); // seuls les fichiers réellement archivés font foi
     });
+  });
+  function remember(row) {
+    keys.add(String(row[row.length - 2]));
+    if (row[row.length - 1]) hashes.add(String(row[row.length - 1]));
   }
   return {
     keys: keys,
     hashes: hashes,
-    append: function (row) {
-      sheet.appendRow(row);
-      keys.add(String(row[row.length - 2]));
-      hashes.add(String(row[row.length - 1]));
-    },
+    append: function (row) { j.main.appendRow(row); remember(row); },
+    appendDuplicate: function (row) { j.dup.appendRow(row); remember(row); },
   };
 }
 

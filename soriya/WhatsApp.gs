@@ -142,11 +142,12 @@ function soriyaWhatsAppArchive_(file, info, inbox, root, journal, aiEnabled) {
   // Même PDF déjà archivé : on ne le garde pas deux fois.
   if (journal.hashes.has(hash)) {
     file.moveTo(soriyaSubFolder_(inbox, ['Doublons']));
-    journal.append(base.concat(['', '', 'Doublon (déjà archivé)'], soriyaEmptyFields_('lettre_voiture'), [key, hash]));
+    journal.appendDuplicate(base.concat(['', '', 'Doublon (déjà archivé)'], soriyaEmptyFields_('lettre_voiture'), [key, hash]));
     return { duplicate: true };
   }
 
   const c = soriyaClassify_(blob, 'Document reçu par WhatsApp de ' + sender, received, root, aiEnabled, 'lettre_voiture');
+  const whatsappName = file.getName();
   c.name = soriyaUniqueName_(c.folder, c.name);
   file.setName(c.name);
   file.moveTo(c.folder);
@@ -155,6 +156,7 @@ function soriyaWhatsAppArchive_(file, info, inbox, root, journal, aiEnabled) {
     'De : ' + sender,
     'Reçu le : ' + received,
     'Fichier d\'origine : ' + info.originalName,
+    'Nom WhatsApp : ' + whatsappName,
     c.data ? 'Extraction : ' + JSON.stringify(c.data) : '',
   ].join('\n'));
 
