@@ -147,6 +147,7 @@ function soriyaWhatsAppArchive_(file, info, inbox, root, journal, aiEnabled) {
   }
 
   const c = soriyaClassify_(blob, 'Document reçu par WhatsApp de ' + sender, received, root, aiEnabled, 'lettre_voiture');
+  c.name = soriyaUniqueName_(c.folder, c.name);
   file.setName(c.name);
   file.moveTo(c.folder);
   file.setDescription([

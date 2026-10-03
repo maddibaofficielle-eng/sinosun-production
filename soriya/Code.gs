@@ -226,6 +226,16 @@ function soriyaEnsureStructure_(root) {
   soriyaSubFolder_(root, [SORIYA_CONFIG.REVIEW_FOLDER]);
 }
 
+/** Nom libre dans le dossier : ajoute _2, _3… si un fichier porte déjà ce nom. */
+function soriyaUniqueName_(folder, name) {
+  if (!folder.getFilesByName(name).hasNext()) return name;
+  const base = name.replace(/\.pdf$/i, '');
+  for (let i = 2; ; i++) {
+    const candidate = base + '_' + i + '.pdf';
+    if (!folder.getFilesByName(candidate).hasNext()) return candidate;
+  }
+}
+
 function soriyaSubFolder_(parent, path) {
   return path.reduce(function (folder, name) {
     const it = folder.getFoldersByName(name);
@@ -235,6 +245,16 @@ function soriyaSubFolder_(parent, path) {
 
 /** Ex. : 2026-09-24_TRANSPORTS DUPONT_AF-12345.pdf (date_transporteur_numéro) */
 function soriyaFileName_(date, data, originalName, typeKey) {
+  const t = soriyaDocType_(typeKey);
+  if (t.fileName) {
+    // Ex. : 02-10-2026_Lettres_de_voiture_662518.pdf
+    const f = t.fileName;
+    const number = String((data && data[f.numberField]) || originalName.replace(/\.pdf$/i, ''))
+      .replace(/^\s*n(?:°|o\.?|º)\s*/i, '') // « N° 662 518 » → « 662 518 »
+      .replace(/[^A-Za-z0-9-]+/g, '');
+    return [Utilities.formatDate(date, Session.getScriptTimeZone(), f.datePattern), f.label, number || 'sans-numero']
+      .join('_').slice(0, 150) + '.pdf';
+  }
   const day = Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd');
   const parts = [day];
   soriyaDocType_(typeKey).nameFields.forEach(function (f) {

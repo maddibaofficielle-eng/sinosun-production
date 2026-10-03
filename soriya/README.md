@@ -90,7 +90,8 @@ Lecture Claude : quelques centimes par confirmation (selon le nombre de pages).
 
 Soriya traite aussi les **lettres de voiture** reçues en PDF sur son numéro WhatsApp **06 52 13 53 08**,
 quel que soit l'expéditeur (filtre possible avec `WHATSAPP_ALLOWED_SENDERS` dans `Config.gs`).
-Elles sont rangées à part des confirmations d'affrètement, dans le dossier Drive **« Ecotime - Lettres de Voiture »**
+Elles sont renommées `JJ-MM-AAAA_Lettres_de_voiture_<n°>.pdf` (ex. `02-10-2026_Lettres_de_voiture_662518.pdf`)
+et rangées à part des confirmations d'affrètement, dans le dossier Drive **« Ecotime - Lettres de Voiture »**
 (par année/mois, ou « À vérifier »), avec leur propre **« Journal Lettres de voiture »** : n° de lettre de voiture,
 référence de commande, expéditeur, destinataire, transporteur, prise en charge, livraison, colis, poids,
 immatriculation, réserves, signature du destinataire.

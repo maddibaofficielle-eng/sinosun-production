@@ -43,6 +43,8 @@ const SORIYA_DOC_TYPES = {
     ],
     dateFields: ['date_livraison', 'date_prise_en_charge', 'date_emission'],
     nameFields: ['transporteur', 'numero_lettre_voiture'],
+    // Nom imposé : 02-10-2026_Lettres_de_voiture_662518.pdf (date du document, puis n° de la lettre).
+    fileName: { datePattern: 'dd-MM-yyyy', label: 'Lettres_de_voiture', numberField: 'numero_lettre_voiture' },
   },
 };
 
