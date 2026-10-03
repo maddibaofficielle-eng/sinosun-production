@@ -1,10 +1,11 @@
 /**
- * Soriya · WhatsApp — PDF reçus sur WhatsApp → Google Drive + Journal.
+ * Soriya · WhatsApp — lettres de voiture reçues sur WhatsApp → Google Drive + Journal.
  *
  * Make récupère les PDF arrivés sur le numéro WhatsApp de Soriya (API WhatsApp Business)
- * et les dépose dans le dossier « Entrée WhatsApp », nommés :
+ * et les dépose dans le dossier « Lettre de voiture / Entrée WhatsApp », nommés :
  *   WA_<numéro expéditeur>_<horodatage Unix>_<nom d'origine>.pdf   (ex. WA_33769391541_1759480000_confirmation.pdf)
- * Soriya les lit, les renomme et les range exactement comme l'activité Mailing.
+ * Soriya les lit comme des lettres de voiture, les renomme et les range dans « Lettre de voiture »,
+ * avec leur propre journal (« Journal Lettres de voiture »).
  *
  * Fonctions à lancer depuis l'éditeur :
  *   installerSoriyaWhatsApp()    → déclencheur automatique + premier passage
@@ -31,7 +32,7 @@ function desinstallerSoriyaWhatsApp() {
 }
 
 function apercuSoriyaWhatsApp() {
-  const inbox = soriyaWhatsAppInbox_(soriyaRootFolder_());
+  const inbox = soriyaWhatsAppInbox_(soriyaRootFolder_('lettre_voiture'));
   const allowed = soriyaAllowedSenders_();
   let count = 0;
   soriyaWhatsAppPdfs_(inbox).forEach(function (file) {
@@ -51,9 +52,9 @@ function soriyaWhatsAppRun() {
   const report = { archived: [], duplicates: 0, errors: [] };
 
   try {
-    const root = soriyaRootFolder_();
+    const root = soriyaRootFolder_('lettre_voiture');
     const inbox = soriyaWhatsAppInbox_(root);
-    const journal = soriyaJournal_(root);
+    const journal = soriyaJournal_(root, 'lettre_voiture');
     const allowed = soriyaAllowedSenders_();
     const aiEnabled = !!PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY');
 
@@ -97,14 +98,14 @@ function soriyaWhatsAppArchive_(file, info, inbox, root, journal, aiEnabled) {
   const received = info.date || file.getDateCreated();
   const base = [new Date(), received, sender, 'WhatsApp', info.originalName];
 
-  // Même PDF déjà archivé (par WhatsApp ou par e-mail) : on ne le garde pas deux fois.
+  // Même PDF déjà archivé : on ne le garde pas deux fois.
   if (journal.hashes.has(hash)) {
     file.moveTo(soriyaSubFolder_(inbox, ['Doublons']));
-    journal.append(base.concat(['', '', 'Doublon (déjà archivé)'], soriyaEmptyFields_(), [key, hash]));
+    journal.append(base.concat(['', '', 'Doublon (déjà archivé)'], soriyaEmptyFields_('lettre_voiture'), [key, hash]));
     return { duplicate: true };
   }
 
-  const c = soriyaClassify_(blob, 'Document reçu par WhatsApp de ' + sender, received, root, aiEnabled);
+  const c = soriyaClassify_(blob, 'Document reçu par WhatsApp de ' + sender, received, root, aiEnabled, 'lettre_voiture');
   file.setName(c.name);
   file.moveTo(c.folder);
   file.setDescription([
@@ -115,7 +116,7 @@ function soriyaWhatsAppArchive_(file, info, inbox, root, journal, aiEnabled) {
     c.data ? 'Extraction : ' + JSON.stringify(c.data) : '',
   ].join('\n'));
 
-  journal.append(base.concat([c.name, file.getUrl(), c.status], soriyaFieldsRow_(c.data), [key, hash]));
+  journal.append(base.concat([c.name, file.getUrl(), c.status], soriyaFieldsRow_(c.data, 'lettre_voiture'), [key, hash]));
   return { name: c.name, url: file.getUrl(), status: c.status };
 }
 

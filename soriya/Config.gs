@@ -45,9 +45,14 @@ const SORIYA_CONFIG = {
   // Destinataire du compte rendu ('' = le compte qui exécute Soriya).
   NOTIFY_EMAIL: '',
 
-  // ---------- Activité WhatsApp ----------
+  // ---------- Activité WhatsApp : lettres de voiture ----------
+  // Dossier Drive des lettres de voiture (même principe que DRIVE_FOLDER_ID / DRIVE_ROOT_FOLDER).
+  LDV_DRIVE_FOLDER_ID: '',
+  LDV_ROOT_FOLDER: 'Lettre de voiture',
+  LDV_JOURNAL_NAME: 'Journal Lettres de voiture',
+
   // Make dépose les PDF reçus sur le WhatsApp de Soriya (06 52 13 53 08) dans ce sous-dossier
-  // du dossier racine, nommés WA_<expéditeur>_<horodatage>_<nom d'origine>.pdf
+  // de « Lettre de voiture », nommés WA_<expéditeur>_<horodatage>_<nom d'origine>.pdf
   WHATSAPP_INBOX_FOLDER: 'Entrée WhatsApp',
   // Seuls les PDF envoyés par ces numéros sont traités (format 06…, 07… ou +33…).
   WHATSAPP_ALLOWED_SENDERS: ['0769391541', '0651516936'],

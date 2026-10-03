@@ -8,12 +8,9 @@
  *   desinstallerSoriya() → arrête le déclencheur automatique
  */
 
-const JOURNAL_HEADERS = [
-  'Traité le', 'Date du mail', 'Expéditeur', 'Objet', 'Fichier reçu', 'Nom dans Drive',
-  'Lien Drive', 'Statut', 'N° affrètement', 'Date confirmation', "Donneur d'ordre",
-  'Transporteur', 'Lieu chargement', 'Date chargement', 'Lieu livraison', 'Date livraison',
-  'Marchandise', 'Poids', 'Immatriculation', 'Prix HT', 'Devise', 'Confiance', 'Remarques',
-  'Clé', 'Empreinte SHA-256',
+// Colonnes communes à tous les journaux ; les colonnes extraites dépendent du type de document.
+const JOURNAL_BASE_HEADERS = [
+  'Traité le', 'Reçu le', 'Expéditeur', 'Objet', 'Fichier reçu', 'Nom dans Drive', 'Lien Drive', 'Statut',
 ];
 
 function installerSoriya() {
@@ -35,7 +32,7 @@ function desinstallerSoriya() {
 
 function apercuSoriya() {
   const threads = GmailApp.search(soriyaQuery_(), 0, 50);
-  const journal = soriyaJournal_(soriyaRootFolder_());
+  const journal = soriyaJournal_(soriyaRootFolder_('confirmation'), 'confirmation');
   let count = 0;
   threads.forEach(function (thread) {
     thread.getMessages().forEach(function (msg) {
@@ -57,8 +54,8 @@ function soriyaRun() {
   const report = { archived: [], duplicates: 0, errors: [] };
 
   try {
-    const root = soriyaRootFolder_();
-    const journal = soriyaJournal_(root);
+    const root = soriyaRootFolder_('confirmation');
+    const journal = soriyaJournal_(root, 'confirmation');
     const doneLabel = GmailApp.getUserLabelByName(SORIYA_CONFIG.PROCESSED_LABEL) ||
       GmailApp.createLabel(SORIYA_CONFIG.PROCESSED_LABEL);
     const aiEnabled = !!PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY');
@@ -114,11 +111,11 @@ function soriyaArchive_(msg, att, key, root, journal, aiEnabled) {
 
   // Même PDF déjà reçu dans un autre mail : on ne le stocke pas deux fois.
   if (journal.hashes.has(hash)) {
-    journal.append(base.concat(['', '', 'Doublon (déjà archivé)'], soriyaEmptyFields_(), [key, hash]));
+    journal.append(base.concat(['', '', 'Doublon (déjà archivé)'], soriyaEmptyFields_('confirmation'), [key, hash]));
     return { duplicate: true };
   }
 
-  const c = soriyaClassify_(blob, msg.getSubject(), msg.getDate(), root, aiEnabled);
+  const c = soriyaClassify_(blob, 'Objet du mail : ' + msg.getSubject(), msg.getDate(), root, aiEnabled, 'confirmation');
   const data = c.data, status = c.status, folder = c.folder, name = c.name;
   const file = folder.createFile(blob.setName(name));
   file.setDescription([
@@ -129,7 +126,7 @@ function soriyaArchive_(msg, att, key, root, journal, aiEnabled) {
     data ? 'Extraction : ' + JSON.stringify(data) : '',
   ].join('\n'));
 
-  journal.append(base.concat([name, file.getUrl(), status], soriyaFieldsRow_(data), [key, hash]));
+  journal.append(base.concat([name, file.getUrl(), status], soriyaFieldsRow_(data, 'confirmation'), [key, hash]));
 
   return { name: name, url: file.getUrl(), status: status };
 }
@@ -138,7 +135,8 @@ function soriyaArchive_(msg, att, key, root, journal, aiEnabled) {
  * Lecture IA + choix du dossier et du nom. Partagé par toutes les activités de Soriya.
  * @return {{data: ?Object, status: string, folder: GoogleAppsScript.Drive.Folder, name: string}}
  */
-function soriyaClassify_(blob, context, fallbackDate, root, aiEnabled) {
+function soriyaClassify_(blob, context, fallbackDate, root, aiEnabled, typeKey) {
+  const t = soriyaDocType_(typeKey);
   let data = null;
   let status = 'Archivé';
   if (!aiEnabled) {
@@ -147,30 +145,36 @@ function soriyaClassify_(blob, context, fallbackDate, root, aiEnabled) {
     status = 'Archivé (PDF trop lourd pour la lecture IA)';
   } else {
     try {
-      data = soriyaReadPdf(blob, context);
+      data = soriyaReadPdf(blob, context, typeKey);
     } catch (e) {
       status = 'Archivé — lecture IA impossible : ' + e.message;
     }
   }
 
-  const toReview = data !== null && (!data.est_confirmation_affretement || data.confiance === 'basse');
+  const toReview = data !== null && (!data[t.typeFlag] || data.confiance === 'basse');
   if (toReview) status = 'À vérifier — ' + (data.remarques || 'lecture incertaine');
 
-  const refDate = soriyaParseDate_(data && (data.date_chargement || data.date_confirmation)) || fallbackDate;
+  let refDate = fallbackDate;
+  if (data) {
+    for (let i = 0; i < t.dateFields.length; i++) {
+      const d = soriyaParseDate_(data[t.dateFields[i]]);
+      if (d) { refDate = d; break; }
+    }
+  }
   const folder = toReview
     ? soriyaSubFolder_(root, [SORIYA_CONFIG.REVIEW_FOLDER])
     : soriyaSubFolder_(root, [
       Utilities.formatDate(refDate, Session.getScriptTimeZone(), 'yyyy'),
       Utilities.formatDate(refDate, Session.getScriptTimeZone(), 'MM'),
     ]);
-  return { data: data, status: status, folder: folder, name: soriyaFileName_(refDate, data, blob.getName() || 'document.pdf') };
+  return { data: data, status: status, folder: folder, name: soriyaFileName_(refDate, data, blob.getName() || 'document.pdf', typeKey) };
 }
 
-/** Colonnes extraites du Journal (sans "remarques"), puis confiance et remarques. */
-function soriyaFieldsRow_(data) {
-  if (!data) return soriyaEmptyFields_();
-  return SORIYA_FIELDS.filter(function (f) { return f !== 'remarques'; })
-    .map(function (f) { return data[f] || ''; })
+/** Colonnes extraites du Journal, puis confiance et remarques. */
+function soriyaFieldsRow_(data, typeKey) {
+  if (!data) return soriyaEmptyFields_(typeKey);
+  return soriyaDocType_(typeKey).fields
+    .map(function (f) { return data[f[0]] || ''; })
     .concat([data.confiance, data.remarques || '']);
 }
 
@@ -191,11 +195,15 @@ function soriyaPdfs_(msg) {
 
 // ---------- Drive ----------
 
-function soriyaRootFolder_() {
+/** Dossier Drive racine d'un type de document (créé s'il n'existe pas). */
+function soriyaRootFolder_(typeKey) {
+  const ldv = typeKey === 'lettre_voiture';
+  const id = ldv ? SORIYA_CONFIG.LDV_DRIVE_FOLDER_ID : SORIYA_CONFIG.DRIVE_FOLDER_ID;
+  const name = ldv ? SORIYA_CONFIG.LDV_ROOT_FOLDER : SORIYA_CONFIG.DRIVE_ROOT_FOLDER;
   // Dossier partagé depuis un autre compte Google (ex. le Drive de diabymohamed85@gmail.com).
-  if (SORIYA_CONFIG.DRIVE_FOLDER_ID) return DriveApp.getFolderById(SORIYA_CONFIG.DRIVE_FOLDER_ID);
-  const it = DriveApp.getFoldersByName(SORIYA_CONFIG.DRIVE_ROOT_FOLDER);
-  return it.hasNext() ? it.next() : DriveApp.createFolder(SORIYA_CONFIG.DRIVE_ROOT_FOLDER);
+  if (id) return DriveApp.getFolderById(id);
+  const it = DriveApp.getFoldersByName(name);
+  return it.hasNext() ? it.next() : DriveApp.createFolder(name);
 }
 
 function soriyaSubFolder_(parent, path) {
@@ -205,12 +213,13 @@ function soriyaSubFolder_(parent, path) {
   }, parent);
 }
 
-/** Ex. : 2026-09-24_TRANSPORTS-DUPONT_AF-12345.pdf */
-function soriyaFileName_(date, data, originalName) {
+/** Ex. : 2026-09-24_TRANSPORTS DUPONT_AF-12345.pdf (date_transporteur_numéro) */
+function soriyaFileName_(date, data, originalName, typeKey) {
   const day = Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd');
   const parts = [day];
-  if (data && data.transporteur) parts.push(data.transporteur);
-  if (data && data.numero_affretement) parts.push(data.numero_affretement);
+  soriyaDocType_(typeKey).nameFields.forEach(function (f) {
+    if (data && data[f]) parts.push(data[f]);
+  });
   if (parts.length === 1) parts.push(originalName.replace(/\.pdf$/i, ''));
   return parts.join('_')
     .replace(/[\\\/:*?"<>|#%]+/g, '-')
@@ -221,17 +230,21 @@ function soriyaFileName_(date, data, originalName) {
 
 // ---------- Journal (Google Sheet) ----------
 
-function soriyaJournal_(root) {
-  const it = root.getFilesByName(SORIYA_CONFIG.JOURNAL_NAME);
+function soriyaJournal_(root, typeKey) {
+  const name = typeKey === 'lettre_voiture' ? SORIYA_CONFIG.LDV_JOURNAL_NAME : SORIYA_CONFIG.JOURNAL_NAME;
+  const headers = JOURNAL_BASE_HEADERS
+    .concat(soriyaDocType_(typeKey).fields.map(function (f) { return f[1]; }))
+    .concat(['Confiance', 'Remarques', 'Clé', 'Empreinte SHA-256']);
+  const it = root.getFilesByName(name);
   let ss;
   if (it.hasNext()) {
     ss = SpreadsheetApp.open(it.next());
   } else {
-    ss = SpreadsheetApp.create(SORIYA_CONFIG.JOURNAL_NAME);
+    ss = SpreadsheetApp.create(name);
     DriveApp.getFileById(ss.getId()).moveTo(root);
     const sh = ss.getSheets()[0];
     sh.setName('Journal');
-    sh.getRange(1, 1, 1, JOURNAL_HEADERS.length).setValues([JOURNAL_HEADERS]).setFontWeight('bold');
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
     sh.setFrozenRows(1);
   }
   const sheet = ss.getSheets()[0];
@@ -239,7 +252,7 @@ function soriyaJournal_(root) {
   const hashes = new Set();
   const lastRow = sheet.getLastRow();
   if (lastRow > 1) {
-    const keyCol = JOURNAL_HEADERS.length - 1;
+    const keyCol = headers.length - 1;
     sheet.getRange(2, keyCol, lastRow - 1, 2).getValues().forEach(function (r) {
       if (r[0]) keys.add(String(r[0]));
       if (r[1]) hashes.add(String(r[1]));
@@ -256,9 +269,9 @@ function soriyaJournal_(root) {
   };
 }
 
-function soriyaEmptyFields_() {
-  // Champs extraits (sans "remarques") + confiance + remarques
-  return new Array(SORIYA_FIELDS.length + 1).fill('');
+function soriyaEmptyFields_(typeKey) {
+  // Champs extraits + confiance + remarques
+  return new Array(soriyaDocType_(typeKey).fields.length + 2).fill('');
 }
 
 // ---------- Utilitaires ----------
