@@ -71,6 +71,11 @@ function soriyaWhatsAppRun() {
         if (!info || !allowed.has(info.sender)) {
           // Ni lu ni archivé : mis de côté pour que vous décidiez.
           file.moveTo(soriyaSubFolder_(inbox, ['Expéditeur non autorisé']));
+          journal.append([
+            new Date(), info ? info.date : file.getDateCreated(), info ? '+' + info.sender + ' (WhatsApp)' : 'inconnu',
+            'WhatsApp', file.getName(), file.getName(), file.getUrl(),
+            'Mis de côté — expéditeur non autorisé (Soriya - Entrée WhatsApp / Expéditeur non autorisé)',
+          ].concat(soriyaEmptyFields_('lettre_voiture'), ['wa:' + file.getId(), '']));
           report.errors.push(file.getName() + ' : expéditeur non autorisé, mis de côté');
           continue;
         }
