@@ -115,7 +115,7 @@ Expéditeur autorisé ──PDF──▶ WhatsApp 06 52 13 53 08 (API WhatsApp B
 Le filtre sur l'expéditeur est fait par Soriya : un PDF d'un numéro non autorisé est mis de côté dans
 `Soriya - Entrée WhatsApp/Expéditeur non autorisé`, sans être lu.
 
-**Installation côté Soriya** : ajouter le fichier `WhatsApp.gs` au projet, remplacer `Config.gs`, `Soriya.gs`
+
 et `Code.gs` par leur nouvelle version, puis exécuter `apercuSoriyaWhatsApp` et `installerSoriyaWhatsApp`.
 
 ## Remise à zéro (`Maintenance.gs`)
@@ -130,3 +130,17 @@ et `Code.gs` par leur nouvelle version, puis exécuter `apercuSoriyaWhatsApp` et
 - Les deux activités repartent seules (1er passage sous 1 à 5 min, puis toutes les 15 min).
 
 Les doublons ne polluent plus le journal : ils sont notés dans un onglet **« Doublons »** séparé.
+
+## Publication automatique (clasp)
+
+Le dossier `soriya/` est relié au projet Apps Script (`.clasp.json`). Une correction se publie avec
+`clasp push` : plus de copier-coller dans l'éditeur. L'API Apps Script doit être activée sur
+https://script.google.com/home/usersettings (compte gfd.logistic).
+
+## Pilotage (`Pilotage.gs`)
+
+- **Tableau de bord** : Google Sheet « Soriya - Tableau de bord » (racine de Mon Drive), mis à jour à
+  chaque passage : dernier passage, archivés, erreurs, en attente, à vérifier, doublons, documents par mois.
+- **Rapport quotidien** : un seul e-mail par jour (18 h) au lieu d'un par passage.
+- **Passages toutes les 5 minutes**, Mailing et WhatsApp en parallèle ; les déclencheurs se
+  recréent seuls après une mise à jour du code.

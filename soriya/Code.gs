@@ -14,13 +14,9 @@ const JOURNAL_BASE_HEADERS = [
 ];
 
 function installerSoriya() {
-  desinstallerSoriya();
-  ScriptApp.newTrigger('soriyaRun')
-    .timeBased()
-    .everyMinutes(SORIYA_CONFIG.TRIGGER_EVERY_MINUTES)
-    .create();
-  Logger.log('Soriya est en service : vérification toutes les ' +
-    SORIYA_CONFIG.TRIGGER_EVERY_MINUTES + ' minutes.');
+  soriyaEnsureTriggers_(true);
+  Logger.log('Soriya est en service : passages toutes les ' + SORIYA_CONFIG.TRIGGER_EVERY_MINUTES +
+    ' minutes, rapport quotidien à ' + SORIYA_CONFIG.DAILY_REPORT_HOUR + ' h.');
   soriyaRun();
 }
 
@@ -50,12 +46,12 @@ function apercuSoriya() {
 }
 
 function soriyaRun() {
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(1000)) return; // un passage est déjà en cours
+  if (!soriyaTryLock_('Mailing')) return; // un passage Mailing est déjà en cours
   const started = Date.now();
   const report = { archived: [], duplicates: 0, errors: [] };
 
   try {
+    soriyaEnsureTriggers_();
     const root = soriyaRootFolder_('confirmation');
     soriyaEnsureStructure_(root);
     const journal = soriyaJournal_(root, 'confirmation');
@@ -100,12 +96,12 @@ function soriyaRun() {
   } catch (e) {
     report.errors.push('Erreur générale : ' + e.message);
   } finally {
-    lock.releaseLock();
+    soriyaUnlock_('Mailing');
   }
 
   Logger.log('Soriya · Mailing : %s archivé(s), %s doublon(s), %s erreur(s).',
     report.archived.length, report.duplicates, report.errors.length);
-  soriyaNotify_(report);
+  soriyaFinish_('Mailing', report);
 }
 
 /** Archive une pièce jointe PDF : lecture IA, classement Drive, ligne de journal. */
@@ -347,27 +343,4 @@ function soriyaSha256_(bytes) {
 function soriyaParseDate_(s) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '');
   return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
-}
-
-function soriyaNotify_(report, activity) {
-  const who = 'Soriya · ' + (activity || 'Mailing');
-  if (!SORIYA_CONFIG.SEND_SUMMARY_EMAIL) return;
-  if (!report.archived.length && !report.errors.length) return;
-  const lines = ['Bonjour,', '', 'Voici le compte rendu de ' + who + ' :', ''];
-  if (report.archived.length) {
-    lines.push(report.archived.length + ' confirmation(s) archivée(s) :');
-    report.archived.forEach(function (a) { lines.push('• ' + a.name + ' — ' + a.status + '\n  ' + a.url); });
-    lines.push('');
-  }
-  if (report.duplicates) lines.push(report.duplicates + ' doublon(s) ignoré(s).', '');
-  if (report.errors.length) {
-    lines.push('Problèmes (nouvel essai automatique au prochain passage) :');
-    report.errors.forEach(function (e) { lines.push('• ' + e); });
-  }
-  lines.push('', '— ' + who);
-  MailApp.sendEmail(
-    SORIYA_CONFIG.NOTIFY_EMAIL || Session.getEffectiveUser().getEmail(),
-    who + ' — ' + report.archived.length + ' confirmation(s) archivée(s)' +
-      (report.errors.length ? ', ' + report.errors.length + ' problème(s)' : ''),
-    lines.join('\n'));
 }

@@ -16,12 +16,8 @@
  */
 
 function installerSoriyaWhatsApp() {
-  desinstallerSoriyaWhatsApp();
-  ScriptApp.newTrigger('soriyaWhatsAppRun')
-    .timeBased()
-    .everyMinutes(SORIYA_CONFIG.TRIGGER_EVERY_MINUTES)
-    .create();
-  Logger.log('Soriya · WhatsApp est en service : vérification toutes les ' +
+  soriyaEnsureTriggers_(true);
+  Logger.log('Soriya · WhatsApp est en service : passages toutes les ' +
     SORIYA_CONFIG.TRIGGER_EVERY_MINUTES + ' minutes.');
   soriyaWhatsAppRun();
 }
@@ -79,12 +75,13 @@ function reprendreMisDeCoteWhatsApp() {
 }
 
 function soriyaWhatsAppRun() {
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(1000)) return; // un passage (Mailing ou WhatsApp) est déjà en cours
+  if (!soriyaTryLock_('WhatsApp')) return; // un passage WhatsApp est déjà en cours
   const started = Date.now();
+  let pending;
   const report = { archived: [], duplicates: 0, errors: [] };
 
   try {
+    soriyaEnsureTriggers_();
     const root = soriyaRootFolder_('lettre_voiture');
     soriyaEnsureStructure_(root);
     const inbox = soriyaWhatsAppInbox_();
@@ -119,15 +116,16 @@ function soriyaWhatsAppRun() {
         report.errors.push(file.getName() + ' : ' + e.message);
       }
     }
+    pending = soriyaWhatsAppPdfs_(inbox).length;
   } catch (e) {
     report.errors.push('Erreur générale : ' + e.message);
   } finally {
-    lock.releaseLock();
+    soriyaUnlock_('WhatsApp');
   }
 
-  Logger.log('Soriya · WhatsApp : %s archivé(s), %s doublon(s), %s erreur(s).',
-    report.archived.length, report.duplicates, report.errors.length);
-  soriyaNotify_(report, 'WhatsApp');
+  Logger.log('Soriya · WhatsApp : %s archivé(s), %s doublon(s), %s erreur(s), %s en attente.',
+    report.archived.length, report.duplicates, report.errors.length, pending === undefined ? '?' : pending);
+  soriyaFinish_('WhatsApp', report, { pending: pending });
 }
 
 /** Lecture IA, renommage, déplacement hors de l'entrée, ligne de journal. */

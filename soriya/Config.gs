@@ -31,8 +31,8 @@ const SORIYA_CONFIG = {
   // Nom du Google Sheet de suivi (créé dans le dossier racine).
   JOURNAL_NAME: 'Journal Soriya',
 
-  // Fréquence de la vérification automatique, en minutes (1, 5, 10, 15 ou 30).
-  TRIGGER_EVERY_MINUTES: 15,
+  // Fréquence des passages automatiques, en minutes (1, 5, 10, 15 ou 30).
+  TRIGGER_EVERY_MINUTES: 5,
 
   // Intelligence (Claude). Si aucune clé API n'est enregistrée, Soriya archive quand même
   // les PDF, mais sans lecture ni renommage intelligent.
@@ -40,8 +40,11 @@ const SORIYA_CONFIG = {
   CLAUDE_EFFORT: 'low', // extraction simple : 'low' reste rapide ; passer à 'medium' si besoin
   MAX_PDF_MB_FOR_AI: 20,
 
-  // Envoyer un e-mail récapitulatif au propriétaire du script après chaque passage qui a archivé des fichiers.
+  // Un seul e-mail par jour (rapport du jour), envoyé vers l'heure indiquée.
   SEND_SUMMARY_EMAIL: true,
+  DAILY_REPORT_HOUR: 18,
+  // Journaux et tableau de bord partagés en lecture seule avec ces adresses.
+  SHARE_WITH: ['diabymohamed85@gmail.com'],
   // Destinataire du compte rendu ('' = le compte qui exécute Soriya).
   NOTIFY_EMAIL: '',
 
