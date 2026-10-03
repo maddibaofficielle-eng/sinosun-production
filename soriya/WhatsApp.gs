@@ -2,9 +2,9 @@
  * Soriya · WhatsApp — lettres de voiture reçues sur WhatsApp → Google Drive + Journal.
  *
  * Make récupère les PDF arrivés sur le numéro WhatsApp de Soriya (API WhatsApp Business)
- * et les dépose dans le dossier « Lettre de voiture / Entrée WhatsApp », nommés :
+ * et les dépose dans le dossier « Ecotime - Lettres de Voiture / Entrée WhatsApp », nommés :
  *   WA_<numéro expéditeur>_<horodatage Unix>_<nom d'origine>.pdf   (ex. WA_33769391541_1759480000_confirmation.pdf)
- * Soriya les lit comme des lettres de voiture, les renomme et les range dans « Lettre de voiture »,
+ * Soriya les lit comme des lettres de voiture, les renomme et les range dans « Ecotime - Lettres de Voiture »,
  * avec leur propre journal (« Journal Lettres de voiture »).
  *
  * Fonctions à lancer depuis l'éditeur :

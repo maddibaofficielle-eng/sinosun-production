@@ -200,8 +200,12 @@ function soriyaRootFolder_(typeKey) {
   const ldv = typeKey === 'lettre_voiture';
   const id = ldv ? SORIYA_CONFIG.LDV_DRIVE_FOLDER_ID : SORIYA_CONFIG.DRIVE_FOLDER_ID;
   const name = ldv ? SORIYA_CONFIG.LDV_ROOT_FOLDER : SORIYA_CONFIG.DRIVE_ROOT_FOLDER;
-  // Dossier partagé depuis un autre compte Google (ex. le Drive de diabymohamed85@gmail.com).
-  if (id) return DriveApp.getFolderById(id);
+  // Dossier désigné par son identifiant (partagé ou déjà existant) : on lui redonne le nom configuré.
+  if (id) {
+    const folder = DriveApp.getFolderById(id);
+    if (folder.getName() !== name) folder.setName(name);
+    return folder;
+  }
   const it = DriveApp.getFoldersByName(name);
   return it.hasNext() ? it.next() : DriveApp.createFolder(name);
 }

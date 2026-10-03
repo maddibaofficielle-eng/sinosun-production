@@ -47,12 +47,13 @@ const SORIYA_CONFIG = {
 
   // ---------- Activité WhatsApp : lettres de voiture ----------
   // Dossier Drive des lettres de voiture (même principe que DRIVE_FOLDER_ID / DRIVE_ROOT_FOLDER).
-  LDV_DRIVE_FOLDER_ID: '',
-  LDV_ROOT_FOLDER: 'Lettre de voiture',
+  // Dossier déjà créé dans le Drive de gfd.logistic (Make y dépose les PDF par son identifiant).
+  LDV_DRIVE_FOLDER_ID: '1LZam-eS359D5WGTRIu5v8r_pqX2HLgED',
+  LDV_ROOT_FOLDER: 'Ecotime - Lettres de Voiture',
   LDV_JOURNAL_NAME: 'Journal Lettres de voiture',
 
   // Make dépose les PDF reçus sur le WhatsApp de Soriya (06 52 13 53 08) dans ce sous-dossier
-  // de « Lettre de voiture », nommés WA_<expéditeur>_<horodatage>_<nom d'origine>.pdf
+  // de « Ecotime - Lettres de Voiture », nommés WA_<expéditeur>_<horodatage>_<nom d'origine>.pdf
   WHATSAPP_INBOX_FOLDER: 'Entrée WhatsApp',
   // Seuls les PDF envoyés par ces numéros sont traités (format 06…, 07… ou +33…).
   WHATSAPP_ALLOWED_SENDERS: ['0769391541', '0651516936'],

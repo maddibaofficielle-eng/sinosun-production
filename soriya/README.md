@@ -90,7 +90,7 @@ Lecture Claude : quelques centimes par confirmation (selon le nombre de pages).
 
 Soriya traite aussi les **lettres de voiture** reçues en PDF sur son numéro WhatsApp **06 52 13 53 08**,
 envoyées par **07 69 39 15 41** ou **06 51 51 69 36** (liste `WHATSAPP_ALLOWED_SENDERS` dans `Config.gs`).
-Elles sont rangées à part des confirmations d'affrètement, dans le dossier Drive **« Lettre de voiture »**
+Elles sont rangées à part des confirmations d'affrètement, dans le dossier Drive **« Ecotime - Lettres de Voiture »**
 (par année/mois, ou « À vérifier »), avec leur propre **« Journal Lettres de voiture »** : n° de lettre de voiture,
 référence de commande, expéditeur, destinataire, transporteur, prise en charge, livraison, colis, poids,
 immatriculation, réserves, signature du destinataire.
@@ -98,7 +98,7 @@ immatriculation, réserves, signature du destinataire.
 ```
 Expéditeur autorisé ──PDF──▶ WhatsApp 06 52 13 53 08 (API WhatsApp Business Cloud)
       ──▶ Make : détecte le message, filtre les PDF, télécharge le fichier
-      ──▶ Drive : « Lettre de voiture/Entrée WhatsApp » (fichier nommé WA_<expéditeur>_<horodatage>_<nom>.pdf)
+      ──▶ Drive : « Ecotime - Lettres de Voiture/Entrée WhatsApp » (fichier nommé WA_<expéditeur>_<horodatage>_<nom>.pdf)
       ──▶ Soriya (WhatsApp.gs, toutes les 15 min) : lecture Claude, renommage, classement, Journal Lettres de voiture
 ```
 
@@ -107,7 +107,8 @@ Expéditeur autorisé ──PDF──▶ WhatsApp 06 52 13 53 08 (API WhatsApp B
 1. WhatsApp Business Cloud — *Watch Events* (numéro 06 52 13 53 08).
 2. Filtre : type de message = `document` **et** type MIME = `application/pdf`.
 3. WhatsApp Business Cloud — *Download a Media* (identifiant du document).
-4. Google Drive (compte gfd.logistic) — *Upload a File* dans `Lettre de voiture/Entrée WhatsApp`,
+4. Google Drive (compte gfd.logistic) — *Upload a File* dans `Ecotime - Lettres de Voiture/Entrée WhatsApp`
+   (désigné par son identifiant, donc insensible à un renommage du dossier),
    nom : `WA_{{expéditeur}}_{{horodatage}}_{{nom du fichier}}`.
 
 Le filtre sur l'expéditeur est fait par Soriya : un PDF d'un numéro non autorisé est mis de côté dans
