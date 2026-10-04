@@ -156,46 +156,62 @@ function soriyaWhatsAppOriginalName_(f) {
 /** Appelé au début de chaque passage Mailing : applique les mises à jour pas encore faites. */
 function soriyaMigrations_() {
   const props = PropertiesService.getScriptProperties();
-  if (props.getProperty('SORIYA_MIG_CONFIRMATION_NAMES') !== 'done') {
+  if (props.getProperty('SORIYA_MIG_CONFIRMATION_NAMES_V2') !== 'done') {
     const n = renommerConfirmations();
-    props.setProperty('SORIYA_MIG_CONFIRMATION_NAMES', 'done');
+    props.setProperty('SORIYA_MIG_CONFIRMATION_NAMES_V2', 'done');
     Logger.log('Mise à jour : %s confirmation(s) renommée(s).', n);
   }
 }
 
 /**
- * Renomme toutes les confirmations déjà archivées au format 2026-09-09_Confirmation_affretement.pdf
- * (_2, _3… en cas de même date dans le même dossier) et met à jour la colonne « Nom dans Drive » du journal.
- * Peut être relancée sans risque.
+ * Renomme toutes les confirmations déjà archivées au format 02-10-2026_Confirmation_affretement_662518.pdf
+ * (date du document, n° d'affrètement ; _2, _3… si le nom existe déjà dans le dossier)
+ * et met à jour la colonne « Nom dans Drive » du journal. Peut être relancée sans risque.
  */
 function renommerConfirmations() {
   const root = soriyaRootFolder_('confirmation');
-  const label = soriyaDocType_('confirmation').fileName.label;
-  const pattern = new RegExp('^\\d{4}-\\d{2}-\\d{2}_' + label + '(_\\d+)?\\.pdf$');
+  const t = soriyaDocType_('confirmation');
+  const ok = new RegExp('^\\d{2}-\\d{2}-\\d{4}_' + t.fileName.label + '_[A-Za-z0-9-]+(_\\d+)?\\.pdf$');
 
-  // Lien Drive → ligne du journal, pour y reporter le nouveau nom.
+  // Journal : Lien Drive → ligne (pour lire le n° d'affrètement et écrire le nouveau nom).
   const j = soriyaJournalSpreadsheet_(root, 'confirmation');
-  const nameCol = JOURNAL_BASE_HEADERS.indexOf('Nom dans Drive') + 1;
-  const urlCol = JOURNAL_BASE_HEADERS.indexOf('Lien Drive') + 1;
-  const rowsByUrl = {};
+  const col = function (title) { return j.headers.indexOf(title) + 1; };
+  const rows = {};
   const last = j.main.getLastRow();
   if (last > 1) {
-    j.main.getRange(2, urlCol, last - 1, 1).getValues().forEach(function (r, i) {
-      if (r[0]) rowsByUrl[String(r[0])] = i + 2;
+    j.main.getRange(2, 1, last - 1, j.headers.length).getValues().forEach(function (r, i) {
+      const url = r[col('Lien Drive') - 1];
+      if (url) rows[String(url)] = { row: i + 2, number: r[col('N° affrètement') - 1] };
     });
   }
 
   let renamed = 0;
   soriyaAllFiles_(root, true).filter(soriyaIsPdf_).forEach(function (f) {
-    if (pattern.test(f.getName())) return; // déjà au bon format
-    const m = /^(\d{4}-\d{2}-\d{2})/.exec(f.getName());
-    const day = m ? m[1] : Utilities.formatDate(f.getDateCreated(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    if (ok.test(f.getName())) return; // déjà au bon format
+    const entry = rows[f.getUrl()] || {};
+    // Données lues par Claude lors de l'archivage (gardées dans la description du fichier).
+    let data = {};
+    const m = /^Extraction : (.*)$/m.exec(f.getDescription() || '');
+    if (m) {
+      try { data = JSON.parse(m[1]); } catch (e) { /* description incomplète */ }
+    }
+    if (!data.numero_affretement && entry.number) data.numero_affretement = String(entry.number);
+
+    let date = null;
+    t.dateFields.some(function (k) { date = soriyaParseDate_(data[k]); return !!date; });
+    if (!date) {
+      const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(f.getName());
+      const fr = /^(\d{2})-(\d{2})-(\d{4})/.exec(f.getName());
+      if (iso) date = new Date(+iso[1], +iso[2] - 1, +iso[3]);
+      else if (fr) date = new Date(+fr[3], +fr[2] - 1, +fr[1]);
+      else date = f.getDateCreated();
+    }
+
     const parents = f.getParents();
     const folder = parents.hasNext() ? parents.next() : root;
-    const name = soriyaUniqueName_(folder, day + '_' + label + '.pdf');
+    const name = soriyaUniqueName_(folder, soriyaFileName_(date, data, '', 'confirmation'));
     f.setName(name);
-    const row = rowsByUrl[f.getUrl()];
-    if (row) j.main.getRange(row, nameCol).setValue(name);
+    if (entry.row) j.main.getRange(entry.row, col('Nom dans Drive')).setValue(name);
     renamed++;
   });
   return renamed;

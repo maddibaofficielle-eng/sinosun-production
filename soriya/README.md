@@ -147,6 +147,6 @@ https://script.google.com/home/usersettings (compte gfd.logistic).
 
 ## Noms des fichiers
 
-- Confirmations d'affrètement : `2026-09-09_Confirmation_affretement.pdf`
+- Confirmations d'affrètement : `02-10-2026_Confirmation_affretement_662518.pdf`
 - Lettres de voiture : `02-10-2026_Lettres_de_voiture_662518.pdf`
 - Même nom déjà présent dans le dossier : suffixe `_2`, `_3`…

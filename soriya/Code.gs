@@ -251,7 +251,7 @@ function soriyaSubFolder_(parent, path) {
 function soriyaFileName_(date, data, originalName, typeKey) {
   const t = soriyaDocType_(typeKey);
   if (t.fileName) {
-    // Ex. : 02-10-2026_Lettres_de_voiture_662518.pdf ou 2026-09-09_Confirmation_affretement.pdf
+    // Ex. : 02-10-2026_Lettres_de_voiture_662518.pdf ou 02-10-2026_Confirmation_affretement_662518.pdf
     const f = t.fileName;
     const day = Utilities.formatDate(date, Session.getScriptTimeZone(), f.datePattern);
     if (!f.numberField) return day + '_' + f.label + '.pdf';
