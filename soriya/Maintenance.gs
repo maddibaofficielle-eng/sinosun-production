@@ -255,3 +255,62 @@ function corrigerExpediteursWhatsApp() {
   });
   return fixed;
 }
+
+// ---------- Complément des anciens documents (nouvelles colonnes) ----------
+
+// Colonnes ajoutées après coup, à compléter en relisant les PDF déjà archivés.
+const SORIYA_BACKFILL = {
+  confirmation: ['prix_ht', 'attente', 'prestations'],
+  lettre_voiture: ['prestations', 'transporteur'],
+};
+
+/**
+ * Relit avec Claude les PDF déjà archivés pour remplir les colonnes ajoutées après coup
+ * (Montant HT, Attente, Prestations réalisées, Transporteur). Seules les cellules vides sont remplies ;
+ * noms et dossiers des fichiers ne changent pas. Avance par petits lots (appelé à la fin des passages
+ * WhatsApp, qui sont légers) et reprend là où il s'était arrêté. Renvoie le nombre de lignes complétées.
+ */
+function soriyaBackfill_(started) {
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('SORIYA_BACKFILL_DONE') === 'v1') return 0;
+  if (!props.getProperty('CLAUDE_API_KEY')) return 0;
+  let done = 0;
+  let finished = true;
+  ['confirmation', 'lettre_voiture'].forEach(function (typeKey) {
+    if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS) { finished = false; return; }
+    const progressKey = 'SORIYA_BACKFILL_ROW_' + typeKey;
+    const t = soriyaDocType_(typeKey);
+    const j = soriyaJournalSpreadsheet_(soriyaRootFolder_(typeKey), typeKey);
+    const col = function (title) { return j.headers.indexOf(title) + 1; };
+    const fieldCols = SORIYA_BACKFILL[typeKey].map(function (k) {
+      return { key: k, col: col(t.fields.filter(function (f) { return f[0] === k; })[0][1]) };
+    });
+    const last = j.main.getLastRow();
+    let row = Math.max(2, Number(props.getProperty(progressKey) || 2));
+    for (; row <= last; row++) {
+      if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS) { finished = false; break; }
+      const values = j.main.getRange(row, 1, 1, j.headers.length).getValues()[0];
+      const status = String(values[col('Statut') - 1]);
+      const url = String(values[col('Lien Drive') - 1]);
+      const empty = fieldCols.filter(function (fc) { return values[fc.col - 1] === '' || values[fc.col - 1] === null; });
+      const id = (/\/d\/([\w-]+)/.exec(url) || [])[1];
+      if (!id || !empty.length || !(status.indexOf('Archivé') === 0 || status.indexOf('À vérifier') === 0)) continue;
+      try {
+        const blob = DriveApp.getFileById(id).getBlob();
+        if (blob.getBytes().length > SORIYA_CONFIG.MAX_PDF_MB_FOR_AI * 1024 * 1024) continue;
+        const data = soriyaReadPdf(blob, 'Relecture d\'un document déjà archivé', typeKey);
+        empty.forEach(function (fc) {
+          if (data[fc.key]) j.main.getRange(row, fc.col).setValue(data[fc.key]);
+        });
+        done++;
+      } catch (e) {
+        Logger.log('Complément ligne %s (%s) : %s', row, typeKey, e.message);
+      }
+      props.setProperty(progressKey, String(row + 1));
+    }
+    if (row <= last) finished = false;
+    else props.setProperty(progressKey, String(row));
+  });
+  if (finished) props.setProperty('SORIYA_BACKFILL_DONE', 'v1');
+  return done;
+}

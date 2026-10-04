@@ -119,6 +119,15 @@ function soriyaWhatsAppRun() {
       }
     }
     pending = soriyaWhatsAppPdfs_(inbox).length;
+    // Temps restant : on complète les anciens documents (nouvelles colonnes), par petits lots.
+    if (!pending) {
+      try {
+        const n = soriyaBackfill_(started);
+        if (n) Logger.log('Complément des anciens documents : %s ligne(s).', n);
+      } catch (e) {
+        Logger.log('Complément des anciens documents : %s', e.message);
+      }
+    }
   } catch (e) {
     report.errors.push('Erreur générale : ' + e.message);
   } finally {
