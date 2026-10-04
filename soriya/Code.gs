@@ -321,9 +321,33 @@ function soriyaJournalSpreadsheet_(root, typeKey) {
     if (sh.getLastRow() === 0) {
       sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
       sh.setFrozenRows(1);
+    } else {
+      soriyaUpgradeColumns_(sh, headers);
     }
   });
   return { ss: ss, main: main, dup: dup, headers: headers };
+}
+
+/**
+ * Met un journal existant à jour quand des colonnes sont ajoutées ou renommées dans le code :
+ * les colonnes manquantes sont insérées à leur place (les données existantes ne bougent pas d'onglet).
+ */
+function soriyaUpgradeColumns_(sh, headers) {
+  const renamed = { 'Prix HT': 'Montant HT', 'Date du mail': 'Reçu le' };
+  let current = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0].map(String);
+  if (current.slice(0, headers.length).join('|') === headers.join('|')) return;
+  for (let i = 0; i < headers.length; i++) {
+    if (current[i] === headers[i]) continue;
+    if (renamed[current[i]] === headers[i]) {
+      sh.getRange(1, i + 1).setValue(headers[i]);
+    } else if (current.indexOf(headers[i]) === -1) {
+      if (i < current.length) sh.insertColumnBefore(i + 1);
+      sh.getRange(1, i + 1).setValue(headers[i]).setFontWeight('bold');
+    } else {
+      throw new Error('Journal « ' + sh.getName() + ' » : colonne « ' + headers[i] + ' » mal placée');
+    }
+    current = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0].map(String);
+  }
 }
 
 function soriyaJournal_(root, typeKey) {

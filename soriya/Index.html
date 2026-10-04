@@ -24,7 +24,7 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink);
     font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-  .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 48px; }
+  .wrap { max-width: 1440px; margin: 0 auto; padding: 20px 16px 48px; }
   header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
   h1 small { display: block; font-size: 13px; font-weight: 400; color: var(--ink-2); margin-top: 2px; }
@@ -116,7 +116,7 @@
       <option value="À vérifier">À vérifier</option>
       <option value="Mis de côté">Mis de côté</option>
     </select>
-    <input id="q" type="search" placeholder="Rechercher : n°, ville, client, transporteur…" aria-label="Rechercher">
+    <input id="q" type="search" placeholder="Rechercher : n°, ville, client, transporteur, prestation…" aria-label="Rechercher">
     <span class="count" id="count"></span>
   </div>
 
@@ -128,10 +128,14 @@
         <th data-s="number">N°</th>
         <th>Trajet</th>
         <th class="hide-sm">Client / expéditeur</th>
+        <th class="hide-sm">Transporteur</th>
+        <th class="hide-sm">Prestations réalisées</th>
+        <th class="hide-sm" data-s="price">Montant HT</th>
+        <th class="hide-sm">Attente</th>
         <th class="hide-sm">Statut</th>
         <th>PDF</th>
       </tr></thead>
-      <tbody id="rows"><tr><td colspan="7" class="loading">Chargement des documents…</td></tr></tbody>
+      <tbody id="rows"><tr><td colspan="11" class="loading">Chargement des documents…</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -153,7 +157,7 @@ function load() {
   google.script.run
     .withSuccessHandler(d => { DATA = d; render(); })
     .withFailureHandler(e => {
-      document.getElementById("rows").innerHTML = '<tr><td colspan="7" class="empty">Impossible de charger les données : ' + esc(e.message) + "</td></tr>";
+      document.getElementById("rows").innerHTML = '<tr><td colspan="11" class="empty">Impossible de charger les données : ' + esc(e.message) + "</td></tr>";
     })
     .soriyaWebData(KEY);
 }
@@ -258,10 +262,10 @@ function renderTable() {
     (ui.type === "all" || d.type === ui.type) &&
     (!ui.month || (d.date || "").slice(0, 7) === ui.month) &&
     (!ui.status || d.status.indexOf(ui.status) === 0) &&
-    (!q || [d.number, d.from, d.to, d.party, d.consignee, d.carrier, d.goods, d.name, d.remarks].join(" ").toLowerCase().indexOf(q) >= 0));
+    (!q || [d.number, d.from, d.to, d.party, d.consignee, d.carrier, d.goods, d.services, d.name, d.remarks].join(" ").toLowerCase().indexOf(q) >= 0));
   list.sort((a, b) => (a[ui.sort] || "").localeCompare(b[ui.sort] || "", "fr", { numeric: true }) * ui.dir);
   document.getElementById("count").textContent = list.length + " document(s)";
-  if (!list.length) { document.getElementById("rows").innerHTML = '<tr><td colspan="7" class="empty">Aucun document ne correspond.</td></tr>'; return; }
+  if (!list.length) { document.getElementById("rows").innerHTML = '<tr><td colspan="11" class="empty">Aucun document ne correspond.</td></tr>'; return; }
   document.getElementById("rows").innerHTML = list.slice(0, 500).map(d =>
     "<tr>" +
     '<td class="num">' + fmtDate(d.date) + "</td>" +
@@ -270,7 +274,11 @@ function renderTable() {
     '<td class="route"><b>' + esc(d.from || "?") + "</b> → <b>" + esc(d.to || "?") + "</b>" +
       (d.goods ? "<br><small>" + esc(d.goods) + "</small>" : "") +
       (d.reserves ? '<br><small style="color:var(--bad)">Réserves : ' + esc(d.reserves) + "</small>" : "") + "</td>" +
-    '<td class="hide-sm">' + esc((d.party || "").split(",")[0]) + (d.carrier ? "<br><small>" + esc(d.carrier) + "</small>" : "") + "</td>" +
+    '<td class="hide-sm">' + esc((d.party || "").split(",")[0]) + "</td>" +
+    '<td class="hide-sm">' + esc(d.carrier || "—") + "</td>" +
+    '<td class="hide-sm"><small>' + esc(d.services || "—").replace(/ ; /g, "<br>") + "</small></td>" +
+    '<td class="hide-sm num">' + esc(d.price || "—") + "</td>" +
+    '<td class="hide-sm">' + esc(d.waiting || "—") + "</td>" +
     '<td class="hide-sm"><span class="pill ' + statusKind(d.status) + '">' + esc(d.status.split(" — ")[0] || "—") + "</span></td>" +
     "<td>" + (d.url ? '<a href="' + esc(d.url) + '" title="' + esc(d.name) + '">Ouvrir</a>' : "—") + "</td>" +
     "</tr>").join("");

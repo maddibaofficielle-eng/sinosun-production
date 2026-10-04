@@ -19,6 +19,10 @@ const SORIYA_DOC_TYPES = {
       "numero_affretement = le N° de la confirmation d'affrètement tel qu'imprimé sur le PDF " +
         "(souvent en en-tête : « Confirmation d'affrètement N° … »). Ne pas confondre avec une référence " +
         "client, un n° de commande, de tournée ou de facture.",
+      'prix_ht = le montant total HT de la prestation indiqué sur la confirmation.',
+      "attente = le temps d'attente et/ou le montant d'attente mentionné (ex. « 1h30 », « 45,00 € ») ; vide si aucun.",
+      'prestations = les prestations réalisées ou facturées listées sur le document, avec leur quantité ou ' +
+        'montant, séparées par « ; » (ex. « GV ILE DE FRANCE 38,00 ; MANUTENTION 1,00 »).',
     ],
     fields: [
       ['numero_affretement', 'N° affrètement'], ['date_confirmation', 'Date confirmation'],
@@ -26,7 +30,8 @@ const SORIYA_DOC_TYPES = {
       ['lieu_chargement', 'Lieu chargement'], ['date_chargement', 'Date chargement'],
       ['lieu_livraison', 'Lieu livraison'], ['date_livraison', 'Date livraison'],
       ['marchandise', 'Marchandise'], ['poids', 'Poids'], ['immatriculation', 'Immatriculation'],
-      ['prix_ht', 'Prix HT'], ['devise', 'Devise'],
+      ['prix_ht', 'Montant HT'], ['devise', 'Devise'], ['attente', 'Attente'],
+      ['prestations', 'Prestations réalisées'],
     ],
     dateFields: ['date_chargement', 'date_confirmation'],
     nameFields: ['transporteur', 'numero_affretement'],
@@ -38,10 +43,16 @@ const SORIYA_DOC_TYPES = {
     description: 'des lettres de voiture (CMR internationale ou lettre de voiture nationale, ' +
       'récépissé de transport, bon de livraison signé), souvent photographiées ou scannées',
     typeFlag: 'est_lettre_de_voiture',
+    hints: [
+      'transporteur = la société de transport qui a effectué le transport (et le chauffeur si indiqué).',
+      'prestations = les prestations réalisées listées sur le document (souvent « Prestation annexe »), avec ' +
+        'leur quantité ou montant, séparées par « ; » (ex. « GV ILE DE FRANCE 38,00 ; MANUTENTION 1,00 »).',
+    ],
     fields: [
       ['numero_lettre_voiture', 'N° lettre de voiture'], ['date_emission', 'Date établissement'],
       ['reference_commande', 'Réf. commande / affrètement'], ['expediteur', 'Expéditeur marchandise'],
       ['destinataire', 'Destinataire'], ['transporteur', 'Transporteur'],
+      ['prestations', 'Prestations réalisées'],
       ['lieu_prise_en_charge', 'Lieu prise en charge'], ['date_prise_en_charge', 'Date prise en charge'],
       ['lieu_livraison', 'Lieu livraison'], ['date_livraison', 'Date livraison'],
       ['marchandise', 'Marchandise'], ['nombre_colis', 'Colis / palettes'], ['poids', 'Poids'],
