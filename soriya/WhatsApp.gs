@@ -121,10 +121,11 @@ function soriyaWhatsAppRun() {
     pending = soriyaWhatsAppPdfs_(inbox).length;
     // Documents rangés sans lecture (panne de crédit Claude…) : relus, renommés et reclassés.
     try {
-      soriyaRelireNonLus_(started);
-      soriyaConvertirCapturesArchivees_(started);
+      const relus = soriyaRelireNonLus_(started, report);
+      const converties = soriyaConvertirCapturesArchivees_(started, report);
+      Logger.log('Reprise : %s document(s) relu(s), %s capture(s) convertie(s) en PDF.', relus, converties);
     } catch (e) {
-      Logger.log('Reprise des documents non lus : %s', e.message);
+      report.errors.push('Reprise des documents non lus : ' + e.message);
     }
     // Confirmations : transporteur de la lettre de voiture portant le même numéro.
     try {
@@ -244,14 +245,18 @@ function soriyaPhotoToPdf_(blob, folder, name) {
       return Utilities.newBlob(html, 'text/html', 'capture.html').getAs('application/pdf');
     },
   ];
+  const why = [];
   for (let i = 0; i < attempts.length; i++) {
     try {
       const pdf = attempts[i]();
       if (pdf && pdf.getBytes().length > 1000) return folder.createFile(pdf.setName(name));
+      why.push('méthode ' + (i + 1) + ' : PDF vide');
     } catch (e) {
-      Logger.log('Conversion en PDF, méthode %s : %s', i + 1, e.message);
+      why.push('méthode ' + (i + 1) + ' : ' + e.message);
     }
   }
+  PropertiesService.getScriptProperties().setProperty('SORIYA_PDF_CONVERSION_ERROR', why.join(' | '));
+  Logger.log('Conversion en PDF impossible : %s', why.join(' | '));
   return null;
 }
 
@@ -259,7 +264,7 @@ function soriyaPhotoToPdf_(blob, folder, name) {
  * Convertit en PDF les captures déjà archivées en image (.jpg, .png…) et met le journal à jour.
  * Renvoie le nombre de fichiers convertis.
  */
-function soriyaConvertirCapturesArchivees_(started) {
+function soriyaConvertirCapturesArchivees_(started, report) {
   const j = soriyaJournalSpreadsheet_(soriyaRootFolder_('lettre_voiture'), 'lettre_voiture');
   const n = j.main.getLastRow() - 1;
   if (n < 1) return 0;
@@ -277,14 +282,18 @@ function soriyaConvertirCapturesArchivees_(started) {
       const folder = file.getParents().next();
       const pdfName = soriyaUniqueName_(folder, name.replace(/\.\w+$/, '.pdf'));
       const pdf = soriyaPhotoToPdf_(file.getBlob(), folder, pdfName);
-      if (!pdf) return done; // conversion impossible : inutile d'insister pour les autres
+      if (!pdf) { // conversion impossible : inutile d'insister pour les autres
+        report.errors.push('Conversion des captures en PDF impossible (' + name + ') : ' +
+          PropertiesService.getScriptProperties().getProperty('SORIYA_PDF_CONVERSION_ERROR'));
+        return done;
+      }
       pdf.setDescription(String(file.getDescription() || '').replace(' (photo)', ' (photo convertie en PDF)'));
       file.setTrashed(true);
       j.main.getRange(r + 2, iName + 1).setValue(pdfName);
       j.main.getRange(r + 2, iUrl + 1).setValue(pdf.getUrl());
       done++;
     } catch (e) {
-      Logger.log('Conversion de %s : %s', name, e.message);
+      report.errors.push('Conversion de ' + name + ' : ' + e.message);
     }
   }
   return done;

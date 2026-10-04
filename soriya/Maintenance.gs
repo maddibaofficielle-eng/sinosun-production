@@ -465,7 +465,7 @@ function soriyaRapprocherTransporteurs_() {
  * Claude les lit, ils sont renommés et rangés au bon endroit, et leur ligne du journal est complétée.
  * S'arrête dès qu'une lecture échoue encore (inutile d'insister). Renvoie le nombre de documents repris.
  */
-function soriyaRelireNonLus_(started) {
+function soriyaRelireNonLus_(started, report) {
   if (!PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY')) return 0;
   let done = 0;
   const types = ['confirmation', 'lettre_voiture'];
@@ -483,14 +483,20 @@ function soriyaRelireNonLus_(started) {
       if (!/^Archivé (— lecture IA impossible|\(sans lecture IA\))/.test(status)) continue;
       const id = (/\/d\/([\w-]+)/.exec(String(rows[r][col('Lien Drive')])) || [])[1];
       if (!id) continue;
-      const file = DriveApp.getFileById(id);
+      let file;
+      try { file = DriveApp.getFileById(id); } catch (e) { continue; } // fichier supprimé
+      if (!file.getSize()) continue; // fichier vide (réception WhatsApp incomplète) : rien à lire
       const received = rows[r][col('Reçu le')] instanceof Date ? rows[r][col('Reçu le')] : file.getDateCreated();
       const blob = file.getBlob().setName(String(rows[r][col('Fichier reçu')]) || file.getName());
       const c = soriyaClassify_(blob, String(rows[r][col('Objet')]) + ' — ' + String(rows[r][col('Expéditeur')]),
         received, root, true, typeKey);
       if (!c.data) {
-        Logger.log('Reprise impossible pour l\'instant (%s) : %s', file.getName(), c.status);
-        return done;
+        // Crédit épuisé ou API indisponible : on réessaiera au prochain passage. Autre erreur : document suivant.
+        if (/credit balance|HTTP (429|5\d\d)|overloaded/i.test(c.status)) {
+          report.errors.push('Reprise des documents non lus en pause : ' + c.status);
+          return done;
+        }
+        continue;
       }
       c.name = soriyaUniqueName_(c.folder, c.name);
       file.setName(c.name);
