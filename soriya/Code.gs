@@ -52,6 +52,7 @@ function soriyaRun() {
 
   try {
     soriyaEnsureTriggers_();
+    soriyaMarkStart_('Mailing');
     soriyaMigrations_();
     const root = soriyaRootFolder_('confirmation');
     soriyaEnsureStructure_(root);

@@ -82,6 +82,8 @@ function soriyaWhatsAppRun() {
 
   try {
     soriyaEnsureTriggers_();
+    soriyaMarkStart_('WhatsApp');
+    soriyaWhatsAppMigrations_();
     const root = soriyaRootFolder_('lettre_voiture');
     soriyaEnsureStructure_(root);
     const inbox = soriyaWhatsAppInbox_();
@@ -191,13 +193,19 @@ function soriyaWhatsAppPdfs_(inbox) {
 
 /** WA_33769391541_1759480000_confirmation.pdf → { sender, date, originalName } */
 function soriyaWhatsAppParseName_(name) {
-  const m = /^WA_\+?(\d{8,15})_(\d{9,13})_(.+)$/.exec(name);
-  if (!m) return null;
-  const ts = Number(m[2]);
+  // Le dernier « WA_<numéro>_<horodatage>_ » du nom fait foi (un nom peut avoir été préfixé deux fois).
+  // Horodatage : secondes Unix (1759480000) ou date ISO (2026-10-03T16:16:20.000Z).
+  const re = /WA_\+?(\d{8,15})_(\d{9,13}|\d{4}-\d{2}-\d{2}T[\d:.]+Z?)_/g;
+  let m;
+  let last = null;
+  while ((m = re.exec(name)) !== null) last = { m: m, end: re.lastIndex };
+  if (!last) return null;
+  const raw = last.m[2];
+  const date = /^\d+$/.test(raw) ? new Date(Number(raw) < 1e12 ? Number(raw) * 1000 : Number(raw)) : new Date(raw);
   return {
-    sender: soriyaNormalizePhone_(m[1]),
-    date: new Date(ts < 1e12 ? ts * 1000 : ts),
-    originalName: m[3],
+    sender: soriyaNormalizePhone_(last.m[1]),
+    date: isNaN(date.getTime()) ? null : date,
+    originalName: name.slice(last.end) || name,
   };
 }
 

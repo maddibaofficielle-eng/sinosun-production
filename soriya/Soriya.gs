@@ -15,6 +15,11 @@ const SORIYA_DOC_TYPES = {
     description: "des confirmations d'affrètement (aussi appelées confirmations de commande de transport " +
       "ou ordres de transport), envoyées par le donneur d'ordre au transporteur",
     typeFlag: 'est_confirmation_affretement',
+    hints: [
+      "numero_affretement = le N° de la confirmation d'affrètement tel qu'imprimé sur le PDF " +
+        "(souvent en en-tête : « Confirmation d'affrètement N° … »). Ne pas confondre avec une référence " +
+        "client, un n° de commande, de tournée ou de facture.",
+    ],
     fields: [
       ['numero_affretement', 'N° affrètement'], ['date_confirmation', 'Date confirmation'],
       ['donneur_ordre', "Donneur d'ordre"], ['transporteur', 'Transporteur'],
@@ -69,8 +74,9 @@ function soriyaPrompt_(typeKey) {
     '- Montants : nombre seul avec un point décimal (ex. "1250.00"), sans symbole monétaire.',
     "- Si le PDF n'est pas une " + t.label + ', mets ' + t.typeFlag + ' à false',
     '  et explique dans remarques de quel document il s\'agit.',
+  ].concat((t.hints || []).map(function (h) { return '- ' + h; })).concat([
     "- confiance = \"haute\" si les champs principaux sont nets, \"moyenne\" s'il y a un doute, \"basse\" sinon.",
-  ].join('\n');
+  ]).join('\n');
 }
 
 function soriyaSchema_(typeKey) {

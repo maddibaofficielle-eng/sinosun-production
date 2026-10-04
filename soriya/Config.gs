@@ -67,5 +67,5 @@ const SORIYA_CONFIG = {
   WHATSAPP_ALLOWED_SENDERS: [],
 
   // Marge de sécurité : Apps Script coupe une exécution à 6 minutes.
-  MAX_RUNTIME_MS: 5 * 60 * 1000,
+  MAX_RUNTIME_MS: 4 * 60 * 1000,
 };

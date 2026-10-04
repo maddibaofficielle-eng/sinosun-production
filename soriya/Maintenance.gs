@@ -216,3 +216,40 @@ function renommerConfirmations() {
   });
   return renamed;
 }
+
+/** Appelé au début de chaque passage WhatsApp : applique les mises à jour pas encore faites. */
+function soriyaWhatsAppMigrations_() {
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('SORIYA_MIG_LDV_SENDERS') !== 'done') {
+    const n = corrigerExpediteursWhatsApp();
+    props.setProperty('SORIYA_MIG_LDV_SENDERS', 'done');
+    Logger.log('Mise à jour : %s ligne(s) du Journal Lettres de voiture corrigée(s).', n);
+  }
+}
+
+/**
+ * Corrige « Expéditeur », « Reçu le » et « Fichier reçu » dans le Journal Lettres de voiture à partir
+ * du nom WhatsApp (les premiers PDF avaient un horodatage au format date que Soriya ne lisait pas,
+ * d'où « inconnu »). Peut être relancée sans risque.
+ */
+function corrigerExpediteursWhatsApp() {
+  const j = soriyaJournalSpreadsheet_(soriyaRootFolder_('lettre_voiture'), 'lettre_voiture');
+  const col = function (title) { return j.headers.indexOf(title) + 1; };
+  let fixed = 0;
+  [j.main, j.dup].forEach(function (sh) {
+    const n = sh.getLastRow() - 1;
+    if (n < 1) return;
+    const range = sh.getRange(2, 1, n, j.headers.length);
+    const values = range.getValues();
+    values.forEach(function (r) {
+      const info = soriyaWhatsAppParseName_(String(r[col('Fichier reçu') - 1]));
+      if (!info) return;
+      r[col('Expéditeur') - 1] = '+' + info.sender + ' (WhatsApp)';
+      if (info.date) r[col('Reçu le') - 1] = info.date;
+      r[col('Fichier reçu') - 1] = info.originalName;
+      fixed++;
+    });
+    range.setValues(values);
+  });
+  return fixed;
+}

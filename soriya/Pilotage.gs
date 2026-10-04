@@ -50,6 +50,17 @@ function soriyaUnlock_(activity) {
   CacheService.getScriptCache().remove('soriya-running-' + activity);
 }
 
+/** Note l'heure de démarrage : un passage démarré mais jamais terminé se voit au tableau de bord. */
+function soriyaMarkStart_(activity) {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const state = JSON.parse(props.getProperty('SORIYA_DASHBOARD_STATE') || '{}');
+    state[activity] = state[activity] || {};
+    state[activity].lastStart = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
+    props.setProperty('SORIYA_DASHBOARD_STATE', JSON.stringify(state).slice(0, 8500));
+  } catch (e) { /* sans gravité */ }
+}
+
 // ---------- Fin de passage : rapport + tableau de bord ----------
 
 /** Appelé à la fin de chaque passage. Ne lève jamais d'erreur (le travail est déjà fait). */
@@ -185,6 +196,7 @@ function soriyaUpdateDashboard_(activity, report, extra) {
   }
 
   state[activity] = {
+    lastStart: (state[activity] || {}).lastStart || '',
     lastRun: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'),
     lastArchived: report.archived.length,
     lastDuplicates: report.duplicates,
@@ -219,11 +231,12 @@ function soriyaWriteDashboard_(state) {
   const line = function (label, key) {
     return [label].concat(acts.map(function (a) {
       const s = state[a[0]];
-      return s ? s[key] : '—';
+      return s && s[key] !== undefined && s[key] !== null ? s[key] : '—';
     }));
   };
   rows.push(
-    line('Dernier passage', 'lastRun'),
+    line('Dernier passage terminé', 'lastRun'),
+    line('Dernier démarrage', 'lastStart'),
     line('Archivés au dernier passage', 'lastArchived'),
     line('Erreurs au dernier passage', 'lastErrors'),
     line('Dernière erreur', 'lastError'),
@@ -256,11 +269,11 @@ function soriyaWriteDashboard_(state) {
   sh.getRange('A2').setFontColor('#666666');
   sh.getRange(4, 1, 1, 3).setFontWeight('bold').setBackground('#e8f0fe');
   sh.getRange(5, 1, rows.length - 4, 1).setFontWeight('bold');
-  sh.getRange(19, 1, 1, 3).setFontWeight('bold').setBackground('#e8f0fe');
+  sh.getRange(20, 1, 1, 3).setFontWeight('bold').setBackground('#e8f0fe');
   sh.setColumnWidth(1, 230);
   sh.setColumnWidths(2, 2, 320);
   sh.getRange(1, 1, rows.length, 3).setWrap(true).setVerticalAlignment('top');
   // Erreurs en rouge, éléments à vérifier en orange.
-  [7, 8].forEach(function (r) { sh.getRange(r, 2, 1, 2).setFontColor('#c5221f'); });
-  sh.getRange(12, 2, 1, 2).setFontColor('#b06000');
+  [8, 9].forEach(function (r) { sh.getRange(r, 2, 1, 2).setFontColor('#c5221f'); });
+  sh.getRange(13, 2, 1, 2).setFontColor('#b06000');
 }
