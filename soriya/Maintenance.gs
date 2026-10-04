@@ -275,6 +275,7 @@ function soriyaBackfill_(started) {
   if (!SORIYA_CONFIG.BACKFILL_ENABLED) return 0;
   if (props.getProperty('SORIYA_BACKFILL_DONE') === 'v1') return 0;
   if (!props.getProperty('CLAUDE_API_KEY')) return 0;
+  if (props.getProperty('SORIYA_BACKFILL_V2') !== 'ok') soriyaResetFreeFill_();
   let done = 0;
   let finished = true;
   let failures = 0;
@@ -324,6 +325,33 @@ function soriyaBackfill_(started) {
   });
   if (finished) props.setProperty('SORIYA_BACKFILL_DONE', 'v1');
   return done;
+}
+
+/**
+ * Le complément gratuit (mots-clés tirés des Remarques, sans montants) a rempli « Prestations réalisées »
+ * avant d'être retiré. On vide ces cellules et on reprend la relecture depuis le début, pour que Claude
+ * les remplisse à partir du PDF (avec quantités et montants). Une seule fois.
+ */
+function soriyaResetFreeFill_() {
+  const props = PropertiesService.getScriptProperties();
+  const only = new RegExp('^\\s*(?:' + SORIYA_PRESTATIONS_RE.source + ')(?:\\s*;\\s*(?:' + SORIYA_PRESTATIONS_RE.source + '))*\\s*$', 'i');
+  let cleared = 0;
+  ['confirmation', 'lettre_voiture'].forEach(function (typeKey) {
+    const j = soriyaJournalSpreadsheet_(soriyaRootFolder_(typeKey), typeKey);
+    const n = j.main.getLastRow() - 1;
+    const i = j.headers.indexOf('Prestations réalisées');
+    if (n < 1 || i < 0) return;
+    const range = j.main.getRange(2, i + 1, n, 1);
+    const values = range.getValues().map(function (r) {
+      if (r[0] && only.test(String(r[0]))) { cleared++; return ['']; }
+      return r;
+    });
+    range.setValues(values);
+    props.deleteProperty('SORIYA_BACKFILL_ROW_' + typeKey);
+  });
+  props.deleteProperty('SORIYA_BACKFILL_DONE');
+  props.setProperty('SORIYA_BACKFILL_V2', 'ok');
+  Logger.log('Complément gratuit annulé : %s cellule(s) vidée(s), relecture reprise depuis le début.', cleared);
 }
 
 // ---------- Complément gratuit (sans IA) ----------
