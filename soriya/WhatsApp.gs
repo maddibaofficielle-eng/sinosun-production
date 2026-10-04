@@ -119,6 +119,13 @@ function soriyaWhatsAppRun() {
       }
     }
     pending = soriyaWhatsAppPdfs_(inbox).length;
+    // Documents rangés sans lecture (panne de crédit Claude…) : relus, renommés et reclassés.
+    try {
+      soriyaRelireNonLus_(started);
+      soriyaConvertirCapturesArchivees_(started);
+    } catch (e) {
+      Logger.log('Reprise des documents non lus : %s', e.message);
+    }
     // Confirmations : transporteur de la lettre de voiture portant le même numéro.
     try {
       soriyaRapprocherTransporteurs_();
@@ -174,11 +181,7 @@ function soriyaWhatsAppArchive_(file, info, inbox, root, journal, aiEnabled) {
   let pdf = null;
   if (photo) {
     // Une photo est rangée comme les PDF : convertie en PDF, la photo d'origine part à la corbeille.
-    try {
-      pdf = c.folder.createFile(blob.getAs('application/pdf').setName(c.name));
-    } catch (e) {
-      Logger.log('Conversion en PDF impossible (%s) : la photo est gardée telle quelle.', e.message);
-    }
+    pdf = soriyaPhotoToPdf_(blob, c.folder, c.name);
   }
   if (pdf) {
     file.setTrashed(true);
@@ -226,6 +229,65 @@ function soriyaWhatsAppPdfs_(inbox) {
   }
   // Du plus ancien au plus récent, pour un journal chronologique.
   return out.sort(function (a, b) { return a.getDateCreated() - b.getDateCreated(); });
+}
+
+/**
+ * Convertit une capture d'écran / photo en PDF (une page, image pleine largeur) dans le dossier donné.
+ * Renvoie le fichier PDF créé, ou null si la conversion échoue (la photo est alors gardée telle quelle).
+ */
+function soriyaPhotoToPdf_(blob, folder, name) {
+  const attempts = [
+    function () { return blob.getAs('application/pdf'); },
+    function () {
+      const html = '<html><body style="margin:0"><img style="width:100%" src="data:' + blob.getContentType() +
+        ';base64,' + Utilities.base64Encode(blob.getBytes()) + '"></body></html>';
+      return Utilities.newBlob(html, 'text/html', 'capture.html').getAs('application/pdf');
+    },
+  ];
+  for (let i = 0; i < attempts.length; i++) {
+    try {
+      const pdf = attempts[i]();
+      if (pdf && pdf.getBytes().length > 1000) return folder.createFile(pdf.setName(name));
+    } catch (e) {
+      Logger.log('Conversion en PDF, méthode %s : %s', i + 1, e.message);
+    }
+  }
+  return null;
+}
+
+/**
+ * Convertit en PDF les captures déjà archivées en image (.jpg, .png…) et met le journal à jour.
+ * Renvoie le nombre de fichiers convertis.
+ */
+function soriyaConvertirCapturesArchivees_(started) {
+  const j = soriyaJournalSpreadsheet_(soriyaRootFolder_('lettre_voiture'), 'lettre_voiture');
+  const n = j.main.getLastRow() - 1;
+  if (n < 1) return 0;
+  const iName = j.headers.indexOf('Nom dans Drive');
+  const iUrl = j.headers.indexOf('Lien Drive');
+  const rows = j.main.getRange(2, 1, n, j.headers.length).getValues();
+  let done = 0;
+  for (let r = 0; r < rows.length; r++) {
+    if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS) break;
+    const name = String(rows[r][iName]);
+    const id = (/\/d\/([\w-]+)/.exec(String(rows[r][iUrl])) || [])[1];
+    if (!id || !/\.(jpe?g|png|webp)$/i.test(name)) continue;
+    try {
+      const file = DriveApp.getFileById(id);
+      const folder = file.getParents().next();
+      const pdfName = soriyaUniqueName_(folder, name.replace(/\.\w+$/, '.pdf'));
+      const pdf = soriyaPhotoToPdf_(file.getBlob(), folder, pdfName);
+      if (!pdf) return done; // conversion impossible : inutile d'insister pour les autres
+      pdf.setDescription(String(file.getDescription() || '').replace(' (photo)', ' (photo convertie en PDF)'));
+      file.setTrashed(true);
+      j.main.getRange(r + 2, iName + 1).setValue(pdfName);
+      j.main.getRange(r + 2, iUrl + 1).setValue(pdf.getUrl());
+      done++;
+    } catch (e) {
+      Logger.log('Conversion de %s : %s', name, e.message);
+    }
+  }
+  return done;
 }
 
 /** Capture d'écran ou photo d'une lettre de voiture (JPEG, PNG, WebP) : lue comme un PDF puis archivée en PDF. */

@@ -457,3 +457,49 @@ function soriyaRapprocherTransporteurs_() {
   if (changed) outRange.setValues(after);
   return matched;
 }
+
+// ---------- Reprise des documents rangés sans lecture ----------
+
+/**
+ * Relit les documents archivés sans lecture IA (clé absente, crédit épuisé, panne de l'API) :
+ * Claude les lit, ils sont renommés et rangés au bon endroit, et leur ligne du journal est complétée.
+ * S'arrête dès qu'une lecture échoue encore (inutile d'insister). Renvoie le nombre de documents repris.
+ */
+function soriyaRelireNonLus_(started) {
+  if (!PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY')) return 0;
+  let done = 0;
+  const types = ['confirmation', 'lettre_voiture'];
+  for (let t = 0; t < types.length; t++) {
+    const typeKey = types[t];
+    const root = soriyaRootFolder_(typeKey);
+    const j = soriyaJournalSpreadsheet_(root, typeKey);
+    const n = j.main.getLastRow() - 1;
+    if (n < 1) continue;
+    const col = function (title) { return j.headers.indexOf(title); };
+    const rows = j.main.getRange(2, 1, n, j.headers.length).getValues();
+    for (let r = 0; r < rows.length; r++) {
+      if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS) return done;
+      const status = String(rows[r][col('Statut')]);
+      if (!/^Archivé (— lecture IA impossible|\(sans lecture IA\))/.test(status)) continue;
+      const id = (/\/d\/([\w-]+)/.exec(String(rows[r][col('Lien Drive')])) || [])[1];
+      if (!id) continue;
+      const file = DriveApp.getFileById(id);
+      const received = rows[r][col('Reçu le')] instanceof Date ? rows[r][col('Reçu le')] : file.getDateCreated();
+      const blob = file.getBlob().setName(String(rows[r][col('Fichier reçu')]) || file.getName());
+      const c = soriyaClassify_(blob, String(rows[r][col('Objet')]) + ' — ' + String(rows[r][col('Expéditeur')]),
+        received, root, true, typeKey);
+      if (!c.data) {
+        Logger.log('Reprise impossible pour l\'instant (%s) : %s', file.getName(), c.status);
+        return done;
+      }
+      c.name = soriyaUniqueName_(c.folder, c.name);
+      file.setName(c.name);
+      file.moveTo(c.folder);
+      const fields = soriyaFieldsRow_(c.data, typeKey);
+      j.main.getRange(r + 2, col('Nom dans Drive') + 1, 1, 3).setValues([[c.name, file.getUrl(), c.status]]);
+      j.main.getRange(r + 2, JOURNAL_BASE_HEADERS.length + 1, 1, fields.length).setValues([fields]);
+      done++;
+    }
+  }
+  return done;
+}
