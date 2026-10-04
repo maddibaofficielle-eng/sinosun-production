@@ -150,3 +150,14 @@ https://script.google.com/home/usersettings (compte gfd.logistic).
 - Confirmations d'affrètement : `02-10-2026_Confirmation_affretement_662518.pdf`
 - Lettres de voiture : `02-10-2026_Lettres_de_voiture_662518.pdf`
 - Même nom déjà présent dans le dossier : suffixe `_2`, `_3`…
+
+## Interface web (`Web.gs` + `Index.html`)
+
+Page privée, lisible sur ordinateur et téléphone : état des deux activités, documents par mois,
+liste filtrable (type, mois, statut, recherche) avec lien vers chaque PDF.
+
+- Déploiement : `AKfycbw8NAz4kKY0k4aUc2VMTFNI3m_dn6LL3i1DhbCRUla1_RJUbkcQiSblA5mqUevj9qY-NA`
+  (après une modification : `clasp push` puis `clasp update-deployment <id>`).
+- Le lien complet contient une clé secrète (`?k=…`) stockée dans les propriétés du script : il est
+  envoyé par e-mail à gfd.logistic au premier passage et affiché en haut de « Soriya - Tableau de bord ».
+- Révoquer le lien : `nouvelleCleInterface()` (un nouveau lien est envoyé).

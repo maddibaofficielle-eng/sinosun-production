@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<base target="_blank">
+<meta charset="utf-8">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f6f6f4; --surface: #fcfcfb; --surface-2: #ffffff; --line: #e4e3df; --grid: #ecebe7;
+    --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #7a7974;
+    --accent: #2a78d6;
+    --s-conf: #2a78d6; --s-ldv: #eb6834;
+    --good: #1a7f37; --good-bg: #e6f4ea; --warn: #9a6700; --warn-bg: #fff4d6; --bad: #c5221f; --bad-bg: #fce8e6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --bg: #121211; --surface: #1a1a19; --surface-2: #222220; --line: #33332f; --grid: #2a2a27;
+      --ink: #ffffff; --ink-2: #c3c2b7; --ink-3: #8f8e86;
+      --accent: #3987e5; --s-conf: #3987e5; --s-ldv: #d95926;
+      --good: #6fcf8a; --good-bg: #16301e; --warn: #f0c060; --warn-bg: #362a0f; --bad: #ff8a80; --bad-bg: #3a1716;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  h1 small { display: block; font-size: 13px; font-weight: 400; color: var(--ink-2); margin-top: 2px; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  button, select, input {
+    font: inherit; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 12px; min-height: 40px;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--ink-3); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); margin-top: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+  .card-head .src { color: var(--ink-2); font-size: 13px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600;
+    padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+  .pill.ok { color: var(--good); background: var(--good-bg); }
+  .pill.warn { color: var(--warn); background: var(--warn-bg); }
+  .pill.bad { color: var(--bad); background: var(--bad-bg); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0 10px; }
+  .kpi { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+  .kpi b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .kpi span { font-size: 12px; color: var(--ink-2); }
+  .meta { font-size: 13px; color: var(--ink-2); }
+  .meta a, td a { color: var(--accent); }
+  .err { margin-top: 8px; font-size: 13px; color: var(--bad); background: var(--bad-bg); border-radius: 8px; padding: 8px 10px; }
+  .chart-card { margin-top: 16px; }
+  .legend { display: flex; gap: 16px; font-size: 13px; color: var(--ink-2); margin-bottom: 6px; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  #chart { width: 100%; height: 240px; position: relative; }
+  #chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .tip { position: absolute; pointer-events: none; background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.12); white-space: nowrap; display: none; z-index: 2; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 24px 0 12px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: var(--surface-2); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .filters input { flex: 1 1 220px; }
+  .count { color: var(--ink-2); font-size: 13px; margin-left: auto; }
+  .table-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  th { position: sticky; top: 0; background: var(--surface); font-size: 12px; color: var(--ink-2); font-weight: 600;
+    text-transform: uppercase; letter-spacing: .03em; cursor: pointer; white-space: nowrap; }
+  tr:hover td { background: var(--surface-2); }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .type { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .route { color: var(--ink-2); }
+  .route b { color: var(--ink); font-weight: 500; }
+  details summary { cursor: pointer; color: var(--accent); }
+  .empty, .loading { padding: 32px; text-align: center; color: var(--ink-2); }
+  @media (max-width: 640px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .hide-sm { display: none; }
+    th, td { padding: 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Soriya<small id="sub">Documents de transport Ecotime · chargement…</small></h1>
+    <button id="refresh" type="button">↻ Actualiser</button>
+  </header>
+
+  <section class="grid" id="cards" aria-label="Activités"></section>
+
+  <section class="card chart-card" aria-labelledby="chart-title">
+    <h2 id="chart-title">Documents archivés par mois</h2>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--s-conf)"></i>Confirmations d'affrètement</span>
+      <span><i class="dot" style="background:var(--s-ldv)"></i>Lettres de voiture</span>
+    </div>
+    <div id="chart"><div class="tip" id="tip"></div></div>
+  </section>
+
+  <div class="filters" role="search">
+    <div class="seg" id="typeSeg" role="group" aria-label="Type de document">
+      <button type="button" data-v="all" aria-pressed="true">Tous</button>
+      <button type="button" data-v="conf" aria-pressed="false">Confirmations</button>
+      <button type="button" data-v="ldv" aria-pressed="false">Lettres de voiture</button>
+    </div>
+    <select id="month" aria-label="Mois"><option value="">Tous les mois</option></select>
+    <select id="status" aria-label="Statut">
+      <option value="">Tous les statuts</option>
+      <option value="Archivé">Archivés</option>
+      <option value="À vérifier">À vérifier</option>
+      <option value="Mis de côté">Mis de côté</option>
+    </select>
+    <input id="q" type="search" placeholder="Rechercher : n°, ville, client, transporteur…" aria-label="Rechercher">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th data-s="date">Date</th>
+        <th data-s="type">Type</th>
+        <th data-s="number">N°</th>
+        <th>Trajet</th>
+        <th class="hide-sm">Client / expéditeur</th>
+        <th class="hide-sm">Statut</th>
+        <th>PDF</th>
+      </tr></thead>
+      <tbody id="rows"><tr><td colspan="7" class="loading">Chargement des documents…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const KEY = <?!= JSON.stringify(key) ?>;
+const TYPES = { conf: { label: "Confirmation", color: "var(--s-conf)" }, ldv: { label: "Lettre de voiture", color: "var(--s-ldv)" } };
+const MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+let DATA = null;
+const ui = { type: "all", month: "", status: "", q: "", sort: "date", dir: -1 };
+
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmtDate = d => /^\d{4}-\d{2}-\d{2}/.test(d) ? d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4) : esc(d);
+const monthLabel = m => MONTHS[+m.slice(5, 7) - 1] + " " + m.slice(0, 4);
+const statusKind = s => s.indexOf("Archivé") === 0 ? "ok" : (s.indexOf("À vérifier") === 0 || s.indexOf("Mis de côté") === 0 ? "warn" : "bad");
+
+function load() {
+  document.getElementById("sub").textContent = "Documents de transport Ecotime · chargement…";
+  google.script.run
+    .withSuccessHandler(d => { DATA = d; render(); })
+    .withFailureHandler(e => {
+      document.getElementById("rows").innerHTML = '<tr><td colspan="7" class="empty">Impossible de charger les données : ' + esc(e.message) + "</td></tr>";
+    })
+    .soriyaWebData(KEY);
+}
+
+function render() {
+  document.getElementById("sub").textContent = "Documents de transport Ecotime · mis à jour le " + DATA.generatedAt;
+  renderCards(); renderChart(); renderMonths(); renderTable();
+}
+
+function renderCards() {
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  document.getElementById("cards").innerHTML = DATA.activities.map(a => {
+    const type = a.id === "Mailing" ? "conf" : "ldv";
+    const docs = DATA.docs.filter(d => d.type === type);
+    const archived = docs.filter(d => d.status.indexOf("Archivé") === 0).length;
+    const toCheck = docs.filter(d => d.status.indexOf("À vérifier") === 0 || d.status.indexOf("Mis de côté") === 0).length;
+    const month = docs.filter(d => (d.date || "").slice(0, 7) === thisMonth).length;
+    let pill = '<span class="pill ok">● En service</span>';
+    if (!a.lastRun && !a.lastStart) pill = '<span class="pill warn">● En attente du 1er passage</span>';
+    else if (a.lastErrors) pill = '<span class="pill bad">▲ ' + a.lastErrors + " erreur(s)</span>";
+    else if (a.lastStart && a.lastStart !== a.lastRun) pill = '<span class="pill warn">● Passage en cours ou interrompu</span>';
+    return '<article class="card"><div class="card-head"><div><h2 style="margin:0">' +
+      '<i class="dot" style="background:' + TYPES[type].color + ';margin-right:8px"></i>' + esc(a.label) + "</h2>" +
+      '<div class="src">' + esc(a.source) + "</div></div>" + pill + "</div>" +
+      '<div class="kpis">' +
+      kpi(archived, "archivés") + kpi(month, "ce mois-ci") + kpi(toCheck, "à vérifier") + kpi(a.pending == null ? "—" : a.pending, "en attente") +
+      "</div>" +
+      '<div class="meta">Dernier passage : ' + esc(a.lastRun || "—") +
+      (a.folderUrl ? ' · <a href="' + esc(a.folderUrl) + '">Dossier Drive</a>' : "") +
+      (a.journalUrl ? ' · <a href="' + esc(a.journalUrl) + '">Journal</a>' : "") + "</div>" +
+      (a.lastError ? '<div class="err">Dernière erreur : ' + esc(a.lastError) + "</div>" : "") +
+      "</article>";
+  }).join("");
+}
+const kpi = (n, l) => '<div class="kpi"><b>' + esc(n) + "</b><span>" + esc(l) + "</span></div>";
+
+function renderChart() {
+  const box = document.getElementById("chart");
+  const tip = document.getElementById("tip");
+  const counts = {};
+  DATA.docs.forEach(d => {
+    const m = (d.date || "").slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(m)) return;
+    counts[m] = counts[m] || { conf: 0, ldv: 0 };
+    counts[m][d.type]++;
+  });
+  const months = Object.keys(counts).sort().slice(-12);
+  if (!months.length) { box.innerHTML = '<div class="empty">Aucun document pour l\'instant.</div>'; return; }
+  const W = Math.max(300, box.clientWidth || 1000), H = 240, L = 32, B = 28, T = 10;
+  const max = Math.max(1, ...months.map(m => Math.max(counts[m].conf, counts[m].ldv)));
+  const step = Math.pow(10, Math.floor(Math.log10(max)));
+  const nice = Math.ceil(max / step) * step;
+  const y = v => T + (H - T - B) * (1 - v / nice);
+  const band = (W - L) / months.length;
+  const bw = Math.min(28, band * 0.32);
+  let svg = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Documents archivés par mois">';
+  for (let i = 0; i <= 4; i++) {
+    const v = Math.round(nice * i / 4), yy = y(v);
+    svg += '<line x1="' + L + '" x2="' + W + '" y1="' + yy + '" y2="' + yy + '" stroke="var(--grid)" stroke-width="1" vector-effect="non-scaling-stroke"/>' +
+      '<text x="' + (L - 6) + '" y="' + (yy + 4) + '" text-anchor="end" font-size="11" fill="var(--ink-3)">' + v + "</text>";
+  }
+  months.forEach((m, i) => {
+    const cx = L + band * i + band / 2;
+    [["conf", -1], ["ldv", 1]].forEach(([k, side]) => {
+      const v = counts[m][k];
+      if (!v) return;
+      const x = cx + side * (bw / 2 + 1) - bw / 2, yy = y(v), h = (H - B) - yy;
+      svg += '<path d="M' + x + "," + (H - B) + "V" + (yy + 4) + "Q" + x + "," + yy + " " + (x + 4) + "," + yy + "H" + (x + bw - 4) +
+        "Q" + (x + bw) + "," + yy + " " + (x + bw) + "," + (yy + 4) + "V" + (H - B) + 'Z" fill="' + TYPES[k].color + '"/>';
+    });
+    svg += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" fill="var(--ink-2)">' + monthLabel(m) + "</text>" +
+      '<rect x="' + (L + band * i) + '" y="0" width="' + band + '" height="' + H + '" fill="transparent" data-m="' + m + '" style="cursor:pointer"/>';
+  });
+  svg += "</svg>";
+  box.innerHTML = svg;
+  box.appendChild(tip);
+  box.querySelectorAll("rect[data-m]").forEach(r => {
+    r.addEventListener("mousemove", ev => {
+      const m = r.dataset.m, c = counts[m], rect = box.getBoundingClientRect();
+      tip.innerHTML = "<b>" + monthLabel(m) + "</b><br>" +
+        '<i class="dot" style="background:var(--s-conf)"></i> Confirmations : ' + c.conf + "<br>" +
+        '<i class="dot" style="background:var(--s-ldv)"></i> Lettres de voiture : ' + c.ldv;
+      tip.style.display = "block";
+      const left = Math.min(ev.clientX - rect.left + 12, rect.width - tip.offsetWidth - 4);
+      tip.style.left = left + "px"; tip.style.top = Math.max(0, ev.clientY - rect.top - 40) + "px";
+    });
+    r.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+    r.addEventListener("click", () => { ui.month = r.dataset.m; document.getElementById("month").value = ui.month; renderTable(); });
+  });
+}
+
+function renderMonths() {
+  const sel = document.getElementById("month");
+  const months = Array.from(new Set(DATA.docs.map(d => (d.date || "").slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m)))).sort().reverse();
+  sel.innerHTML = '<option value="">Tous les mois</option>' + months.map(m => '<option value="' + m + '">' + monthLabel(m) + "</option>").join("");
+  sel.value = ui.month;
+}
+
+function renderTable() {
+  const q = ui.q.trim().toLowerCase();
+  let list = DATA.docs.filter(d =>
+    (ui.type === "all" || d.type === ui.type) &&
+    (!ui.month || (d.date || "").slice(0, 7) === ui.month) &&
+    (!ui.status || d.status.indexOf(ui.status) === 0) &&
+    (!q || [d.number, d.from, d.to, d.party, d.consignee, d.carrier, d.goods, d.name, d.remarks].join(" ").toLowerCase().indexOf(q) >= 0));
+  list.sort((a, b) => (a[ui.sort] || "").localeCompare(b[ui.sort] || "", "fr", { numeric: true }) * ui.dir);
+  document.getElementById("count").textContent = list.length + " document(s)";
+  if (!list.length) { document.getElementById("rows").innerHTML = '<tr><td colspan="7" class="empty">Aucun document ne correspond.</td></tr>'; return; }
+  document.getElementById("rows").innerHTML = list.slice(0, 500).map(d =>
+    "<tr>" +
+    '<td class="num">' + fmtDate(d.date) + "</td>" +
+    '<td><span class="type"><i class="dot" style="background:' + TYPES[d.type].color + '"></i>' + TYPES[d.type].label + "</span></td>" +
+    '<td class="num">' + esc(d.number || "—") + "</td>" +
+    '<td class="route"><b>' + esc(d.from || "?") + "</b> → <b>" + esc(d.to || "?") + "</b>" +
+      (d.goods ? "<br><small>" + esc(d.goods) + "</small>" : "") +
+      (d.reserves ? '<br><small style="color:var(--bad)">Réserves : ' + esc(d.reserves) + "</small>" : "") + "</td>" +
+    '<td class="hide-sm">' + esc((d.party || "").split(",")[0]) + (d.carrier ? "<br><small>" + esc(d.carrier) + "</small>" : "") + "</td>" +
+    '<td class="hide-sm"><span class="pill ' + statusKind(d.status) + '">' + esc(d.status.split(" — ")[0] || "—") + "</span></td>" +
+    "<td>" + (d.url ? '<a href="' + esc(d.url) + '" title="' + esc(d.name) + '">Ouvrir</a>' : "—") + "</td>" +
+    "</tr>").join("");
+}
+
+document.getElementById("refresh").addEventListener("click", load);
+let resizeT;
+window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (DATA) renderChart(); }, 150); });
+document.querySelectorAll("#typeSeg button").forEach(b => b.addEventListener("click", () => {
+  ui.type = b.dataset.v;
+  document.querySelectorAll("#typeSeg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  renderTable();
+}));
+document.getElementById("month").addEventListener("change", e => { ui.month = e.target.value; renderTable(); });
+document.getElementById("status").addEventListener("change", e => { ui.status = e.target.value; renderTable(); });
+document.getElementById("q").addEventListener("input", e => { ui.q = e.target.value; renderTable(); });
+document.querySelectorAll("th[data-s]").forEach(th => th.addEventListener("click", () => {
+  ui.dir = ui.sort === th.dataset.s ? -ui.dir : -1; ui.sort = th.dataset.s; renderTable();
+}));
+load();
+</script>
+</body>
+</html>

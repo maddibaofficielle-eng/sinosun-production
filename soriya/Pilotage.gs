@@ -71,6 +71,11 @@ function soriyaFinish_(activity, report, extra) {
     Logger.log('Rapport quotidien : %s', e.message);
   }
   try {
+    soriyaEnsureWebLink_();
+  } catch (e) {
+    Logger.log('Lien interface : %s', e.message);
+  }
+  try {
     soriyaUpdateDashboard_(activity, report, extra || {});
   } catch (e) {
     Logger.log('Tableau de bord : %s', e.message);
@@ -223,7 +228,7 @@ function soriyaWriteDashboard_(state) {
 
   const acts = [['Mailing', 'Confirmations d\'affrètement (e-mail)'], ['WhatsApp', 'Lettres de voiture (WhatsApp)']];
   const rows = [
-    ['Soriya — tableau de bord', '', ''],
+    ['Soriya — tableau de bord', '', soriyaWebLinkForSheet_()],
     ['Mis à jour le ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy à HH:mm'), '', ''],
     ['', '', ''],
     ['', acts[0][1], acts[1][1]],
@@ -276,4 +281,14 @@ function soriyaWriteDashboard_(state) {
   // Erreurs en rouge, éléments à vérifier en orange.
   [8, 9].forEach(function (r) { sh.getRange(r, 2, 1, 2).setFontColor('#c5221f'); });
   sh.getRange(13, 2, 1, 2).setFontColor('#b06000');
+}
+
+function soriyaWebLinkForSheet_() {
+  try {
+    const key = PropertiesService.getScriptProperties().getProperty('SORIYA_WEB_KEY');
+    const base = ScriptApp.getService().getUrl();
+    return key && base ? 'Interface web : ' + base + '?k=' + key : '';
+  } catch (e) {
+    return '';
+  }
 }
