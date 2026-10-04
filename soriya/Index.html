@@ -51,6 +51,16 @@
   .kpi b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; line-height: 1.1; }
   .kpi span { font-size: 12px; color: var(--ink-2); }
   .meta { font-size: 13px; color: var(--ink-2); }
+  .carriers { margin: 4px 0 12px; }
+  .carriers h3 { font-size: 13px; font-weight: 600; margin: 0 0 6px; color: var(--ink-2); }
+  .carrier { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 4px 12px;
+    width: 100%; text-align: left; background: none; border: 0; border-radius: 8px; padding: 6px 8px; font: inherit; color: inherit; }
+  .carrier:hover { background: var(--surface-2); }
+  .carrier .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+  .carrier b { font-variant-numeric: tabular-nums; font-size: 15px; }
+  .carrier small { color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 72px; text-align: right; }
+  .carrier .bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+  .carrier .bar i { display: block; height: 100%; background: var(--s-ldv); border-radius: 2px; }
   .meta a, td a { color: var(--accent); }
   .err { margin-top: 8px; font-size: 13px; color: var(--bad); background: var(--bad-bg); border-radius: 8px; padding: 8px 10px; }
   .chart-card { margin-top: 16px; }
@@ -185,12 +195,32 @@ function renderCards() {
       '<div class="kpis">' +
       kpi(archived, "archivés") + kpi(month, "ce mois-ci") + kpi(toCheck, "à vérifier") + kpi(a.pending == null ? "—" : a.pending, "en attente") +
       "</div>" +
+      (type === "ldv" ? carriersBlock(docs, thisMonth) : "") +
       '<div class="meta">Dernier passage : ' + esc(a.lastRun || "—") +
       (a.folderUrl ? ' · <a href="' + esc(a.folderUrl) + '">Dossier Drive</a>' : "") +
       (a.journalUrl ? ' · <a href="' + esc(a.journalUrl) + '">Journal</a>' : "") + "</div>" +
       (a.lastError ? '<div class="err">Dernière erreur : ' + esc(a.lastError) + "</div>" : "") +
       "</article>";
   }).join("");
+}
+// Courses par transporteur = nombre de lettres de voiture par transporteur (hors documents mis de côté).
+function carriersBlock(docs, thisMonth) {
+  const by = {};
+  docs.filter(d => d.status.indexOf("Archivé") === 0 || d.status.indexOf("À vérifier") === 0).forEach(d => {
+    const name = (d.carrier || "").replace(/\s+/g, " ").trim().toUpperCase() || "NON INDIQUÉ";
+    const c = by[name] || (by[name] = { name, total: 0, month: 0 });
+    c.total++;
+    if ((d.date || "").slice(0, 7) === thisMonth) c.month++;
+  });
+  const list = Object.values(by).sort((a, b) => b.total - a.total);
+  if (!list.length) return "";
+  const max = list[0].total;
+  return '<div class="carriers"><h3>Courses par transporteur</h3>' + list.map(c =>
+    '<button type="button" class="carrier" data-carrier="' + esc(c.name === "NON INDIQUÉ" ? "" : c.name) +
+      '" title="Voir les lettres de voiture de ce transporteur">' +
+      '<span class="n">' + esc(c.name) + "</span><b>" + c.total + "</b><small>" + c.month + " ce mois-ci</small>" +
+      '<span class="bar"><i style="width:' + Math.max(2, Math.round(c.total / max * 100)) + '%"></i></span></button>'
+  ).join("") + "</div>";
 }
 const kpi = (n, l) => '<div class="kpi"><b>' + esc(n) + "</b><span>" + esc(l) + "</span></div>";
 
@@ -292,6 +322,16 @@ document.querySelectorAll("#typeSeg button").forEach(b => b.addEventListener("cl
   document.querySelectorAll("#typeSeg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
   renderTable();
 }));
+// Clic sur un transporteur : liste filtrée sur ses lettres de voiture.
+document.getElementById("cards").addEventListener("click", e => {
+  const b = e.target.closest(".carrier");
+  if (!b) return;
+  ui.type = "ldv"; ui.q = b.dataset.carrier;
+  document.querySelectorAll("#typeSeg button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === "ldv")));
+  document.getElementById("q").value = ui.q;
+  renderTable();
+  document.getElementById("typeSeg").scrollIntoView({ behavior: "smooth", block: "start" });
+});
 document.getElementById("month").addEventListener("change", e => { ui.month = e.target.value; renderTable(); });
 document.getElementById("status").addEventListener("change", e => { ui.status = e.target.value; renderTable(); });
 document.getElementById("q").addEventListener("input", e => { ui.q = e.target.value; renderTable(); });
