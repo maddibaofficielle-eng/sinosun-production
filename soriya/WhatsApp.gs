@@ -1,7 +1,7 @@
 /**
  * Soriya · WhatsApp — lettres de voiture reçues sur WhatsApp → Google Drive + Journal.
  *
- * Make récupère les PDF arrivés sur le numéro WhatsApp de Soriya (API WhatsApp Business)
+ * Make récupère les PDF et les photos arrivés sur le numéro WhatsApp de Soriya (API WhatsApp Business)
  * et les dépose dans le dossier « Soriya - Entrée WhatsApp » (racine de Mon Drive), nommés :
  *   WA_<numéro expéditeur>_<horodatage Unix>_<nom d'origine>.pdf   (ex. WA_33769391541_1759480000_confirmation.pdf)
  * Soriya les lit comme des lettres de voiture, les renomme et les range dans « Ecotime - Lettres de Voiture »,
@@ -161,16 +161,37 @@ function soriyaWhatsAppArchive_(file, info, inbox, root, journal, aiEnabled) {
     return { duplicate: true };
   }
 
-  const c = soriyaClassify_(blob, 'Document reçu par WhatsApp de ' + sender, received, root, aiEnabled, 'lettre_voiture');
+  const photo = soriyaIsPhoto_(file);
+  if (photo && !/^image\//.test(blob.getContentType())) {
+    const ext = (/\.(\w+)$/.exec(info.originalName) || /\.(\w+)$/.exec(file.getName()) || [, 'jpeg'])[1].toLowerCase();
+    blob.setContentType('image/' + (ext === 'jpg' ? 'jpeg' : ext));
+  }
+  const c = soriyaClassify_(blob, (photo ? 'Photo' : 'Document') + ' reçu(e) par WhatsApp de ' + sender,
+    received, root, aiEnabled, 'lettre_voiture');
   const whatsappName = file.getName();
   c.name = soriyaUniqueName_(c.folder, c.name);
-  file.setName(c.name);
-  file.moveTo(c.folder);
+  let pdf = null;
+  if (photo) {
+    // Une photo est rangée comme les PDF : convertie en PDF, la photo d'origine part à la corbeille.
+    try {
+      pdf = c.folder.createFile(blob.getAs('application/pdf').setName(c.name));
+    } catch (e) {
+      Logger.log('Conversion en PDF impossible (%s) : la photo est gardée telle quelle.', e.message);
+    }
+  }
+  if (pdf) {
+    file.setTrashed(true);
+    file = pdf;
+  } else {
+    if (photo) c.name = c.name.replace(/\.pdf$/i, '.' + blob.getContentType().split('/')[1].replace('jpeg', 'jpg'));
+    file.setName(c.name);
+    file.moveTo(c.folder);
+  }
   file.setDescription([
     'Archivé par Soriya depuis WhatsApp.',
     'De : ' + sender,
     'Reçu le : ' + received,
-    'Fichier d\'origine : ' + info.originalName,
+    'Fichier d\'origine : ' + info.originalName + (photo ? (pdf ? ' (photo convertie en PDF)' : ' (photo)') : ''),
     'Nom WhatsApp : ' + whatsappName,
     c.data ? 'Extraction : ' + JSON.stringify(c.data) : '',
   ].join('\n'));
@@ -200,10 +221,15 @@ function soriyaWhatsAppPdfs_(inbox) {
   const it = inbox.getFiles();
   while (it.hasNext()) {
     const f = it.next();
-    if (f.getMimeType() === 'application/pdf' || /\.pdf$/i.test(f.getName())) out.push(f);
+    if (f.getMimeType() === 'application/pdf' || /\.pdf$/i.test(f.getName()) || soriyaIsPhoto_(f)) out.push(f);
   }
   // Du plus ancien au plus récent, pour un journal chronologique.
   return out.sort(function (a, b) { return a.getDateCreated() - b.getDateCreated(); });
+}
+
+/** Photo d'une lettre de voiture (JPEG, PNG, WebP) : lue comme un PDF puis archivée en PDF. */
+function soriyaIsPhoto_(f) {
+  return /^image\/(jpeg|png|webp)$/.test(f.getMimeType()) || /\.(jpe?g|png|webp)$/i.test(f.getName());
 }
 
 /** WA_33769391541_1759480000_confirmation.pdf → { sender, date, originalName } */

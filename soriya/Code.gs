@@ -275,7 +275,7 @@ function soriyaFileName_(date, data, originalName, typeKey) {
     const f = t.fileName;
     const day = Utilities.formatDate(date, Session.getScriptTimeZone(), f.datePattern);
     if (!f.numberField) return day + '_' + f.label + '.pdf';
-    const number = String((data && data[f.numberField]) || originalName.replace(/\.pdf$/i, ''))
+    const number = String((data && data[f.numberField]) || originalName.replace(/\.[a-z0-9]{2,4}$/i, ''))
       .replace(/^\s*n(?:°|o\.?|º)\s*/i, '') // « N° 662 518 » → « 662 518 »
       .replace(/[^A-Za-z0-9-]+/g, '');
     return [day, f.label, number || 'sans-numero']

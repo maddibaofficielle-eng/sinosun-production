@@ -134,10 +134,11 @@ function soriyaReadPdf(pdfBlob, context, typeKey, model) {
       role: 'user',
       content: [
         {
-          type: 'document',
+          // PDF → bloc « document » ; photo (JPEG, PNG, WebP) → bloc « image ».
+          type: /^image\//.test(pdfBlob.getContentType()) ? 'image' : 'document',
           source: {
             type: 'base64',
-            media_type: 'application/pdf',
+            media_type: /^image\//.test(pdfBlob.getContentType()) ? pdfBlob.getContentType() : 'application/pdf',
             data: Utilities.base64Encode(pdfBlob.getBytes()),
           },
         },
