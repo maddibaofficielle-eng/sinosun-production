@@ -110,19 +110,21 @@ function soriyaSchema_(typeKey) {
  * @param {GoogleAppsScript.Base.Blob} pdfBlob
  * @param {string} context contexte utile (objet du mail, expéditeur WhatsApp…)
  * @param {string} typeKey clé de SORIYA_DOC_TYPES
+ * @param {string=} model modèle Claude à utiliser (par défaut SORIYA_CONFIG.CLAUDE_MODEL)
  */
-function soriyaReadPdf(pdfBlob, context, typeKey) {
+function soriyaReadPdf(pdfBlob, context, typeKey, model) {
   const docType = soriyaDocType_(typeKey);
   const apiKey = PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY');
   if (!apiKey) throw new Error('CLAUDE_API_KEY non configurée');
 
+  model = model || SORIYA_CONFIG.CLAUDE_MODEL;
+  // Haiku (modèle économique) ne prend ni le réglage d'effort ni le repli automatique.
+  const light = model.indexOf('claude-haiku') === 0;
   const body = {
-    model: SORIYA_CONFIG.CLAUDE_MODEL,
+    model: model,
     max_tokens: 16000,
-    fallbacks: 'default',
     system: soriyaPrompt_(typeKey),
     output_config: {
-      effort: SORIYA_CONFIG.CLAUDE_EFFORT,
       format: { type: 'json_schema', schema: soriyaSchema_(typeKey) },
     },
     messages: [{
@@ -144,17 +146,19 @@ function soriyaReadPdf(pdfBlob, context, typeKey) {
       ],
     }],
   };
+  const headers = { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };
+  if (!light) {
+    body.fallbacks = 'default';
+    body.output_config.effort = SORIYA_CONFIG.CLAUDE_EFFORT;
+    headers['anthropic-beta'] = 'server-side-fallback-2026-07-01';
+  }
 
   let response;
   for (let attempt = 1; attempt <= 3; attempt++) {
     response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
       method: 'post',
       contentType: 'application/json',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'server-side-fallback-2026-07-01',
-      },
+      headers: headers,
       payload: JSON.stringify(body),
       muteHttpExceptions: true,
     });

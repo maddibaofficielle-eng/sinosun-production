@@ -272,12 +272,14 @@ const SORIYA_BACKFILL = {
  */
 function soriyaBackfill_(started) {
   const props = PropertiesService.getScriptProperties();
-  if (!SORIYA_CONFIG.BACKFILL_ENABLED) return soriyaBackfillFree_();
+  if (!SORIYA_CONFIG.BACKFILL_ENABLED) return 0;
   if (props.getProperty('SORIYA_BACKFILL_DONE') === 'v1') return 0;
   if (!props.getProperty('CLAUDE_API_KEY')) return 0;
   let done = 0;
   let finished = true;
+  let failures = 0;
   ['confirmation', 'lettre_voiture'].forEach(function (typeKey) {
+    if (failures >= 3) { finished = false; return; }
     if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS) { finished = false; return; }
     const progressKey = 'SORIYA_BACKFILL_ROW_' + typeKey;
     const t = soriyaDocType_(typeKey);
@@ -299,13 +301,21 @@ function soriyaBackfill_(started) {
       try {
         const blob = DriveApp.getFileById(id).getBlob();
         if (blob.getBytes().length > SORIYA_CONFIG.MAX_PDF_MB_FOR_AI * 1024 * 1024) continue;
-        const data = soriyaReadPdf(blob, 'Relecture d\'un document déjà archivé', typeKey);
+        const data = soriyaReadPdf(blob, 'Relecture d\'un document déjà archivé', typeKey, SORIYA_CONFIG.BACKFILL_MODEL);
         empty.forEach(function (fc) {
           if (data[fc.key]) j.main.getRange(row, fc.col).setValue(data[fc.key]);
         });
         done++;
+        failures = 0;
       } catch (e) {
         Logger.log('Complément ligne %s (%s) : %s', row, typeKey, e.message);
+        // Plusieurs échecs d'affilée = problème général (clé, modèle…) : on s'arrête sans sauter de lignes.
+        if (++failures >= 3) {
+          finished = false;
+          props.setProperty('SORIYA_BACKFILL_LAST_ERROR', e.message);
+          props.setProperty(progressKey, String(row - 2)); // on reprendra à la première ligne en échec
+          break;
+        }
       }
       props.setProperty(progressKey, String(row + 1));
     }
