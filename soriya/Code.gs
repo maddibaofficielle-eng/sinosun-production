@@ -82,6 +82,7 @@ function soriyaRun() {
       const messages = thread.getMessages();
       for (let m = 0; m < messages.length && !timeUp; m++) {
         const msg = messages[m];
+        if (msg.getDate() < soriyaHistoryStart_()) continue; // avant le début de l'historique traité
         const pdfs = soriyaPdfs_(msg);
         for (let a = 0; a < pdfs.length; a++) {
           if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS) { threadComplete = false; break; }
@@ -217,11 +218,17 @@ function soriyaQuery_() {
   // Après reinitialiserSoriya(), tout l'historique est relu pendant quelques heures.
   const props = PropertiesService.getScriptProperties();
   const base = 'label:' + label + ' has:attachment filename:pdf ';
-  if (props.getProperty('SORIYA_RESCAN_UNTIL')) return base + 'newer_than:3650d'; // relecture complète en cours
+  const since = Math.floor(soriyaHistoryStart_().getTime() / 1000);
+  if (props.getProperty('SORIYA_RESCAN_UNTIL')) return base + 'after:' + since; // relecture complète en cours
   // Après une relecture complète, seuls les mails récents sont relus (quota Gmail quotidien limité).
   const checkpoint = Number(props.getProperty('SORIYA_MAIL_CHECKPOINT') || 0);
-  if (checkpoint) return base + 'after:' + Math.floor((checkpoint - 2 * 86400000) / 1000);
+  if (checkpoint) return base + 'after:' + Math.max(since, Math.floor((checkpoint - 2 * 86400000) / 1000));
   return base + 'newer_than:' + SORIYA_CONFIG.SEARCH_WINDOW_DAYS + 'd';
+}
+
+/** Date de début de l'historique traité (SORIYA_CONFIG.HISTORY_START, minuit heure de Paris). */
+function soriyaHistoryStart_() {
+  return Utilities.parseDate(SORIYA_CONFIG.HISTORY_START || '2000-01-01', Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
 function soriyaPdfs_(msg) {

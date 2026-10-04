@@ -157,6 +157,12 @@ function soriyaWhatsAppOriginalName_(f) {
 
 /** Appelé au début de chaque passage Mailing : applique les mises à jour pas encore faites. */
 function soriyaMigrations_() {
+  const p = PropertiesService.getScriptProperties();
+  // Historique limité à 2026 : la relecture repart du début, sur la nouvelle plage de recherche.
+  if (p.getProperty('SORIYA_MIG_HISTORY_2026') !== 'ok') {
+    if (p.getProperty('SORIYA_RESCAN_UNTIL')) p.deleteProperty('SORIYA_RESCAN_OFFSET');
+    p.setProperty('SORIYA_MIG_HISTORY_2026', 'ok');
+  }
   const props = PropertiesService.getScriptProperties();
   if (props.getProperty('SORIYA_MIG_CONFIRMATION_NAMES_V2') !== 'done') {
     const n = renommerConfirmations();
@@ -299,6 +305,9 @@ function soriyaBackfill_(started) {
       const empty = fieldCols.filter(function (fc) { return values[fc.col - 1] === '' || values[fc.col - 1] === null; });
       const id = (/\/d\/([\w-]+)/.exec(url) || [])[1];
       if (!id || !empty.length || !(status.indexOf('Archivé') === 0 || status.indexOf('À vérifier') === 0)) continue;
+      if (/lecture IA impossible|sans lecture IA/.test(status)) continue; // repris par soriyaRelireNonLus_
+      const recu = values[col('Reçu le') - 1];
+      if (recu instanceof Date && recu < soriyaHistoryStart_()) continue; // avant le début de l'historique
       try {
         const blob = DriveApp.getFileById(id).getBlob();
         if (blob.getBytes().length > SORIYA_CONFIG.MAX_PDF_MB_FOR_AI * 1024 * 1024) continue;
@@ -481,6 +490,7 @@ function soriyaRelireNonLus_(started, report) {
       if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS) return done;
       const status = String(rows[r][col('Statut')]);
       if (!/^Archivé (— lecture IA impossible|\(sans lecture IA\))/.test(status)) continue;
+      if (rows[r][col('Reçu le')] instanceof Date && rows[r][col('Reçu le')] < soriyaHistoryStart_()) continue;
       const id = (/\/d\/([\w-]+)/.exec(String(rows[r][col('Lien Drive')])) || [])[1];
       if (!id) continue;
       let file;

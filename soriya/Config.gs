@@ -13,6 +13,10 @@ const SORIYA_CONFIG = {
   // Mettre une grande valeur (ex. 3650) pour la première exécution afin de rattraper l'historique.
   SEARCH_WINDOW_DAYS: 30,
 
+  // Début de l'historique traité : les mails reçus avant cette date sont ignorés
+  // (ni lus par Claude, ni archivés, ni relus). Format AAAA-MM-JJ.
+  HISTORY_START: '2026-01-01',
+
   // IMPORTANT : Soriya lit la boîte Gmail du compte Google qui a créé ce projet Apps Script.
   // Pour lire gfd.logistic@gmail.com, le projet doit être créé en étant connecté à ce compte.
 
