@@ -272,7 +272,7 @@ const SORIYA_BACKFILL = {
  */
 function soriyaBackfill_(started) {
   const props = PropertiesService.getScriptProperties();
-  if (!SORIYA_CONFIG.BACKFILL_ENABLED) return 0;
+  if (!SORIYA_CONFIG.BACKFILL_ENABLED) return soriyaBackfillFree_();
   if (props.getProperty('SORIYA_BACKFILL_DONE') === 'v1') return 0;
   if (!props.getProperty('CLAUDE_API_KEY')) return 0;
   let done = 0;
@@ -314,4 +314,62 @@ function soriyaBackfill_(started) {
   });
   if (finished) props.setProperty('SORIYA_BACKFILL_DONE', 'v1');
   return done;
+}
+
+// ---------- Complément gratuit (sans IA) ----------
+
+// Prestations Ecotime reconnues dans la colonne « Remarques » déjà remplie lors de la première lecture.
+const SORIYA_PRESTATIONS_RE = /\b(GV ILE DE FRANCE|GV TARIF AU KILOM[EÈ]TRE|FOURGON (?:IDF|ILE DE FRANCE)|BREAK (?:IDF|ILE DE FRANCE)|PORTEUR(?: \d+ ?T| IDF| ILE DE FRANCE)?|SEMI(?:-REMORQUE)?|MANUTENTION|HAYON|ATTENTE)\b/gi;
+
+/**
+ * Remplit gratuitement (aucun appel à Claude) « Prestations réalisées » et « Attente » des anciennes
+ * lignes, à partir de la colonne « Remarques ». Seules les cellules vides sont remplies.
+ * S'exécute une seule fois (propriété SORIYA_BACKFILL_FREE). Renvoie le nombre de lignes complétées.
+ */
+function soriyaBackfillFree_() {
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('SORIYA_BACKFILL_FREE') === 'v1') return 0;
+  let done = 0;
+  ['confirmation', 'lettre_voiture'].forEach(function (typeKey) {
+    const j = soriyaJournalSpreadsheet_(soriyaRootFolder_(typeKey), typeKey);
+    const n = j.main.getLastRow() - 1;
+    if (n < 1) return;
+    const iRem = j.headers.indexOf('Remarques');
+    const iPre = j.headers.indexOf('Prestations réalisées');
+    const iAtt = j.headers.indexOf('Attente');
+    if (iRem < 0 || iPre < 0) return;
+    const range = j.main.getRange(2, 1, n, j.headers.length);
+    const rows = range.getValues();
+    const pre = [], att = [];
+    rows.forEach(function (r) {
+      const rem = String(r[iRem] || '');
+      let p = r[iPre];
+      let a = iAtt >= 0 ? r[iAtt] : '';
+      let changed = false;
+      if (p === '' || p === null) {
+        const seen = {};
+        (rem.match(SORIYA_PRESTATIONS_RE) || []).forEach(function (m) { seen[m.toUpperCase()] = true; });
+        const list = Object.keys(seen);
+        if (list.length) { p = list.join(' ; '); changed = true; }
+      }
+      if (iAtt >= 0 && (a === '' || a === null)) {
+        const m = /attente[^.;]*?(\d+\s?h\s?\d*|\d+\s?min|\d+(?:[.,]\d+)?\s?€)/i.exec(rem);
+        if (m) { a = m[1].trim(); changed = true; }
+      }
+      if (changed) done++;
+      pre.push([p]);
+      att.push([a]);
+    });
+    j.main.getRange(2, iPre + 1, n, 1).setValues(pre);
+    if (iAtt >= 0) j.main.getRange(2, iAtt + 1, n, 1).setValues(att);
+  });
+  props.setProperty('SORIYA_BACKFILL_FREE', 'v1');
+  Logger.log('Complément gratuit : %s ligne(s) complétée(s)', done);
+  return done;
+}
+
+/** À lancer à la main si besoin : refait le complément gratuit (cellules vides seulement). */
+function completerColonnesGratuit() {
+  PropertiesService.getScriptProperties().deleteProperty('SORIYA_BACKFILL_FREE');
+  Logger.log('%s ligne(s) complétée(s)', soriyaBackfillFree_());
 }
