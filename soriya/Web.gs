@@ -98,7 +98,7 @@ function soriyaEnsureWebLink_() {
     props.setProperty('SORIYA_WEB_KEY', key);
     props.deleteProperty('SORIYA_WEB_LINK_SENT');
   }
-  const base = ScriptApp.getService().getUrl();
+  const base = SORIYA_CONFIG.WEB_APP_URL;
   if (!base) return ''; // l'interface n'est pas encore publiée
   const url = base + '?k=' + key;
   if (props.getProperty('SORIYA_WEB_LINK_SENT') !== url) {

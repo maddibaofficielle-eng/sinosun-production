@@ -66,6 +66,9 @@ const SORIYA_CONFIG = {
   // Pour filtrer à nouveau, par exemple : ['0769391541', '0651516936']
   WHATSAPP_ALLOWED_SENDERS: [],
 
+  // Adresse publique de l'interface web (déploiement « Soriya interface web »).
+  WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbw8NAz4kKY0k4aUc2VMTFNI3m_dn6LL3i1DhbCRUla1_RJUbkcQiSblA5mqUevj9qY-NA/exec',
+
   // Marge de sécurité : Apps Script coupe une exécution à 6 minutes.
   MAX_RUNTIME_MS: 4 * 60 * 1000,
 };

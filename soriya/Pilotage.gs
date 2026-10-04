@@ -286,7 +286,7 @@ function soriyaWriteDashboard_(state) {
 function soriyaWebLinkForSheet_() {
   try {
     const key = PropertiesService.getScriptProperties().getProperty('SORIYA_WEB_KEY');
-    const base = ScriptApp.getService().getUrl();
+    const base = SORIYA_CONFIG.WEB_APP_URL;
     return key && base ? 'Interface web : ' + base + '?k=' + key : '';
   } catch (e) {
     return '';
