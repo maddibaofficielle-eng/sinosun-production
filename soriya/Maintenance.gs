@@ -66,6 +66,8 @@ function reinitialiserSoriya() {
     // ---------- Relance ----------
     PropertiesService.getScriptProperties()
       .setProperty('SORIYA_RESCAN_UNTIL', String(Date.now() + 6 * 3600 * 1000));
+    PropertiesService.getScriptProperties().deleteProperty('SORIYA_MAIL_CHECKPOINT');
+    PropertiesService.getScriptProperties().deleteProperty('SORIYA_RESCAN_OFFSET');
     PropertiesService.getScriptProperties().deleteProperty('SORIYA_DASHBOARD_STATE');
     soriyaEnsureTriggers_(true);
     Logger.log('Relance : passages toutes les %s min (Mailing et WhatsApp en parallèle). Tableau de bord : %s',

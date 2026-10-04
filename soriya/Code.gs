@@ -64,7 +64,14 @@ function soriyaRun() {
     // Recherche par pages de 100 conversations : rien n'est oublié, même avec un long historique.
     const query = soriyaQuery_();
     let timeUp = false;
-    for (let start = 0; !timeUp; start += 100) {
+    let allDone = true;
+    // Relecture complète : reprise là où le passage précédent s'est arrêté (économise le quota Gmail).
+    const props = PropertiesService.getScriptProperties();
+    const rescanning = !!props.getProperty('SORIYA_RESCAN_UNTIL'); // relecture jusqu'à être complète
+    const firstPage = rescanning ? Math.max(0, Number(props.getProperty('SORIYA_RESCAN_OFFSET') || 0) - 100) : 0;
+    let page = firstPage;
+    for (let start = firstPage; !timeUp; start += 100) {
+     page = start;
      const threads = GmailApp.search(query, start, 100);
      if (!threads.length) break;
      for (let t = 0; t < threads.length; t++) {
@@ -93,7 +100,15 @@ function soriyaRun() {
         }
       }
       if (threadComplete) thread.addLabel(doneLabel);
+      else allDone = false;
      }
+    }
+    // Tout l'historique demandé a été parcouru sans erreur : on mémorise le point de reprise.
+    if (timeUp && rescanning) props.setProperty('SORIYA_RESCAN_OFFSET', String(page));
+    if (!timeUp && allDone) {
+      props.setProperty('SORIYA_MAIL_CHECKPOINT', String(started));
+      props.deleteProperty('SORIYA_RESCAN_UNTIL');
+      props.deleteProperty('SORIYA_RESCAN_OFFSET');
     }
   } catch (e) {
     report.errors.push('Erreur générale : ' + e.message);
@@ -190,9 +205,13 @@ function soriyaQuery_() {
   // Dans la recherche Gmail, espaces et "/" d'un libellé s'écrivent avec des tirets.
   const label = SORIYA_CONFIG.GMAIL_LABEL.toLowerCase().replace(/[\s\/]+/g, '-');
   // Après reinitialiserSoriya(), tout l'historique est relu pendant quelques heures.
-  const rescanUntil = Number(PropertiesService.getScriptProperties().getProperty('SORIYA_RESCAN_UNTIL') || 0);
-  const days = Date.now() < rescanUntil ? 3650 : SORIYA_CONFIG.SEARCH_WINDOW_DAYS;
-  return 'label:' + label + ' has:attachment filename:pdf newer_than:' + days + 'd';
+  const props = PropertiesService.getScriptProperties();
+  const base = 'label:' + label + ' has:attachment filename:pdf ';
+  if (props.getProperty('SORIYA_RESCAN_UNTIL')) return base + 'newer_than:3650d'; // relecture complète en cours
+  // Après une relecture complète, seuls les mails récents sont relus (quota Gmail quotidien limité).
+  const checkpoint = Number(props.getProperty('SORIYA_MAIL_CHECKPOINT') || 0);
+  if (checkpoint) return base + 'after:' + Math.floor((checkpoint - 2 * 86400000) / 1000);
+  return base + 'newer_than:' + SORIYA_CONFIG.SEARCH_WINDOW_DAYS + 'd';
 }
 
 function soriyaPdfs_(msg) {
