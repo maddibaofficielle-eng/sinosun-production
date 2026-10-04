@@ -333,7 +333,7 @@ function soriyaJournalSpreadsheet_(root, typeKey) {
  * les colonnes manquantes sont insérées à leur place (les données existantes ne bougent pas d'onglet).
  */
 function soriyaUpgradeColumns_(sh, headers) {
-  const renamed = { 'Prix HT': 'Montant HT', 'Date du mail': 'Reçu le' };
+  const renamed = { 'Prix HT': 'Montant HT', 'Date du mail': 'Reçu le', 'Transporteur': 'Transporteur (confirmation)' };
   let current = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0].map(String);
   if (current.slice(0, headers.length).join('|') === headers.join('|')) return;
   for (let i = 0; i < headers.length; i++) {

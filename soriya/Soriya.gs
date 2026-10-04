@@ -8,6 +8,7 @@
  *   Mailing  → 'confirmation'   (confirmations d'affrètement reçues par e-mail)
  *   WhatsApp → 'lettre_voiture' (lettres de voiture reçues sur WhatsApp)
  * fields = [clé extraite, titre de colonne dans le Journal], dans l'ordre des colonnes.
+ * Un 3e élément { computed: true } désigne une colonne calculée par Soriya (pas lue sur le PDF).
  */
 const SORIYA_DOC_TYPES = {
   confirmation: {
@@ -26,7 +27,9 @@ const SORIYA_DOC_TYPES = {
     ],
     fields: [
       ['numero_affretement', 'N° affrètement'], ['date_confirmation', 'Date confirmation'],
-      ['donneur_ordre', "Donneur d'ordre"], ['transporteur', 'Transporteur'],
+      ['donneur_ordre', "Donneur d'ordre"], ['transporteur', 'Transporteur (confirmation)'],
+      // Transporteur de la lettre de voiture portant le même numéro (voir soriyaRapprocherTransporteurs_).
+      ['transporteur_ldv', 'Transporteur', { computed: true }],
       ['lieu_chargement', 'Lieu chargement'], ['date_chargement', 'Date chargement'],
       ['lieu_livraison', 'Lieu livraison'], ['date_livraison', 'Date livraison'],
       ['marchandise', 'Marchandise'], ['poids', 'Poids'], ['immatriculation', 'Immatriculation'],
@@ -93,7 +96,7 @@ function soriyaPrompt_(typeKey) {
 function soriyaSchema_(typeKey) {
   const t = soriyaDocType_(typeKey);
   const properties = {};
-  t.fields.forEach(function (f) { properties[f[0]] = { type: 'string' }; });
+  t.fields.forEach(function (f) { if (!f[2]) properties[f[0]] = { type: 'string' }; });
   properties.remarques = { type: 'string' };
   properties[t.typeFlag] = { type: 'boolean' };
   properties.confiance = { type: 'string', enum: ['haute', 'moyenne', 'basse'] };

@@ -383,3 +383,48 @@ function completerColonnesGratuit() {
   PropertiesService.getScriptProperties().deleteProperty('SORIYA_BACKFILL_FREE');
   Logger.log('%s ligne(s) complétée(s)', soriyaBackfillFree_());
 }
+
+// ---------- Rapprochement confirmation ↔ lettre de voiture ----------
+
+const SORIYA_NO_LDV = 'Aucune lettre de voiture';
+
+/**
+ * Remplit la colonne « Transporteur » du journal des confirmations : pour chaque confirmation, Soriya
+ * cherche la lettre de voiture qui porte le même numéro (N° affrètement = N° lettre de voiture) et
+ * recopie son transporteur ; sinon « Aucune lettre de voiture ». Recalculé à chaque passage (rapide :
+ * deux lectures de feuille, une écriture seulement si quelque chose a changé). Renvoie le nombre de
+ * confirmations rapprochées.
+ */
+function soriyaRapprocherTransporteurs_() {
+  const digits = function (x) { return String(x || '').replace(/\D/g, ''); };
+  const ldv = soriyaJournalSpreadsheet_(soriyaRootFolder_('lettre_voiture'), 'lettre_voiture');
+  const byNumber = {};
+  const nL = ldv.main.getLastRow() - 1;
+  if (nL > 0) {
+    const iNum = ldv.headers.indexOf('N° lettre de voiture');
+    const iTr = ldv.headers.indexOf('Transporteur');
+    ldv.main.getRange(2, 1, nL, ldv.headers.length).getValues().forEach(function (r) {
+      const k = digits(r[iNum]);
+      if (k && !byNumber[k]) byNumber[k] = String(r[iTr] || '').trim() || 'Lettre de voiture trouvée (transporteur non indiqué)';
+    });
+  }
+  const conf = soriyaJournalSpreadsheet_(soriyaRootFolder_('confirmation'), 'confirmation');
+  const nC = conf.main.getLastRow() - 1;
+  if (nC < 1) return 0;
+  const iNum = conf.headers.indexOf('N° affrètement');
+  const iOut = conf.headers.indexOf('Transporteur');
+  const numbers = conf.main.getRange(2, iNum + 1, nC, 1).getValues();
+  const outRange = conf.main.getRange(2, iOut + 1, nC, 1);
+  const before = outRange.getValues();
+  let matched = 0;
+  let changed = false;
+  const after = numbers.map(function (r, i) {
+    const k = digits(r[0]);
+    const v = k && byNumber[k] ? byNumber[k] : (k ? SORIYA_NO_LDV : '');
+    if (k && byNumber[k]) matched++;
+    if (String(before[i][0]) !== v) changed = true;
+    return [v];
+  });
+  if (changed) outRange.setValues(after);
+  return matched;
+}

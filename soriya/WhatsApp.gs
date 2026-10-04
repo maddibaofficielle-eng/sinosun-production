@@ -119,6 +119,12 @@ function soriyaWhatsAppRun() {
       }
     }
     pending = soriyaWhatsAppPdfs_(inbox).length;
+    // Confirmations : transporteur de la lettre de voiture portant le même numéro.
+    try {
+      soriyaRapprocherTransporteurs_();
+    } catch (e) {
+      Logger.log('Rapprochement confirmations / lettres de voiture : %s', e.message);
+    }
     // Temps restant : on complète les anciens documents (nouvelles colonnes), par petits lots.
     if (!pending) {
       try {
