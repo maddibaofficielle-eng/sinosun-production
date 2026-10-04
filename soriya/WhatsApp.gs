@@ -167,7 +167,7 @@ function soriyaWhatsAppArchive_(file, info, inbox, root, journal, aiEnabled) {
     const ext = (/\.(\w+)$/.exec(info.originalName) || /\.(\w+)$/.exec(file.getName()) || [, 'jpeg'])[1].toLowerCase();
     blob.setContentType('image/' + (ext === 'jpg' ? 'jpeg' : ext));
   }
-  const c = soriyaClassify_(blob, (photo ? 'Photo' : 'Document') + ' reçu(e) par WhatsApp de ' + sender,
+  const c = soriyaClassify_(blob, (photo ? 'Capture d\'écran / photo' : 'Document') + ' reçu(e) par WhatsApp de ' + sender,
     received, root, aiEnabled, 'lettre_voiture');
   const whatsappName = file.getName();
   c.name = soriyaUniqueName_(c.folder, c.name);
@@ -228,7 +228,7 @@ function soriyaWhatsAppPdfs_(inbox) {
   return out.sort(function (a, b) { return a.getDateCreated() - b.getDateCreated(); });
 }
 
-/** Photo d'une lettre de voiture (JPEG, PNG, WebP) : lue comme un PDF puis archivée en PDF. */
+/** Capture d'écran ou photo d'une lettre de voiture (JPEG, PNG, WebP) : lue comme un PDF puis archivée en PDF. */
 function soriyaIsPhoto_(f) {
   return /^image\/(jpeg|png|webp)$/.test(f.getMimeType()) || /\.(jpe?g|png|webp)$/i.test(f.getName());
 }

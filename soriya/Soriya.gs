@@ -44,10 +44,14 @@ const SORIYA_DOC_TYPES = {
   lettre_voiture: {
     label: 'lettre de voiture',
     description: 'des lettres de voiture (CMR internationale ou lettre de voiture nationale, ' +
-      'récépissé de transport, bon de livraison signé), souvent photographiées ou scannées',
+      'récépissé de transport, bon de livraison signé), souvent photographiées, scannées ou en capture d\'écran ' +
+      '(capture d\'écran d\'une application de transport reçue par WhatsApp)',
     typeFlag: 'est_lettre_de_voiture',
     hints: [
       'transporteur = la société de transport qui a effectué le transport (et le chauffeur si indiqué).',
+      "Pour une capture d'écran, ignore l'interface autour du document (barre d'état, boutons, conversation) " +
+        "et ne lis que la lettre de voiture. Si la capture ne montre aucune lettre de voiture, mets " +
+        'est_lettre_de_voiture à false.',
       'prestations = les prestations réalisées listées sur le document (souvent « Prestation annexe »), avec ' +
         'leur quantité ou montant, séparées par « ; » (ex. « GV ILE DE FRANCE 38,00 ; MANUTENTION 1,00 »).',
     ],
