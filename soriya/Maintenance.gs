@@ -272,6 +272,7 @@ const SORIYA_BACKFILL = {
  */
 function soriyaBackfill_(started) {
   const props = PropertiesService.getScriptProperties();
+  if (!SORIYA_CONFIG.BACKFILL_ENABLED) return 0;
   if (props.getProperty('SORIYA_BACKFILL_DONE') === 'v1') return 0;
   if (!props.getProperty('CLAUDE_API_KEY')) return 0;
   let done = 0;

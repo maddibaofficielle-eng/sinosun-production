@@ -69,6 +69,10 @@ const SORIYA_CONFIG = {
   // Adresse publique de l'interface web (déploiement « Soriya interface web »).
   WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbw8NAz4kKY0k4aUc2VMTFNI3m_dn6LL3i1DhbCRUla1_RJUbkcQiSblA5mqUevj9qY-NA/exec',
 
+  // Complément des anciens documents (relecture des PDF archivés pour les nouvelles colonnes).
+  // false = en pause.
+  BACKFILL_ENABLED: false,
+
   // Marge de sécurité : Apps Script coupe une exécution à 6 minutes.
   MAX_RUNTIME_MS: 4 * 60 * 1000,
 };
