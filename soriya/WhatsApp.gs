@@ -132,6 +132,7 @@ function soriyaWhatsAppRun() {
         if (n) Logger.log('Complément des anciens documents : %s ligne(s).', n);
       } catch (e) {
         Logger.log('Complément des anciens documents : %s', e.message);
+        report.errors.push('Complément des anciens documents : ' + e.message);
       }
     }
   } catch (e) {

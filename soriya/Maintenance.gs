@@ -324,6 +324,7 @@ function soriyaBackfill_(started) {
     else props.setProperty(progressKey, String(row));
   });
   if (finished) props.setProperty('SORIYA_BACKFILL_DONE', 'v1');
+  if (failures >= 3) throw new Error(props.getProperty('SORIYA_BACKFILL_LAST_ERROR') + ' (' + done + ' ligne(s) complétée(s))');
   return done;
 }
 
