@@ -150,3 +150,53 @@ function soriyaWhatsAppOriginalName_(f) {
   const original = line('Fichier d\'origine') || f.getName();
   return 'WA_' + sender + '_' + Math.floor(received / 1000) + '_' + original;
 }
+
+// ---------- Mises à jour ponctuelles (exécutées une seule fois, automatiquement) ----------
+
+/** Appelé au début de chaque passage Mailing : applique les mises à jour pas encore faites. */
+function soriyaMigrations_() {
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('SORIYA_MIG_CONFIRMATION_NAMES') !== 'done') {
+    const n = renommerConfirmations();
+    props.setProperty('SORIYA_MIG_CONFIRMATION_NAMES', 'done');
+    Logger.log('Mise à jour : %s confirmation(s) renommée(s).', n);
+  }
+}
+
+/**
+ * Renomme toutes les confirmations déjà archivées au format 2026-09-09_Confirmation_affretement.pdf
+ * (_2, _3… en cas de même date dans le même dossier) et met à jour la colonne « Nom dans Drive » du journal.
+ * Peut être relancée sans risque.
+ */
+function renommerConfirmations() {
+  const root = soriyaRootFolder_('confirmation');
+  const label = soriyaDocType_('confirmation').fileName.label;
+  const pattern = new RegExp('^\\d{4}-\\d{2}-\\d{2}_' + label + '(_\\d+)?\\.pdf$');
+
+  // Lien Drive → ligne du journal, pour y reporter le nouveau nom.
+  const j = soriyaJournalSpreadsheet_(root, 'confirmation');
+  const nameCol = JOURNAL_BASE_HEADERS.indexOf('Nom dans Drive') + 1;
+  const urlCol = JOURNAL_BASE_HEADERS.indexOf('Lien Drive') + 1;
+  const rowsByUrl = {};
+  const last = j.main.getLastRow();
+  if (last > 1) {
+    j.main.getRange(2, urlCol, last - 1, 1).getValues().forEach(function (r, i) {
+      if (r[0]) rowsByUrl[String(r[0])] = i + 2;
+    });
+  }
+
+  let renamed = 0;
+  soriyaAllFiles_(root, true).filter(soriyaIsPdf_).forEach(function (f) {
+    if (pattern.test(f.getName())) return; // déjà au bon format
+    const m = /^(\d{4}-\d{2}-\d{2})/.exec(f.getName());
+    const day = m ? m[1] : Utilities.formatDate(f.getDateCreated(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    const parents = f.getParents();
+    const folder = parents.hasNext() ? parents.next() : root;
+    const name = soriyaUniqueName_(folder, day + '_' + label + '.pdf');
+    f.setName(name);
+    const row = rowsByUrl[f.getUrl()];
+    if (row) j.main.getRange(row, nameCol).setValue(name);
+    renamed++;
+  });
+  return renamed;
+}

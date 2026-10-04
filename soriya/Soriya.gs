@@ -25,6 +25,8 @@ const SORIYA_DOC_TYPES = {
     ],
     dateFields: ['date_chargement', 'date_confirmation'],
     nameFields: ['transporteur', 'numero_affretement'],
+    // Nom imposé : 2026-09-09_Confirmation_affretement.pdf (_2, _3… si le nom existe déjà).
+    fileName: { datePattern: 'yyyy-MM-dd', label: 'Confirmation_affretement' },
   },
   lettre_voiture: {
     label: 'lettre de voiture',

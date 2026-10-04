@@ -52,6 +52,7 @@ function soriyaRun() {
 
   try {
     soriyaEnsureTriggers_();
+    soriyaMigrations_();
     const root = soriyaRootFolder_('confirmation');
     soriyaEnsureStructure_(root);
     const journal = soriyaJournal_(root, 'confirmation');
@@ -119,7 +120,8 @@ function soriyaArchive_(msg, att, key, root, journal, aiEnabled) {
   }
 
   const c = soriyaClassify_(blob, 'Objet du mail : ' + msg.getSubject(), msg.getDate(), root, aiEnabled, 'confirmation');
-  const data = c.data, status = c.status, folder = c.folder, name = c.name;
+  const data = c.data, status = c.status, folder = c.folder;
+  const name = soriyaUniqueName_(folder, c.name);
   const file = folder.createFile(blob.setName(name));
   file.setDescription([
     'Archivé par Soriya depuis Gmail (' + SORIYA_CONFIG.GMAIL_LABEL + ').',
@@ -249,12 +251,14 @@ function soriyaSubFolder_(parent, path) {
 function soriyaFileName_(date, data, originalName, typeKey) {
   const t = soriyaDocType_(typeKey);
   if (t.fileName) {
-    // Ex. : 02-10-2026_Lettres_de_voiture_662518.pdf
+    // Ex. : 02-10-2026_Lettres_de_voiture_662518.pdf ou 2026-09-09_Confirmation_affretement.pdf
     const f = t.fileName;
+    const day = Utilities.formatDate(date, Session.getScriptTimeZone(), f.datePattern);
+    if (!f.numberField) return day + '_' + f.label + '.pdf';
     const number = String((data && data[f.numberField]) || originalName.replace(/\.pdf$/i, ''))
       .replace(/^\s*n(?:°|o\.?|º)\s*/i, '') // « N° 662 518 » → « 662 518 »
       .replace(/[^A-Za-z0-9-]+/g, '');
-    return [Utilities.formatDate(date, Session.getScriptTimeZone(), f.datePattern), f.label, number || 'sans-numero']
+    return [day, f.label, number || 'sans-numero']
       .join('_').slice(0, 150) + '.pdf';
   }
   const day = Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd');

@@ -144,3 +144,9 @@ https://script.google.com/home/usersettings (compte gfd.logistic).
 - **Rapport quotidien** : un seul e-mail par jour (18 h) au lieu d'un par passage.
 - **Passages toutes les 5 minutes**, Mailing et WhatsApp en parallèle ; les déclencheurs se
   recréent seuls après une mise à jour du code.
+
+## Noms des fichiers
+
+- Confirmations d'affrètement : `2026-09-09_Confirmation_affretement.pdf`
+- Lettres de voiture : `02-10-2026_Lettres_de_voiture_662518.pdf`
+- Même nom déjà présent dans le dossier : suffixe `_2`, `_3`…
