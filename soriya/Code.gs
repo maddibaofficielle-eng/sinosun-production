@@ -80,7 +80,7 @@ function soriyaRun() {
       let threadComplete = true;
 
       const messages = thread.getMessages();
-      for (let m = 0; m < messages.length; m++) {
+      for (let m = 0; m < messages.length && !timeUp; m++) {
         const msg = messages[m];
         const pdfs = soriyaPdfs_(msg);
         for (let a = 0; a < pdfs.length; a++) {
@@ -96,11 +96,13 @@ function soriyaRun() {
           } catch (e) {
             threadComplete = false; // pas inscrit au journal → nouvel essai au prochain passage
             report.errors.push(msg.getSubject() + ' / ' + att.getName() + ' : ' + e.message);
+            if (soriyaIsApiOutage_(e)) { timeUp = true; break; } // inutile d'insister : on s'arrête là
           }
         }
       }
       if (threadComplete) thread.addLabel(doneLabel);
       else allDone = false;
+      if (timeUp) break;
      }
     }
     // Tout l'historique demandé a été parcouru sans erreur : on mémorise le point de reprise.
@@ -168,6 +170,9 @@ function soriyaClassify_(blob, context, fallbackDate, root, aiEnabled, typeKey) 
     try {
       data = soriyaReadPdf(blob, context, typeKey);
     } catch (e) {
+      // Crédit épuisé, limite de débit ou API surchargée : on n'archive pas sans lecture,
+      // le document sera repris tel quel au prochain passage.
+      if (soriyaIsApiOutage_(e)) throw e;
       status = 'Archivé — lecture IA impossible : ' + e.message;
     }
   }
@@ -189,6 +194,11 @@ function soriyaClassify_(blob, context, fallbackDate, root, aiEnabled, typeKey) 
       Utilities.formatDate(refDate, Session.getScriptTimeZone(), 'MM'),
     ]);
   return { data: data, status: status, folder: folder, name: soriyaFileName_(refDate, data, blob.getName() || 'document.pdf', typeKey) };
+}
+
+/** Panne passagère de l'API Claude (crédit épuisé, limite de débit, surcharge) ? */
+function soriyaIsApiOutage_(e) {
+  return /credit balance|HTTP (429|5\d\d)|overloaded/i.test(String(e && e.message || e));
 }
 
 /** Colonnes extraites du Journal, puis confiance et remarques. */

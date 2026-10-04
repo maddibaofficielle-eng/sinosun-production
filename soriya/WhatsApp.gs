@@ -116,6 +116,7 @@ function soriyaWhatsAppRun() {
       } catch (e) {
         // Le fichier reste dans le dossier de dépôt → nouvel essai au prochain passage.
         report.errors.push(file.getName() + ' : ' + e.message);
+        if (soriyaIsApiOutage_(e)) break; // crédit épuisé / API indisponible : inutile d'insister
       }
     }
     pending = soriyaWhatsAppPdfs_(inbox).length;

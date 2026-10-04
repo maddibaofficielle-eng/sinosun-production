@@ -488,8 +488,14 @@ function soriyaRelireNonLus_(started, report) {
       if (!file.getSize()) continue; // fichier vide (réception WhatsApp incomplète) : rien à lire
       const received = rows[r][col('Reçu le')] instanceof Date ? rows[r][col('Reçu le')] : file.getDateCreated();
       const blob = file.getBlob().setName(String(rows[r][col('Fichier reçu')]) || file.getName());
-      const c = soriyaClassify_(blob, String(rows[r][col('Objet')]) + ' — ' + String(rows[r][col('Expéditeur')]),
-        received, root, true, typeKey);
+      let c;
+      try {
+        c = soriyaClassify_(blob, String(rows[r][col('Objet')]) + ' — ' + String(rows[r][col('Expéditeur')]),
+          received, root, true, typeKey);
+      } catch (e) {
+        report.errors.push('Reprise des documents non lus en pause : ' + e.message);
+        return done;
+      }
       if (!c.data) {
         // Crédit épuisé ou API indisponible : on réessaiera au prochain passage. Autre erreur : document suivant.
         if (/credit balance|HTTP (429|5\d\d)|overloaded/i.test(c.status)) {
