@@ -339,6 +339,9 @@ document.querySelectorAll("th[data-s]").forEach(th => th.addEventListener("click
   ui.dir = ui.sort === th.dataset.s ? -ui.dir : -1; ui.sort = th.dataset.s; renderTable();
 }));
 load();
+// Données rafraîchies automatiquement toutes les 5 minutes (rythme des passages de Soriya).
+setInterval(() => { if (!document.hidden) load(); }, 5 * 60 * 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
 </script>
 </body>
 </html>
