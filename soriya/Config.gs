@@ -5,6 +5,11 @@
 const SORIYA_CONFIG = {
   // Libellé (dossier) Gmail surveillé.
   GMAIL_LABEL: 'ecotime',
+  // Libellés Gmail supplémentaires lus comme des confirmations / commandes (nouveaux donneurs d'ordre).
+  // Appliquez le libellé « clients » aux mails de commande de vos nouveaux clients : Soriya les traite pareil.
+  EXTRA_GMAIL_LABELS: ['clients'],
+  // Objectif de diversification : part maximale du CA venant du premier donneur d'ordre.
+  MAX_SHARE_TOP_CLIENT: 0.8,
 
   // Libellé ajouté aux conversations traitées (repère visuel dans Gmail).
   PROCESSED_LABEL: 'ecotime/Archivé par Soriya',

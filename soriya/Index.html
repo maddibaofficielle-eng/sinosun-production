@@ -98,6 +98,35 @@
   .drv.none .bar i { background: var(--ink-3); }
   #caChart { width: 100%; height: 200px; position: relative; }
   #caChart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  /* Diversification clientèle */
+  .div-card { margin-top: 16px; }
+  .div-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; margin-top: 8px; }
+  .div-sub { color: var(--ink-2); font-size: 13px; margin: -6px 0 8px; }
+  .share { font-size: 44px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .share small { font-size: 14px; font-weight: 500; color: var(--ink-2); letter-spacing: 0; margin-left: 6px; }
+  .meter { position: relative; height: 12px; border-radius: 6px; background: var(--grid); margin: 14px 0 6px; }
+  .meter > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: var(--accent); }
+  .meter > b { position: absolute; top: -5px; bottom: -5px; width: 2px; background: var(--ink); }
+  .meter-lbl { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-2); }
+  .mini { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
+  .mini div { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+  .mini b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+  .mini span { font-size: 12px; color: var(--ink-2); }
+  .pipe { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .pipe span { font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; background: var(--surface-2); }
+  .pipe b { font-variant-numeric: tabular-nums; }
+  .prospects { display: grid; gap: 8px; }
+  .pr { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--surface-2);
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
+  .pr a { font-weight: 600; color: var(--ink); text-decoration: none; }
+  .pr a:hover { text-decoration: underline; }
+  .pr .why { grid-column: 1 / -1; font-size: 13px; color: var(--ink-2); }
+  .pr .nx { grid-column: 1 / -1; font-size: 12px; color: var(--ink-3); }
+  .badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .04em; }
+  .badge.fort { background: var(--good-bg); color: var(--good); }
+  .badge.moyen { background: var(--warn-bg); color: var(--warn); }
+  .badge.faible { background: var(--grid); color: var(--ink-2); }
+  @media (max-width: 900px) { .div-grid { grid-template-columns: 1fr; } }
   /* Camembert + prévisions */
   .duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
   .duo .card { margin: 0; }
@@ -189,6 +218,32 @@
     </div>
   </section>
 
+  <section class="card div-card" aria-labelledby="div-title">
+    <div class="card-head">
+      <h2 id="div-title" style="margin:0">Diversification clientèle</h2>
+      <span id="divPill"></span>
+    </div>
+    <div class="div-grid">
+      <div>
+        <p class="div-sub" id="divSub"></p>
+        <div class="share" id="divShare">—</div>
+        <div class="meter" id="divMeter"></div>
+        <div class="meter-lbl"><span>0 %</span><span id="divGoal"></span><span>100 %</span></div>
+        <div class="mini" id="divMini"></div>
+        <h3 style="font-size:13px;color:var(--ink-2);margin:0 0 6px">CA par donneur d'ordre (depuis janvier)</h3>
+        <div id="divClients"></div>
+      </div>
+      <div>
+        <div class="card-head" style="margin-bottom:8px">
+          <h3 style="font-size:13px;color:var(--ink-2);margin:0">Sociétés à prospecter</h3>
+          <a id="prosLink" class="meta" href="#">Mettre à jour les statuts ↗</a>
+        </div>
+        <div class="pipe" id="pipe"></div>
+        <div class="prospects" id="prospects"></div>
+      </div>
+    </div>
+  </section>
+
   <div class="duo">
     <section class="card" aria-labelledby="donut-title">
       <h2 id="donut-title">Documents archivés par mois</h2>
@@ -264,7 +319,7 @@ function load() {
 
 function render() {
   document.getElementById("sub").textContent = "Documents de transport Ecotime · mis à jour le " + DATA.generatedAt;
-  renderCards(); renderRevenue(); renderChart(); renderTips(); renderMonths(); renderTable();
+  renderCards(); renderRevenue(); renderDiversification(); renderChart(); renderTips(); renderMonths(); renderTable();
 }
 
 function renderCards() {
@@ -426,6 +481,63 @@ function renderCaChart(st) {
   });
 }
 
+/** « ECOTIME GROUP, 20 Rue … » → « ECOTIME » : un nom court par donneur d'ordre. */
+function normParty(p) {
+  return (String(p || "").split(/,| - /)[0] || "Non renseigné").trim().toUpperCase().replace(/\s+(GROUP|GROUPE|SAS|SARL|SA)$/, "") || "NON RENSEIGNÉ";
+}
+
+function renderDiversification() {
+  const st = caStats(), goal = DATA.maxShareTopClient || 0.8;
+  const sumBy = list => { const o = {}; list.forEach(d => { const k = normParty(d.party); o[k] = (o[k] || 0) + d.amount; }); return o; };
+  const ytd = sumBy(st.ytd), mtd = sumBy(st.mtd);
+  const totY = Object.values(ytd).reduce((a, b) => a + b, 0), totM = Object.values(mtd).reduce((a, b) => a + b, 0);
+  const clients = Object.keys(ytd).sort((a, b) => ytd[b] - ytd[a]);
+  const top = clients[0] || "—", share = totY ? ytd[top] / totY : 0;
+  const ok = share <= goal;
+  document.getElementById("divPill").innerHTML = ok
+    ? '<span class="pill ok">✔ Objectif atteint</span>'
+    : '<span class="pill bad">▲ Dépendance forte</span>';
+  document.getElementById("divSub").textContent = "Part du CA réalisée avec " + top + " depuis janvier · objectif : moins de " + Math.round(goal * 100) + " %";
+  document.getElementById("divShare").innerHTML = Math.round(share * 100) + " %<small>" + esc(top) + "</small>";
+  document.getElementById("divMeter").innerHTML = '<i style="width:' + Math.round(share * 100) + '%"></i><b style="left:' + Math.round(goal * 100) + '%" title="Objectif"></b>';
+  document.getElementById("divGoal").textContent = "objectif " + Math.round(goal * 100) + " %";
+  const otherM = totM - (mtd[top] || 0);
+  // Courses hors premier client à ajouter chaque jour ouvré pour atteindre l'objectif, à volume actuel constant.
+  const elapsed = st.now.getMonth() + st.day / st.dim;
+  const topM = (ytd[top] || 0) / elapsed, othersM = (totY - (ytd[top] || 0)) / elapsed;
+  const ticket = st.ytd.length ? totY / st.ytd.length : 63;
+  const needed = Math.max(0, topM * (1 - goal) / goal - othersM) / 21 / ticket;
+  document.getElementById("divMini").innerHTML =
+    "<div><b>" + clients.length + "</b><span>donneur(s) d'ordre</span></div>" +
+    "<div><b>" + EUR.format(otherM) + "</b><span>CA hors " + esc(top) + " ce mois</span></div>" +
+    "<div><b>" + (ok ? "—" : "≈ " + (needed < 1 ? needed.toFixed(1).replace(".", ",") : Math.round(needed)) + " / jour") + "</b><span>courses hors " + esc(top) + " à trouver</span></div>";
+  const max = Math.max(1, ...clients.map(c => ytd[c]));
+  document.getElementById("divClients").innerHTML = clients.slice(0, 6).map(c =>
+    '<div class="drv"><span class="n">' + esc(c) + '</span><span class="v">' + EUR.format(ytd[c]) + "</span>" +
+    "<small>" + Math.round(ytd[c] / (totY || 1) * 100) + " % du CA</small><small></small>" +
+    '<span class="bar"><i style="width:' + Math.max(2, Math.round(ytd[c] / max * 100)) + '%"></i></span></div>').join("") ||
+    '<div class="empty">Aucune course facturée.</div>';
+
+  // Prospection
+  const P = DATA.prospects || { list: [] };
+  document.getElementById("prosLink").href = P.url || "#";
+  const order = { "Fort": 0, "Moyen": 1, "Faible": 2 }, sOrder = { "Rendez-vous": 0, "Test en cours": 1, "Contacté": 2, "À contacter": 3, "Client": 4, "Pas intéressé": 5 };
+  const counts = {};
+  P.list.forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
+  document.getElementById("pipe").innerHTML = ["À contacter", "Contacté", "Rendez-vous", "Test en cours", "Client"].map(k =>
+    "<span>" + k + " <b>" + (counts[k] || 0) + "</b></span>").join("");
+  const list = P.list.filter(p => p.status !== "Pas intéressé").sort((a, b) =>
+    (sOrder[a.status] ?? 9) - (sOrder[b.status] ?? 9) || (order[a.potential] ?? 9) - (order[b.potential] ?? 9));
+  document.getElementById("prospects").innerHTML = list.length ? list.map(p =>
+    '<div class="pr"><span>' + (p.link ? '<a href="' + esc(p.link) + '">' + esc(p.name) + "</a>" : "<b>" + esc(p.name) + "</b>") +
+    ' <small style="color:var(--ink-2)">· ' + esc(p.type) + "</small></span>" +
+    '<span><span class="badge ' + esc((p.potential || "").toLowerCase()) + '">' + esc(p.potential || "?") + "</span> " +
+    '<span class="pill ' + (p.status === "Client" ? "ok" : p.status === "À contacter" ? "warn" : "ok") + '" style="font-size:12px">' + esc(p.status) + "</span></span>" +
+    '<span class="why">' + esc(p.why) + "</span>" +
+    (p.next ? '<span class="nx">➜ ' + esc(p.next) + (p.date ? " · " + esc(p.date) : "") + "</span>" : "") + "</div>").join("")
+    : '<div class="empty">' + esc(P.error || "Aucun prospect.") + "</div>";
+}
+
 /** Camembert (anneau) : 5 derniers mois + « Mois précédents » (6 parts au maximum, pour rester lisible). */
 function renderChart() {
   const box = document.getElementById("donut"), tip = document.getElementById("tip"), leg = document.getElementById("dleg");
@@ -526,10 +638,10 @@ function renderTips() {
   }
   // Dépendance client
   const parties = {};
-  st.ytd.forEach(d => { const p = ((d.party || "").split(/[,-]/)[0] || "?").trim().toUpperCase().replace(/\s+GROUP$/, ""); parties[p] = (parties[p] || 0) + d.amount; });
+  st.ytd.forEach(d => { const p = normParty(d.party); parties[p] = (parties[p] || 0) + d.amount; });
   const top = Object.keys(parties).sort((a, b) => parties[b] - parties[a])[0];
   const share = top ? parties[top] / st.ytd.reduce((t, d) => t + d.amount, 0) : 0;
-  if (share > 0.6) add("down", Math.round(share * 100) + " % du CA vient de " + top, "Forte dépendance à un seul donneur d'ordre : une baisse chez lui se répercute directement. Diversifiez la clientèle.");
+  if (share > 0.6) add("down", Math.round(share * 100) + " % du CA vient de " + top, "Forte dépendance à un seul donneur d'ordre : une baisse chez lui se répercute directement. Plan d'action dans la carte « Diversification clientèle » : bourses de fret et affréteurs à contacter cette semaine.");
   // Courses sans lettre de voiture (mois en cours)
   const ldvCovered = st.mtd.filter(d => d.driver).length;
   if (st.mtd.length) {

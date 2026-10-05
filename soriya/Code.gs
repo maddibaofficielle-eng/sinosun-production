@@ -57,6 +57,10 @@ function soriyaRun() {
     const root = soriyaRootFolder_('confirmation');
     soriyaEnsureStructure_(root);
     const journal = soriyaJournal_(root, 'confirmation');
+    // Libellés des nouveaux donneurs d'ordre : créés dans Gmail s'ils n'existent pas encore.
+    (SORIYA_CONFIG.EXTRA_GMAIL_LABELS || []).forEach(function (l) {
+      if (!GmailApp.getUserLabelByName(l)) GmailApp.createLabel(l);
+    });
     const doneLabel = GmailApp.getUserLabelByName(SORIYA_CONFIG.PROCESSED_LABEL) ||
       GmailApp.createLabel(SORIYA_CONFIG.PROCESSED_LABEL);
     const aiEnabled = !!PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY');
@@ -214,10 +218,11 @@ function soriyaFieldsRow_(data, typeKey) {
 
 function soriyaQuery_() {
   // Dans la recherche Gmail, espaces et "/" d'un libellé s'écrivent avec des tirets.
-  const label = SORIYA_CONFIG.GMAIL_LABEL.toLowerCase().replace(/[\s\/]+/g, '-');
+  const labels = [SORIYA_CONFIG.GMAIL_LABEL].concat(SORIYA_CONFIG.EXTRA_GMAIL_LABELS || [])
+    .map(function (l) { return 'label:' + l.toLowerCase().replace(/[\s\/]+/g, '-'); });
   // Après reinitialiserSoriya(), tout l'historique est relu pendant quelques heures.
   const props = PropertiesService.getScriptProperties();
-  const base = 'label:' + label + ' has:attachment filename:pdf ';
+  const base = (labels.length > 1 ? '{' + labels.join(' ') + '}' : labels[0]) + ' has:attachment filename:pdf ';
   const since = Math.floor(soriyaHistoryStart_().getTime() / 1000);
   if (props.getProperty('SORIYA_RESCAN_UNTIL')) return base + 'after:' + since; // relecture complète en cours
   // Après une relecture complète, seuls les mails récents sont relus (quota Gmail quotidien limité).

@@ -43,6 +43,10 @@ function soriyaWebData(k) {
       };
     }),
     docs: docs,
+    prospects: (function () {
+      try { return soriyaWebProspects_(); } catch (e) { return { url: '', list: [], error: e.message }; }
+    })(),
+    maxShareTopClient: SORIYA_CONFIG.MAX_SHARE_TOP_CLIENT || 0.8,
   };
 }
 
