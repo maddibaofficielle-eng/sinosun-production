@@ -227,6 +227,26 @@ function renommerConfirmations() {
 
 /** Appelé au début de chaque passage WhatsApp : applique les mises à jour pas encore faites. */
 function soriyaWhatsAppMigrations_() {
+  // Expéditeurs « +33… » enregistrés sans apostrophe : Sheets les affichait en #ERROR!.
+  const pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty('SORIYA_MIG_SENDER_TEXT') !== 'ok') {
+    const j = soriyaJournalSpreadsheet_(soriyaRootFolder_('lettre_voiture'), 'lettre_voiture');
+    [j.main, j.dup].forEach(function (sh) {
+      const n = sh.getLastRow() - 1;
+      if (n < 1) return;
+      const range = sh.getRange(2, 3, n, 1);
+      const formulas = range.getFormulas();
+      const values = range.getValues();
+      let changed = false;
+      const out = values.map(function (v, i) {
+        const m = /\+?(\d{8,15})\s*\(WhatsApp\)/.exec(formulas[i][0] || '');
+        if (m) { changed = true; return ["'+" + m[1] + ' (WhatsApp)']; }
+        return [formulas[i][0] ? formulas[i][0] : v[0]];
+      });
+      if (changed) range.setValues(out);
+    });
+    pr.setProperty('SORIYA_MIG_SENDER_TEXT', 'ok');
+  }
   const props = PropertiesService.getScriptProperties();
   if (props.getProperty('SORIYA_MIG_LDV_SENDERS') !== 'done') {
     const n = corrigerExpediteursWhatsApp();
@@ -252,7 +272,7 @@ function corrigerExpediteursWhatsApp() {
     values.forEach(function (r) {
       const info = soriyaWhatsAppParseName_(String(r[col('Fichier reçu') - 1]));
       if (!info) return;
-      r[col('Expéditeur') - 1] = '+' + info.sender + ' (WhatsApp)';
+      r[col('Expéditeur') - 1] = "'+" + info.sender + ' (WhatsApp)';
       if (info.date) r[col('Reçu le') - 1] = info.date;
       r[col('Fichier reçu') - 1] = info.originalName;
       fixed++;

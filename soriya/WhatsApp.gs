@@ -101,7 +101,7 @@ function soriyaWhatsAppRun() {
           // Ni lu ni archivé : mis de côté pour que vous décidiez.
           file.moveTo(soriyaSubFolder_(inbox, ['Expéditeur non autorisé']));
           journal.append([
-            new Date(), info ? info.date : file.getDateCreated(), info ? '+' + info.sender + ' (WhatsApp)' : 'inconnu',
+            new Date(), info ? info.date : file.getDateCreated(), info ? "'+" + info.sender + ' (WhatsApp)' : 'inconnu',
             'WhatsApp', file.getName(), file.getName(), file.getUrl(),
             'Mis de côté — expéditeur non autorisé (Soriya - Entrée WhatsApp / Expéditeur non autorisé)',
           ].concat(soriyaEmptyFields_('lettre_voiture'), ['wa:' + file.getId(), '']));
@@ -162,7 +162,8 @@ function soriyaWhatsAppArchive_(file, info, inbox, root, journal, aiEnabled) {
   const hash = soriyaSha256_(blob.getBytes());
   const sender = (info.sender === 'inconnu' ? 'inconnu' : '+' + info.sender) + ' (WhatsApp)';
   const received = info.date || file.getDateCreated();
-  const base = [new Date(), received, sender, 'WhatsApp', info.originalName];
+  // L'apostrophe force le texte : sinon Sheets lit « +33… » comme une formule (#ERROR!).
+  const base = [new Date(), received, "'" + sender, 'WhatsApp', info.originalName];
 
   // Même PDF déjà archivé : on ne le garde pas deux fois.
   if (journal.hashes.has(hash)) {
