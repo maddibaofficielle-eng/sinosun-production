@@ -504,9 +504,20 @@ function renderTips() {
   }
   // Jours les plus chargés
   const wd = [0, 0, 0, 0, 0, 0, 0];
-  st.S.forEach(d => { wd[new Date(d.date + "T12:00:00").getDay()] += d.amount; });
-  const best = wd.indexOf(Math.max(...wd)), worst = wd.slice(1, 6).indexOf(Math.min(...wd.slice(1, 6))) + 1;
-  if (st.S.length > 20) add("info", "Jour le plus rentable : le " + DAYS[best], "Prévoyez le maximum de chauffeurs disponibles ce jour-là ; le " + DAYS[worst] + " est le jour de semaine le plus calme (entretien, congés).");
+  // Les dates arrivent en « AAAA-MM-JJ » ou « AAAA-MM-JJ HH:mm » : on ne garde que le jour, à midi (pas d'effet de fuseau).
+  let dated = 0;
+  st.S.forEach(d => {
+    const p = d.date.slice(0, 10).split("-").map(Number), wday = new Date(p[0], p[1] - 1, p[2], 12).getDay();
+    if (!isNaN(wday)) { wd[wday] += d.amount; dated++; }
+  });
+  if (dated > 20) {
+    const week = [1, 2, 3, 4, 5]; // lundi → vendredi
+    const best = wd.indexOf(Math.max(...wd));
+    const worst = week.reduce((a, b) => wd[a] <= wd[b] ? a : b);
+    add("info", "Jour le plus rentable : le " + DAYS[best] + " (" + EUR.format(wd[best]) + " depuis janvier)",
+      "Prévoyez le maximum de chauffeurs disponibles ce jour-là ; le " + DAYS[worst] + " est le jour de semaine le plus calme (" +
+      EUR.format(wd[worst]) + ") : idéal pour l'entretien et les congés.");
+  }
   // Saisonnalité
   const ms = st.closed;
   if (ms.length >= 4) {
