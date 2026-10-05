@@ -10,6 +10,8 @@
     --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #7a7974;
     --accent: #2a78d6;
     --s-conf: #2a78d6; --s-ldv: #eb6834;
+    --ca-from: #1c5cab; --ca-to: #0d366b;
+    --m1: #b7d3f6; --m2: #86b6ef; --m3: #5598e7; --m4: #2a78d6; --m5: #184f95; --m-old: #c9c8c2;
     --good: #1a7f37; --good-bg: #e6f4ea; --warn: #9a6700; --warn-bg: #fff4d6; --bad: #c5221f; --bad-bg: #fce8e6;
   }
   @media (prefers-color-scheme: dark) {
@@ -18,6 +20,8 @@
       --bg: #121211; --surface: #1a1a19; --surface-2: #222220; --line: #33332f; --grid: #2a2a27;
       --ink: #ffffff; --ink-2: #c3c2b7; --ink-3: #8f8e86;
       --accent: #3987e5; --s-conf: #3987e5; --s-ldv: #d95926;
+      --ca-from: #184f95; --ca-to: #0d2a55;
+      --m1: #104281; --m2: #1c5cab; --m3: #3987e5; --m4: #6da7ec; --m5: #b7d3f6; --m-old: #5c5b56;
       --good: #6fcf8a; --good-bg: #16301e; --warn: #f0c060; --warn-bg: #362a0f; --bad: #ff8a80; --bad-bg: #3a1716;
     }
   }
@@ -64,6 +68,62 @@
   .meta a, td a { color: var(--accent); }
   .err { margin-top: 8px; font-size: 13px; color: var(--bad); background: var(--bad-bg); border-radius: 8px; padding: 8px 10px; }
   .chart-card { margin-top: 16px; }
+  /* Chiffre d'affaires */
+  .ca-card { margin-top: 16px; background: linear-gradient(135deg, var(--ca-from), var(--ca-to)); color: #fff; border: 0;
+    border-radius: 16px; padding: 20px; position: relative; overflow: hidden; }
+  .ca-card::after { content: ""; position: absolute; right: -60px; top: -60px; width: 220px; height: 220px; border-radius: 50%;
+    background: rgba(255,255,255,.08); pointer-events: none; }
+  .ca-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  .ca-card h2 { color: rgba(255,255,255,.85); font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin: 0; }
+  .ca-hero { font-size: 48px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
+  .ca-sub { color: rgba(255,255,255,.8); font-size: 13px; }
+  .ca-card .seg { border-color: rgba(255,255,255,.35); }
+  .ca-card .seg button { background: transparent; color: #fff; min-height: 34px; padding: 6px 12px; }
+  .ca-card .seg button[aria-pressed="true"] { background: #fff; color: var(--ca-to); font-weight: 600; }
+  .ca-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
+  .ca-kpi { background: rgba(255,255,255,.12); border-radius: 12px; padding: 10px 12px; }
+  .ca-kpi b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .ca-kpi span { font-size: 12px; color: rgba(255,255,255,.82); }
+  .ca-kpi em { font-style: normal; font-size: 12px; font-weight: 600; }
+  .ca-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+  .ca-panel { background: var(--surface); color: var(--ink); border-radius: 12px; padding: 14px; }
+  .ca-panel h3 { font-size: 13px; margin: 0 0 10px; color: var(--ink-2); font-weight: 600; }
+  .drv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 6px 0; border-bottom: 1px solid var(--grid); }
+  .drv:last-child { border-bottom: 0; }
+  .drv .n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .drv .v { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; }
+  .drv small { color: var(--ink-2); font-size: 12px; }
+  .drv .bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; margin-top: 4px; }
+  .drv .bar i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+  .drv.none .bar i { background: var(--ink-3); }
+  #caChart { width: 100%; height: 200px; position: relative; }
+  #caChart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  /* Camembert + prévisions */
+  .duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+  .duo .card { margin: 0; }
+  .donut-wrap { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+  #donut { width: 220px; height: 220px; position: relative; flex: none; }
+  #donut svg { width: 100%; height: 100%; display: block; }
+  .dleg { flex: 1 1 200px; display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .dleg li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; font-size: 14px;
+    cursor: pointer; border-radius: 6px; padding: 3px 4px; }
+  .dleg li:hover, .dleg li.on { background: var(--surface-2); }
+  .dleg i { width: 12px; height: 12px; border-radius: 3px; }
+  .dleg b { font-variant-numeric: tabular-nums; }
+  .dleg small { color: var(--ink-2); font-variant-numeric: tabular-nums; min-width: 40px; text-align: right; }
+  .tips { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .tips li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: start; font-size: 14px; }
+  .tips .ic { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 15px; }
+  .tips .ic.up { background: var(--good-bg); color: var(--good); }
+  .tips .ic.down { background: var(--bad-bg); color: var(--bad); }
+  .tips .ic.info { background: var(--warn-bg); color: var(--warn); }
+  .tips b { display: block; }
+  .tips span { color: var(--ink-2); }
+  @media (max-width: 900px) {
+    .ca-body, .duo { grid-template-columns: 1fr; }
+    .ca-kpis { grid-template-columns: repeat(2, 1fr); }
+    .ca-hero { font-size: 38px; }
+  }
   .legend { display: flex; gap: 16px; font-size: 13px; color: var(--ink-2); margin-bottom: 6px; flex-wrap: wrap; }
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
   #chart { width: 100%; height: 240px; position: relative; }
@@ -104,14 +164,44 @@
 
   <section class="grid" id="cards" aria-label="Activités"></section>
 
-  <section class="card chart-card" aria-labelledby="chart-title">
-    <h2 id="chart-title">Documents archivés par mois</h2>
-    <div class="legend">
-      <span><i class="dot" style="background:var(--s-conf)"></i>Confirmations d'affrètement</span>
-      <span><i class="dot" style="background:var(--s-ldv)"></i>Lettres de voiture</span>
+  <section class="ca-card" aria-labelledby="ca-title">
+    <div class="ca-top">
+      <div>
+        <h2 id="ca-title">Chiffre d'affaires HT</h2>
+        <div class="ca-hero" id="caHero">—</div>
+        <div class="ca-sub" id="caSub">Calculé sur les confirmations d'affrètement archivées</div>
+      </div>
+      <div class="seg" id="caSeg" role="group" aria-label="Période">
+        <button type="button" data-v="month" aria-pressed="true">Ce mois</button>
+        <button type="button" data-v="year" aria-pressed="false">Depuis janvier</button>
+      </div>
     </div>
-    <div id="chart"><div class="tip" id="tip"></div></div>
+    <div class="ca-kpis" id="caKpis"></div>
+    <div class="ca-body">
+      <div class="ca-panel">
+        <h3>Chiffre d'affaires par chauffeur</h3>
+        <div id="caDrivers"></div>
+      </div>
+      <div class="ca-panel">
+        <h3>Évolution mensuelle <small style="font-weight:400">(barre claire = projection du mois en cours)</small></h3>
+        <div id="caChart"><div class="tip" id="caTip"></div></div>
+      </div>
+    </div>
   </section>
+
+  <div class="duo">
+    <section class="card" aria-labelledby="donut-title">
+      <h2 id="donut-title">Documents archivés par mois</h2>
+      <div class="donut-wrap">
+        <div id="donut"><div class="tip" id="tip"></div></div>
+        <ul class="dleg" id="dleg"></ul>
+      </div>
+    </section>
+    <section class="card" aria-labelledby="tips-title">
+      <h2 id="tips-title">Prévisions &amp; conseils</h2>
+      <ul class="tips" id="tips"></ul>
+    </section>
+  </div>
 
   <div class="filters" role="search">
     <div class="seg" id="typeSeg" role="group" aria-label="Type de document">
@@ -174,7 +264,7 @@ function load() {
 
 function render() {
   document.getElementById("sub").textContent = "Documents de transport Ecotime · mis à jour le " + DATA.generatedAt;
-  renderCards(); renderChart(); renderMonths(); renderTable();
+  renderCards(); renderRevenue(); renderChart(); renderTips(); renderMonths(); renderTable();
 }
 
 function renderCards() {
@@ -224,59 +314,221 @@ function carriersBlock(docs, thisMonth) {
 }
 const kpi = (n, l) => '<div class="kpi"><b>' + esc(n) + "</b><span>" + esc(l) + "</span></div>";
 
+const EUR = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+const EUR2 = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
+const pct = v => (v > 0 ? "+" : "") + Math.round(v * 100) + " %";
+const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+let caPeriod = "month";
+
+/** Courses facturables : confirmations archivées avec un montant (listings, factures « À vérifier » exclus). */
+function sales() {
+  return DATA.docs.filter(d => d.type === "conf" && d.status.indexOf("Archivé") === 0 && d.amount > 0 && /^\d{4}-\d{2}-\d{2}/.test(d.date));
+}
+function monthKey(dt) { return dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0"); }
+
+function caStats() {
+  const now = new Date(), thisMonth = monthKey(now), year = String(now.getFullYear());
+  const day = now.getDate(), dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1), prevMonth = monthKey(prev);
+  const S = sales();
+  const byMonth = {};
+  S.forEach(d => { const m = d.date.slice(0, 7); (byMonth[m] = byMonth[m] || { ca: 0, n: 0 }); byMonth[m].ca += d.amount; byMonth[m].n++; });
+  const sum = arr => arr.reduce((t, d) => t + d.amount, 0);
+  const mtd = S.filter(d => d.date.slice(0, 7) === thisMonth);
+  const prevSame = S.filter(d => d.date.slice(0, 7) === prevMonth && +d.date.slice(8, 10) <= day);
+  const ytd = S.filter(d => d.date.slice(0, 4) === year);
+  // Mois complets et représentatifs (au moins 10 courses) : le début de l'historique ne fausse pas les moyennes.
+  const closed = Object.keys(byMonth).filter(m => m < thisMonth && byMonth[m].n >= 10).sort();
+  const last3 = closed.slice(-3), prev3 = closed.slice(-6, -3);
+  const avg = ms => ms.length ? ms.reduce((t, m) => t + byMonth[m].ca, 0) / ms.length : 0;
+  const caMtd = sum(mtd);
+  return {
+    now, thisMonth, prevMonth, day, dim, byMonth, S, mtd, ytd,
+    caMtd, caYtd: sum(ytd), caPrevSame: sum(prevSame), caPrevFull: byMonth[prevMonth] ? byMonth[prevMonth].ca : 0,
+    projection: day ? caMtd / day * dim : 0,
+    avg3: avg(last3), avgPrev3: avg(prev3), last3, prev3, closed,
+  };
+}
+
+function renderRevenue() {
+  const st = caStats();
+  const list = caPeriod === "month" ? st.mtd : st.ytd;
+  const total = list.reduce((t, d) => t + d.amount, 0);
+  document.getElementById("caHero").textContent = EUR.format(total);
+  document.getElementById("caSub").textContent = (caPeriod === "month"
+    ? "Du 1er au " + st.day + " " + MONTHS[st.now.getMonth()].replace(".", "") + " " + st.now.getFullYear()
+    : "Du 1er janvier à aujourd'hui") + " · " + list.length + " course(s) facturée(s) · mis à jour en continu";
+  const growth = st.caPrevSame ? st.caMtd / st.caPrevSame - 1 : null;
+  const avgTicket = list.length ? total / list.length : 0;
+  const vsAvg = st.avg3 ? st.projection / st.avg3 - 1 : null;
+  const tone = v => v == null ? "" : '<em style="color:' + (v >= 0 ? "#bff0cd" : "#ffd0cc") + '">' + (v >= 0 ? "▲ " : "▼ ") + pct(v) + "</em>";
+  document.getElementById("caKpis").innerHTML =
+    caKpi(EUR.format(st.projection), "Projection fin de mois", tone(vsAvg) + (vsAvg == null ? "" : " vs moy. 3 mois")) +
+    caKpi(growth == null ? "—" : pct(growth), "vs même période mois dernier", '<span>' + EUR.format(st.caPrevSame) + " au " + st.day + "</span>") +
+    caKpi(EUR2.format(avgTicket), "Panier moyen par course", "") +
+    caKpi(String(list.length), "Courses facturées", "<span>" + (st.day ? (st.mtd.length / st.day).toFixed(1).replace(".", ",") : "0") + " / jour ce mois</span>");
+
+  // Par chauffeur (lettre de voiture rapprochée avec le même numéro)
+  const by = {};
+  list.forEach(d => { const k = d.driver || ""; (by[k] = by[k] || { ca: 0, n: 0 }); by[k].ca += d.amount; by[k].n++; });
+  const rows = Object.keys(by).map(k => ({ name: k, ...by[k] })).sort((a, b) => (a.name === "") - (b.name === "") || b.ca - a.ca);
+  const max = Math.max(1, ...rows.map(r => r.ca));
+  document.getElementById("caDrivers").innerHTML = rows.length ? rows.map(r =>
+    '<div class="drv' + (r.name ? "" : " none") + '"><span class="n">' + esc(r.name || "Sans lettre de voiture rapprochée") + "</span>" +
+    '<span class="v">' + EUR.format(r.ca) + "</span>" +
+    "<small>" + r.n + " course(s) · " + Math.round(r.ca / (total || 1) * 100) + " % du CA · " + EUR.format(r.ca / r.n) + " / course</small><small></small>" +
+    '<span class="bar"><i style="width:' + Math.max(2, Math.round(r.ca / max * 100)) + '%"></i></span></div>').join("")
+    : '<div class="empty">Aucune course facturée sur la période.</div>';
+  renderCaChart(st);
+}
+const caKpi = (v, l, extra) => '<div class="ca-kpi"><b>' + esc(v) + "</b><span>" + esc(l) + "</span>" + (extra ? '<div style="font-size:12px">' + extra + "</div>" : "") + "</div>";
+
+function renderCaChart(st) {
+  const box = document.getElementById("caChart"), tip = document.getElementById("caTip");
+  const months = Object.keys(st.byMonth).filter(m => m <= st.thisMonth).sort().slice(-12);
+  if (months.indexOf(st.thisMonth) < 0) months.push(st.thisMonth);
+  const W = Math.max(280, box.clientWidth || 600), H = 200, L = 44, B = 24, T = 8;
+  const val = m => st.byMonth[m] ? st.byMonth[m].ca : 0;
+  const max = Math.max(1, ...months.map(val), st.projection);
+  const step = Math.pow(10, Math.floor(Math.log10(max))), nice = Math.ceil(max / step) * step;
+  const y = v => T + (H - T - B) * (1 - v / nice);
+  const band = (W - L) / months.length, bw = Math.min(30, band * 0.55);
+  let svg = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Chiffre d\'affaires par mois">';
+  for (let i = 0; i <= 4; i++) {
+    const v = nice * i / 4, yy = y(v);
+    svg += '<line x1="' + L + '" x2="' + W + '" y1="' + yy + '" y2="' + yy + '" stroke="var(--grid)"/>' +
+      '<text x="' + (L - 6) + '" y="' + (yy + 4) + '" text-anchor="end" font-size="10" fill="var(--ink-3)">' + (v >= 1000 ? Math.round(v / 1000) + " k" : Math.round(v)) + "</text>";
+  }
+  const bar = (x, v, fill, extra) => {
+    const yy = y(v), r = Math.min(4, (H - B - yy) / 2);
+    return '<path d="M' + x + "," + (H - B) + "V" + (yy + r) + "Q" + x + "," + yy + " " + (x + r) + "," + yy + "H" + (x + bw - r) +
+      "Q" + (x + bw) + "," + yy + " " + (x + bw) + "," + (yy + r) + "V" + (H - B) + 'Z" fill="' + fill + '"' + (extra || "") + "/>";
+  };
+  months.forEach((m, i) => {
+    const x = L + band * i + (band - bw) / 2;
+    if (m === st.thisMonth && st.projection > val(m)) svg += bar(x, st.projection, "var(--accent)", ' opacity="0.25"');
+    if (val(m)) svg += bar(x, val(m), "var(--accent)");
+    svg += '<text x="' + (x + bw / 2) + '" y="' + (H - 7) + '" text-anchor="middle" font-size="10" fill="var(--ink-2)">' + MONTHS[+m.slice(5) - 1] + "</text>" +
+      '<rect x="' + (L + band * i) + '" y="0" width="' + band + '" height="' + H + '" fill="transparent" data-m="' + m + '"/>';
+  });
+  box.innerHTML = svg + "</svg>";
+  box.appendChild(tip);
+  box.querySelectorAll("rect[data-m]").forEach(r => {
+    r.addEventListener("mousemove", ev => {
+      const m = r.dataset.m, c = st.byMonth[m] || { ca: 0, n: 0 }, rect = box.getBoundingClientRect();
+      tip.innerHTML = "<b>" + monthLabel(m) + "</b><br>CA : " + EUR.format(c.ca) + " · " + c.n + " course(s)" +
+        (m === st.thisMonth ? "<br>Projection : " + EUR.format(st.projection) : "");
+      tip.style.display = "block";
+      tip.style.left = Math.min(ev.clientX - rect.left + 12, rect.width - tip.offsetWidth - 4) + "px";
+      tip.style.top = Math.max(0, ev.clientY - rect.top - 50) + "px";
+    });
+    r.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+  });
+}
+
+/** Camembert (anneau) : 5 derniers mois + « Mois précédents » (6 parts au maximum, pour rester lisible). */
 function renderChart() {
-  const box = document.getElementById("chart");
-  const tip = document.getElementById("tip");
+  const box = document.getElementById("donut"), tip = document.getElementById("tip"), leg = document.getElementById("dleg");
   const counts = {};
   DATA.docs.forEach(d => {
     const m = (d.date || "").slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(m)) return;
-    counts[m] = counts[m] || { conf: 0, ldv: 0 };
-    counts[m][d.type]++;
+    (counts[m] = counts[m] || { conf: 0, ldv: 0 })[d.type]++;
   });
-  const months = Object.keys(counts).sort().slice(-12);
-  if (!months.length) { box.innerHTML = '<div class="empty">Aucun document pour l\'instant.</div>'; return; }
-  const W = Math.max(300, box.clientWidth || 1000), H = 240, L = 32, B = 28, T = 10;
-  const max = Math.max(1, ...months.map(m => Math.max(counts[m].conf, counts[m].ldv)));
-  const step = Math.pow(10, Math.floor(Math.log10(max)));
-  const nice = Math.ceil(max / step) * step;
-  const y = v => T + (H - T - B) * (1 - v / nice);
-  const band = (W - L) / months.length;
-  const bw = Math.min(28, band * 0.32);
-  let svg = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Documents archivés par mois">';
-  for (let i = 0; i <= 4; i++) {
-    const v = Math.round(nice * i / 4), yy = y(v);
-    svg += '<line x1="' + L + '" x2="' + W + '" y1="' + yy + '" y2="' + yy + '" stroke="var(--grid)" stroke-width="1" vector-effect="non-scaling-stroke"/>' +
-      '<text x="' + (L - 6) + '" y="' + (yy + 4) + '" text-anchor="end" font-size="11" fill="var(--ink-3)">' + v + "</text>";
-  }
-  months.forEach((m, i) => {
-    const cx = L + band * i + band / 2;
-    [["conf", -1], ["ldv", 1]].forEach(([k, side]) => {
-      const v = counts[m][k];
-      if (!v) return;
-      const x = cx + side * (bw / 2 + 1) - bw / 2, yy = y(v), h = (H - B) - yy;
-      svg += '<path d="M' + x + "," + (H - B) + "V" + (yy + 4) + "Q" + x + "," + yy + " " + (x + 4) + "," + yy + "H" + (x + bw - 4) +
-        "Q" + (x + bw) + "," + yy + " " + (x + bw) + "," + (yy + 4) + "V" + (H - B) + 'Z" fill="' + TYPES[k].color + '"/>';
-    });
-    svg += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" fill="var(--ink-2)">' + monthLabel(m) + "</text>" +
-      '<rect x="' + (L + band * i) + '" y="0" width="' + band + '" height="' + H + '" fill="transparent" data-m="' + m + '" style="cursor:pointer"/>';
+  const months = Object.keys(counts).sort();
+  if (!months.length) { leg.innerHTML = ""; box.innerHTML = '<div class="empty">Aucun document.</div>'; return; }
+  const recent = months.slice(-5), older = months.slice(0, -5);
+  const parts = older.length ? [{ key: "old", label: "Mois précédents (" + older.length + ")", conf: 0, ldv: 0, color: "var(--m-old)", months: older }] : [];
+  older.forEach(m => { parts[0].conf += counts[m].conf; parts[0].ldv += counts[m].ldv; });
+  const ramp = ["var(--m1)", "var(--m2)", "var(--m3)", "var(--m4)", "var(--m5)"].slice(-recent.length);
+  recent.forEach((m, i) => parts.push({ key: m, label: monthLabel(m), conf: counts[m].conf, ldv: counts[m].ldv, color: ramp[i], months: [m] }));
+  const total = parts.reduce((t, p) => t + p.conf + p.ldv, 0);
+  const R = 100, r = 64, C = 110;
+  let a0 = -Math.PI / 2, svg = '<svg viewBox="0 0 220 220" role="img" aria-label="Répartition des documents par mois">';
+  parts.forEach((p, i) => {
+    const v = p.conf + p.ldv, a1 = a0 + v / total * Math.PI * 2, gap = parts.length > 1 ? 0.012 : 0;
+    const s = a0 + gap, e = Math.max(s + 0.001, a1 - gap), large = e - s > Math.PI ? 1 : 0;
+    const P = (rad, a) => (C + rad * Math.cos(a)).toFixed(2) + "," + (C + rad * Math.sin(a)).toFixed(2);
+    svg += parts.length === 1
+      ? '<circle cx="110" cy="110" r="82" fill="none" stroke="' + p.color + '" stroke-width="36" data-i="0"/>'
+      : '<path d="M' + P(R, s) + "A" + R + "," + R + " 0 " + large + " 1 " + P(R, e) + "L" + P(r, e) + "A" + r + "," + r + " 0 " + large + " 0 " + P(r, s) +
+        'Z" fill="' + p.color + '" data-i="' + i + '" style="cursor:pointer"/>';
+    a0 = a1;
   });
-  svg += "</svg>";
+  svg += '<text x="110" y="106" text-anchor="middle" font-size="30" font-weight="700" fill="var(--ink)">' + total + "</text>" +
+    '<text x="110" y="128" text-anchor="middle" font-size="12" fill="var(--ink-2)">documents</text></svg>';
   box.innerHTML = svg;
   box.appendChild(tip);
-  box.querySelectorAll("rect[data-m]").forEach(r => {
-    r.addEventListener("mousemove", ev => {
-      const m = r.dataset.m, c = counts[m], rect = box.getBoundingClientRect();
-      tip.innerHTML = "<b>" + monthLabel(m) + "</b><br>" +
-        '<i class="dot" style="background:var(--s-conf)"></i> Confirmations : ' + c.conf + "<br>" +
-        '<i class="dot" style="background:var(--s-ldv)"></i> Lettres de voiture : ' + c.ldv;
-      tip.style.display = "block";
-      const left = Math.min(ev.clientX - rect.left + 12, rect.width - tip.offsetWidth - 4);
-      tip.style.left = left + "px"; tip.style.top = Math.max(0, ev.clientY - rect.top - 40) + "px";
-    });
-    r.addEventListener("mouseleave", () => { tip.style.display = "none"; });
-    r.addEventListener("click", () => { ui.month = r.dataset.m; document.getElementById("month").value = ui.month; renderTable(); });
+  leg.innerHTML = parts.slice().reverse().map(p => {
+    const i = parts.indexOf(p), v = p.conf + p.ldv;
+    return '<li data-i="' + i + '"><i style="background:' + p.color + '"></i><span>' + esc(p.label) + "</span><b>" + v + "</b><small>" + Math.round(v / total * 100) + " %</small></li>";
+  }).join("");
+  const show = (i, ev) => {
+    const p = parts[i], rect = box.getBoundingClientRect();
+    tip.innerHTML = "<b>" + esc(p.label) + "</b><br>" +
+      '<i class="dot" style="background:var(--s-conf)"></i> Confirmations : ' + p.conf + "<br>" +
+      '<i class="dot" style="background:var(--s-ldv)"></i> Lettres de voiture : ' + p.ldv;
+    tip.style.display = "block";
+    tip.style.left = (ev ? Math.min(ev.clientX - rect.left + 12, rect.width - 20) : 120) + "px";
+    tip.style.top = (ev ? Math.max(0, ev.clientY - rect.top - 40) : 10) + "px";
+    leg.querySelectorAll("li").forEach(li => li.classList.toggle("on", +li.dataset.i === i));
+  };
+  const hide = () => { tip.style.display = "none"; leg.querySelectorAll("li").forEach(li => li.classList.remove("on")); };
+  const pick = i => { const p = parts[i]; ui.month = p.months.length === 1 ? p.months[0] : ""; document.getElementById("month").value = ui.month; renderTable(); };
+  box.querySelectorAll("[data-i]").forEach(el => {
+    el.addEventListener("mousemove", ev => show(+el.dataset.i, ev));
+    el.addEventListener("mouseleave", hide);
+    el.addEventListener("click", () => pick(+el.dataset.i));
   });
+  leg.querySelectorAll("li").forEach(li => {
+    li.addEventListener("mouseenter", () => show(+li.dataset.i));
+    li.addEventListener("mouseleave", hide);
+    li.addEventListener("click", () => pick(+li.dataset.i));
+  });
+}
+
+/** Prévisions et conseils, calculés à partir des courses facturées et des lettres de voiture. */
+function renderTips() {
+  const st = caStats(), tips = [];
+  const add = (kind, title, text) => tips.push('<li><span class="ic ' + kind + '">' + ({ up: "▲", down: "▼", info: "●" })[kind] + "</span><div><b>" + esc(title) + "</b><span>" + esc(text) + "</span></div></li>");
+  if (st.avg3) {
+    const v = st.projection / st.avg3 - 1;
+    if (st.day < 7) add("info", "Début de mois : projection encore fragile", "Au rythme actuel, le mois finirait vers " + EUR.format(st.projection) + " (moyenne des 3 derniers mois : " + EUR.format(st.avg3) + "). À confirmer après le 10.");
+    else if (v >= 0.05) add("up", "Mois en hausse : " + pct(v) + " vs la moyenne", "Projection " + EUR.format(st.projection) + ". Sécurisez des chauffeurs et véhicules supplémentaires pour absorber la charge sans refuser de courses.");
+    else if (v <= -0.05) add("down", "Mois en baisse : " + pct(v) + " vs la moyenne", "Projection " + EUR.format(st.projection) + " contre " + EUR.format(st.avg3) + " en moyenne. Relancez Ecotime et prospectez d'autres donneurs d'ordre dès maintenant.");
+    else add("info", "Activité stable", "Projection " + EUR.format(st.projection) + ", dans la moyenne des 3 derniers mois (" + EUR.format(st.avg3) + ").");
+  }
+  if (st.avgPrev3 && st.avg3) {
+    const t = st.avg3 / st.avgPrev3 - 1;
+    add(t >= 0 ? "up" : "down", "Tendance de fond : " + pct(t), "Moyenne des 3 derniers mois (" + EUR.format(st.avg3) + ") comparée aux 3 mois d'avant (" + EUR.format(st.avgPrev3) + ").");
+  }
+  // Jours les plus chargés
+  const wd = [0, 0, 0, 0, 0, 0, 0];
+  st.S.forEach(d => { wd[new Date(d.date + "T12:00:00").getDay()] += d.amount; });
+  const best = wd.indexOf(Math.max(...wd)), worst = wd.slice(1, 6).indexOf(Math.min(...wd.slice(1, 6))) + 1;
+  if (st.S.length > 20) add("info", "Jour le plus rentable : le " + DAYS[best], "Prévoyez le maximum de chauffeurs disponibles ce jour-là ; le " + DAYS[worst] + " est le jour de semaine le plus calme (entretien, congés).");
+  // Saisonnalité
+  const ms = st.closed;
+  if (ms.length >= 4) {
+    const hi = ms.reduce((a, b) => st.byMonth[a].ca >= st.byMonth[b].ca ? a : b), lo = ms.reduce((a, b) => st.byMonth[a].ca <= st.byMonth[b].ca ? a : b);
+    add("info", "Meilleur mois : " + monthLabel(hi) + " (" + EUR.format(st.byMonth[hi].ca) + ")", "Mois le plus faible : " + monthLabel(lo) + " (" + EUR.format(st.byMonth[lo].ca) + "). Anticipez ces creux : trésorerie, congés, prospection.");
+  }
+  // Dépendance client
+  const parties = {};
+  st.ytd.forEach(d => { const p = ((d.party || "").split(/[,-]/)[0] || "?").trim().toUpperCase().replace(/\s+GROUP$/, ""); parties[p] = (parties[p] || 0) + d.amount; });
+  const top = Object.keys(parties).sort((a, b) => parties[b] - parties[a])[0];
+  const share = top ? parties[top] / st.ytd.reduce((t, d) => t + d.amount, 0) : 0;
+  if (share > 0.6) add("down", Math.round(share * 100) + " % du CA vient de " + top, "Forte dépendance à un seul donneur d'ordre : une baisse chez lui se répercute directement. Diversifiez la clientèle.");
+  // Courses sans lettre de voiture (mois en cours)
+  const ldvCovered = st.mtd.filter(d => d.driver).length;
+  if (st.mtd.length) {
+    const miss = st.mtd.length - ldvCovered;
+    if (miss > 0) add("info", miss + " course(s) du mois sans lettre de voiture reçue", "Demandez aux chauffeurs d'envoyer la lettre signée au 06 52 13 53 08 : c'est la preuve de livraison en cas de litige ou de retard de paiement.");
+  }
+  // Attentes facturées
+  const waits = st.ytd.filter(d => d.waiting && d.waiting !== "—").length;
+  add("info", waits + " attente(s) facturée(s) depuis janvier", "Notez systématiquement les heures d'arrivée et de départ sur la lettre de voiture pour facturer toutes les attentes.");
+  document.getElementById("tips").innerHTML = tips.join("") || '<li class="empty">Pas encore assez de données.</li>';
 }
 
 function renderMonths() {
@@ -316,7 +568,12 @@ function renderTable() {
 
 document.getElementById("refresh").addEventListener("click", load);
 let resizeT;
-window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (DATA) renderChart(); }, 150); });
+window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (DATA) renderRevenue(); }, 150); });
+document.querySelectorAll("#caSeg button").forEach(b => b.addEventListener("click", () => {
+  caPeriod = b.dataset.v;
+  document.querySelectorAll("#caSeg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  renderRevenue();
+}));
 document.querySelectorAll("#typeSeg button").forEach(b => b.addEventListener("click", () => {
   ui.type = b.dataset.v;
   document.querySelectorAll("#typeSeg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));

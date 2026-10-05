@@ -77,6 +77,9 @@ function soriyaWebDocs_(typeKey) {
       carrier: v(r, 'Transporteur'),
       goods: v(r, 'Marchandise'),
       price: ldv ? '' : [v(r, 'Montant HT') || v(r, 'Prix HT'), v(r, 'Devise')].join(' ').trim(),
+      // Montant HT en nombre (chiffre d'affaires) et chauffeur (lettre de voiture rapprochée : « GFD LOGISTIC / CHEICK »).
+      amount: ldv ? 0 : (parseFloat(String(v(r, 'Montant HT') || v(r, 'Prix HT')).replace(/\s/g, '').replace(',', '.')) || 0),
+      driver: soriyaDriverName_(v(r, 'Transporteur')),
       waiting: ldv ? '' : v(r, 'Attente'),
       services: v(r, 'Prestations réalisées'),
       reserves: ldv ? v(r, 'Réserves à la livraison') : '',
@@ -87,6 +90,14 @@ function soriyaWebDocs_(typeKey) {
       remarks: v(r, 'Remarques'),
     };
   });
+}
+
+/** « GFD LOGISTIC / CHEICK » → « CHEICK » ; vide ou « Aucune lettre de voiture » → ''. */
+function soriyaDriverName_(carrier) {
+  const c = String(carrier || '').trim();
+  if (!c || /^aucune lettre/i.test(c) || /^lettre de voiture trouvée/i.test(c)) return '';
+  const parts = c.split('/');
+  return (parts.length > 1 ? parts[parts.length - 1] : c).trim().toUpperCase();
 }
 
 // ---------- Lien privé ----------
