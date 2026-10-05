@@ -2,7 +2,8 @@
  * Soriya — interface web à accès par compte Google (sans clé dans l'adresse).
  *
  * Projet séparé et minimal : il s'exécute avec le compte Google du visiteur et ne demande que
- * la lecture des feuilles de calcul. Le visiteur ne voit donc que si les journaux Soriya sont
+ * la lecture des feuilles de calcul (API Sheets en lecture seule ; SpreadsheetApp.openById exigerait
+ * l'accès complet en modification). Le visiteur ne voit donc que si les journaux Soriya sont
  * partagés avec lui (gfd.logistic en est propriétaire, diabymohamed85 y a accès en lecture).
  * Les données sont lues en direct dans les journaux, le tableau de bord et la liste des prospects.
  */
@@ -18,14 +19,16 @@ const SORIYA_WEB = {
 
 function doGet() {
   try {
-    SpreadsheetApp.openById(SORIYA_WEB.CONF_JOURNAL_ID); // le visiteur a-t-il accès aux journaux ?
+    Sheets.Spreadsheets.get(SORIYA_WEB.CONF_JOURNAL_ID, { fields: 'spreadsheetId' }); // accès aux journaux ?
   } catch (e) {
+    Logger.log('Accès refusé : %s', e.message);
     const who = Session.getActiveUser().getEmail() || 'ce compte';
     return HtmlService.createHtmlOutput(
       '<div style="font-family:sans-serif;padding:24px;max-width:520px">' +
       '<h2>Accès réservé</h2><p>Le compte <b>' + who + '</b> n\'a pas accès aux journaux Soriya.</p>' +
       '<p>Connectez-vous avec gfd.logistic@gmail.com ou diabymohamed85@gmail.com, ' +
-      'ou demandez à gfd.logistic de partager les journaux avec ce compte.</p></div>')
+      'ou demandez à gfd.logistic de partager les journaux avec ce compte.</p>' +
+      '<p style="color:#777;font-size:12px">Détail : ' + String(e.message).replace(/</g, '&lt;') + '</p></div>')
       .setTitle('Soriya');
   }
   const t = HtmlService.createTemplateFromFile('Index');
@@ -50,7 +53,7 @@ function soriyaWebData() {
 function soriyaWebActivities_() {
   let rows = [];
   try {
-    rows = SpreadsheetApp.openById(SORIYA_WEB.DASHBOARD_ID).getSheets()[0].getDataRange().getDisplayValues();
+    rows = soriyaRead_(SORIYA_WEB.DASHBOARD_ID, 'FORMATTED_VALUE');
   } catch (e) { /* tableau de bord non partagé : on affiche les activités sans leur état */ }
   const get = function (label, col) {
     for (let i = 0; i < rows.length; i++) if (rows[i][0] === label) return rows[i][col] || '';
@@ -75,17 +78,20 @@ function soriyaWebActivities_() {
 
 function soriyaWebDocs_(typeKey) {
   const ldv = typeKey === 'lettre_voiture';
-  const sh = SpreadsheetApp.openById(ldv ? SORIYA_WEB.LDV_JOURNAL_ID : SORIYA_WEB.CONF_JOURNAL_ID).getSheets()[0];
-  const n = sh.getLastRow() - 1;
-  if (n < 1) return [];
-  const all = sh.getRange(1, 1, n + 1, sh.getLastColumn()).getValues();
+  const all = soriyaRead_(ldv ? SORIYA_WEB.LDV_JOURNAL_ID : SORIYA_WEB.CONF_JOURNAL_ID, 'UNFORMATTED_VALUE');
+  if (all.length < 2) return [];
   const headers = all[0].map(String);
+  // Colonnes de dates : l'API renvoie un numéro de série (jours depuis le 30/12/1899) → « AAAA-MM-JJ HH:mm ».
+  const isDate = function (h) { return /^(Date|Reçu le|Traité le)/.test(h); };
   const v = function (r, title) {
     const i = headers.indexOf(title);
     if (i < 0) return '';
     const x = r[i];
-    if (x instanceof Date) return Utilities.formatDate(x, SORIYA_WEB.TZ, 'yyyy-MM-dd HH:mm');
-    return x === null || x === undefined ? '' : String(x);
+    if (x === null || x === undefined) return '';
+    if (typeof x === 'number' && isDate(title)) {
+      return Utilities.formatDate(new Date(Math.round((x - 25569) * 86400000)), 'UTC', 'yyyy-MM-dd HH:mm');
+    }
+    return String(x);
   };
   return all.slice(1).slice(-1000).map(function (r) {
     const date = ldv
@@ -127,10 +133,9 @@ function soriyaDriverName_(carrier) {
 
 function soriyaWebProspects_() {
   try {
-    const ss = SpreadsheetApp.openById(SORIYA_WEB.PROSPECTS_ID);
-    const rows = ss.getSheets()[0].getDataRange().getDisplayValues().slice(1).filter(function (r) { return r[0]; });
+    const rows = soriyaRead_(SORIYA_WEB.PROSPECTS_ID, 'FORMATTED_VALUE').slice(1).filter(function (r) { return r[0]; });
     return {
-      url: ss.getUrl(),
+      url: 'https://docs.google.com/spreadsheets/d/' + SORIYA_WEB.PROSPECTS_ID + '/edit',
       list: rows.map(function (r) {
         return { name: r[0], type: r[1], potential: r[2], why: r[3], link: r[4],
           status: r[5] || 'À contacter', next: r[6], date: r[7] };
@@ -139,4 +144,14 @@ function soriyaWebProspects_() {
   } catch (e) {
     return { url: '', list: [], error: 'Liste des prospects non partagée avec ce compte.' };
   }
+}
+
+/** Lit le premier onglet d'une feuille (API Sheets, lecture seule). */
+function soriyaRead_(id, render) {
+  const res = Sheets.Spreadsheets.Values.get(id, 'A1:AZ5000', {
+    valueRenderOption: render, dateTimeRenderOption: 'SERIAL_NUMBER',
+  });
+  const rows = res.values || [];
+  const width = rows.length ? rows[0].length : 0;
+  return rows.map(function (r) { while (r.length < width) r.push(''); return r; });
 }
