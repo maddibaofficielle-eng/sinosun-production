@@ -6,10 +6,11 @@
 <style>
   :root {
     color-scheme: light;
-    --bg: #f6f6f4; --surface: #fcfcfb; --surface-2: #ffffff; --line: #e4e3df; --grid: #ecebe7;
+    --bg: #f4f4f1; --surface: #fcfcfb; --surface-2: #ffffff; --line: #e4e3df; --grid: #ecebe7;
     --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #7a7974;
-    --accent: #2a78d6;
+    --accent: #2a78d6; --accent-ink: #ffffff; --accent-soft: #e7f0fb;
     --s-conf: #2a78d6; --s-ldv: #eb6834;
+    --side: #0f2747; --side-ink: #d6e2f3; --side-act: #1c5cab;
     --ca-from: #1c5cab; --ca-to: #0d366b;
     --m1: #b7d3f6; --m2: #86b6ef; --m3: #5598e7; --m4: #2a78d6; --m5: #184f95; --m-old: #c9c8c2;
     --good: #1a7f37; --good-bg: #e6f4ea; --warn: #9a6700; --warn-bg: #fff4d6; --bad: #c5221f; --bad-bg: #fce8e6;
@@ -19,20 +20,18 @@
       color-scheme: dark;
       --bg: #121211; --surface: #1a1a19; --surface-2: #222220; --line: #33332f; --grid: #2a2a27;
       --ink: #ffffff; --ink-2: #c3c2b7; --ink-3: #8f8e86;
-      --accent: #3987e5; --s-conf: #3987e5; --s-ldv: #d95926;
+      --accent: #3987e5; --accent-soft: #16263b; --s-conf: #3987e5; --s-ldv: #d95926;
+      --side: #0b1726; --side-ink: #c3d3ea; --side-act: #184f95;
       --ca-from: #184f95; --ca-to: #0d2a55;
       --m1: #104281; --m2: #1c5cab; --m3: #3987e5; --m4: #6da7ec; --m5: #b7d3f6; --m-old: #5c5b56;
       --good: #6fcf8a; --good-bg: #16301e; --warn: #f0c060; --warn-bg: #362a0f; --bad: #ff8a80; --bad-bg: #3a1716;
     }
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body { margin: 0; background: var(--bg); color: var(--ink);
     font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-  .wrap { max-width: 1440px; margin: 0 auto; padding: 20px 16px 48px; }
-  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
-  h1 small { display: block; font-size: 13px; font-weight: 400; color: var(--ink-2); margin-top: 2px; }
-  h2 { font-size: 16px; margin: 0 0 12px; }
+  a { color: var(--accent); }
   button, select, input {
     font: inherit; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line);
     border-radius: 8px; padding: 8px 12px; min-height: 40px;
@@ -40,688 +39,631 @@
   button { cursor: pointer; }
   button:hover { border-color: var(--ink-3); }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); margin-top: 20px; }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
-  .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
-  .card-head .src { color: var(--ink-2); font-size: 13px; }
-  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600;
-    padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+
+  /* ---------- Structure de l'application ---------- */
+  .app { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 100vh; }
+  .side { background: var(--side); color: var(--side-ink); padding: 18px 12px; position: sticky; top: 0; height: 100vh;
+    display: flex; flex-direction: column; gap: 4px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px; color: #fff; }
+  .brand .logo { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, #3987e5, #eb6834);
+    display: grid; place-items: center; font-weight: 800; }
+  .brand b { display: block; font-size: 17px; }
+  .brand small { color: var(--side-ink); font-size: 12px; }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; color: var(--side-ink);
+    text-decoration: none; font-size: 14px; font-weight: 500; }
+  .nav a:hover { background: rgba(255,255,255,.07); color: #fff; }
+  .nav a.on { background: var(--side-act); color: #fff; }
+  .nav .ico { width: 20px; text-align: center; }
+  .nav .cnt { margin-left: auto; font-size: 11px; font-weight: 700; background: rgba(255,255,255,.14); border-radius: 999px; padding: 1px 7px; }
+  .nav .cnt.alert { background: #c5221f; color: #fff; }
+  .side-foot { margin-top: auto; font-size: 12px; color: var(--side-ink); padding: 8px; line-height: 1.5; }
+  .main { min-width: 0; }
+  .top { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px; padding: 12px 24px; }
+  .top h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+  .top small { color: var(--ink-2); font-size: 12px; display: block; font-weight: 400; }
+  .top .sp { flex: 1; }
+  .menu-btn { display: none; }
+  .page { padding: 20px 24px 48px; max-width: 1400px; }
+  .grid { display: grid; gap: 16px; }
+  .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .g6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .span2 { grid-column: span 2; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; min-width: 0; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .more { margin-left: auto; font-size: 13px; font-weight: 500; }
+  .muted { color: var(--ink-2); }
+  .small { font-size: 13px; }
+  .num { font-variant-numeric: tabular-nums; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+
+  /* Tuiles KPI */
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; min-width: 0; }
+  .tile span { font-size: 12px; color: var(--ink-2); display: block; }
+  .tile b { display: block; font-size: 26px; line-height: 1.15; margin: 4px 0 2px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .tile em { font-style: normal; font-size: 12px; font-weight: 600; }
+  .tile.hero { background: linear-gradient(135deg, var(--ca-from), var(--ca-to)); color: #fff; border: 0; }
+  .tile.hero span { color: rgba(255,255,255,.82); }
+  .up { color: var(--good); } .down { color: var(--bad); }
+  .tile.hero .up { color: #bff0cd; } .tile.hero .down { color: #ffd0cc; }
+  .tile.hero .muted { color: rgba(255,255,255,.8) !important; }
+  td.nw { white-space: nowrap; }
+  #refresh { white-space: nowrap; }
+  @media (max-width: 520px) { #refresh .lbl { display: none; } }
+
+  /* Pastilles */
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+    padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
   .pill.ok { color: var(--good); background: var(--good-bg); }
   .pill.warn { color: var(--warn); background: var(--warn-bg); }
   .pill.bad { color: var(--bad); background: var(--bad-bg); }
-  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
-  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0 10px; }
-  .kpi { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
-  .kpi b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; line-height: 1.1; }
-  .kpi span { font-size: 12px; color: var(--ink-2); }
-  .meta { font-size: 13px; color: var(--ink-2); }
-  .carriers { margin: 4px 0 12px; }
-  .carriers h3 { font-size: 13px; font-weight: 600; margin: 0 0 6px; color: var(--ink-2); }
-  .carrier { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 4px 12px;
-    width: 100%; text-align: left; background: none; border: 0; border-radius: 8px; padding: 6px 8px; font: inherit; color: inherit; }
-  .carrier:hover { background: var(--surface-2); }
-  .carrier .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
-  .carrier b { font-variant-numeric: tabular-nums; font-size: 15px; }
-  .carrier small { color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 72px; text-align: right; }
-  .carrier .bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
-  .carrier .bar i { display: block; height: 100%; background: var(--s-ldv); border-radius: 2px; }
-  .meta a, td a { color: var(--accent); }
-  .err { margin-top: 8px; font-size: 13px; color: var(--bad); background: var(--bad-bg); border-radius: 8px; padding: 8px 10px; }
-  .chart-card { margin-top: 16px; }
-  /* Chiffre d'affaires */
-  .ca-card { margin-top: 16px; background: linear-gradient(135deg, var(--ca-from), var(--ca-to)); color: #fff; border: 0;
-    border-radius: 16px; padding: 20px; position: relative; overflow: hidden; }
-  .ca-card::after { content: ""; position: absolute; right: -60px; top: -60px; width: 220px; height: 220px; border-radius: 50%;
-    background: rgba(255,255,255,.08); pointer-events: none; }
-  .ca-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
-  .ca-card h2 { color: rgba(255,255,255,.85); font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin: 0; }
-  .ca-hero { font-size: 48px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
-  .ca-sub { color: rgba(255,255,255,.8); font-size: 13px; }
-  .ca-card .seg { border-color: rgba(255,255,255,.35); }
-  .ca-card .seg button { background: transparent; color: #fff; min-height: 34px; padding: 6px 12px; }
-  .ca-card .seg button[aria-pressed="true"] { background: #fff; color: var(--ca-to); font-weight: 600; }
-  .ca-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
-  .ca-kpi { background: rgba(255,255,255,.12); border-radius: 12px; padding: 10px 12px; }
-  .ca-kpi b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; line-height: 1.15; }
-  .ca-kpi span { font-size: 12px; color: rgba(255,255,255,.82); }
-  .ca-kpi em { font-style: normal; font-size: 12px; font-weight: 600; }
-  .ca-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
-  .ca-panel { background: var(--surface); color: var(--ink); border-radius: 12px; padding: 14px; }
-  .ca-panel h3 { font-size: 13px; margin: 0 0 10px; color: var(--ink-2); font-weight: 600; }
-  .drv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 6px 0; border-bottom: 1px solid var(--grid); }
-  .drv:last-child { border-bottom: 0; }
-  .drv .n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .drv .v { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; }
-  .drv small { color: var(--ink-2); font-size: 12px; }
-  .drv .bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; margin-top: 4px; }
-  .drv .bar i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
-  .drv.none .bar i { background: var(--ink-3); }
-  #caChart { width: 100%; height: 200px; position: relative; }
-  #caChart svg { display: block; width: 100%; height: 100%; overflow: visible; }
-  /* Diversification clientèle */
-  .div-card { margin-top: 16px; }
-  .div-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; margin-top: 8px; }
-  .div-sub { color: var(--ink-2); font-size: 13px; margin: -6px 0 8px; }
-  .share { font-size: 44px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-  .share small { font-size: 14px; font-weight: 500; color: var(--ink-2); letter-spacing: 0; margin-left: 6px; }
-  .meter { position: relative; height: 12px; border-radius: 6px; background: var(--grid); margin: 14px 0 6px; }
-  .meter > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: var(--accent); }
-  .meter > b { position: absolute; top: -5px; bottom: -5px; width: 2px; background: var(--ink); }
-  .meter-lbl { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-2); }
-  .mini { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
-  .mini div { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
-  .mini b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
-  .mini span { font-size: 12px; color: var(--ink-2); }
-  .pipe { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-  .pipe span { font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; background: var(--surface-2); }
-  .pipe b { font-variant-numeric: tabular-nums; }
-  .prospects { display: grid; gap: 8px; }
-  .pr { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--surface-2);
-    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
-  .pr a { font-weight: 600; color: var(--ink); text-decoration: none; }
-  .pr a:hover { text-decoration: underline; }
-  .pr .why { grid-column: 1 / -1; font-size: 13px; color: var(--ink-2); }
-  .pr .nx { grid-column: 1 / -1; font-size: 12px; color: var(--ink-3); }
+  .pill.info { color: var(--accent); background: var(--accent-soft); }
   .badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .04em; }
   .badge.fort { background: var(--good-bg); color: var(--good); }
   .badge.moyen { background: var(--warn-bg); color: var(--warn); }
   .badge.faible { background: var(--grid); color: var(--ink-2); }
-  @media (max-width: 900px) { .div-grid { grid-template-columns: 1fr; } }
-  /* Camembert + prévisions */
-  .duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
-  .duo .card { margin: 0; }
+
+  /* Barre d'outils + tableau */
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .toolbar input[type=search] { flex: 1 1 240px; }
+  .toolbar .count { color: var(--ink-2); font-size: 13px; margin-left: auto; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: var(--surface-2); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .table-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  th { position: sticky; top: 0; background: var(--surface); font-size: 12px; color: var(--ink-2); font-weight: 600;
+    text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
+  th[data-s] { cursor: pointer; }
+  th[data-s]:hover { color: var(--ink); }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover td { background: var(--surface-2); }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  .route b { font-weight: 500; }
+  .pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; padding: 10px 12px; }
+  .empty { padding: 32px; text-align: center; color: var(--ink-2); }
+
+  /* Listes à barres (chauffeurs, clients) */
+  .bars { display: grid; gap: 2px; }
+  .bar-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 7px 0; border-bottom: 1px solid var(--grid); }
+  .bar-row:last-child { border-bottom: 0; }
+  .bar-row .n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-row .v { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+  .bar-row small { color: var(--ink-2); font-size: 12px; grid-column: 1 / -1; }
+  .bar-row .bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; }
+  .bar-row .bar i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+  .bar-row.none .bar i { background: var(--ink-3); }
+
+  /* Graphiques */
+  .chart { width: 100%; height: 220px; position: relative; }
+  .chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .tip { position: absolute; pointer-events: none; background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.12); white-space: nowrap; display: none; z-index: 3; }
   .donut-wrap { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
-  #donut { width: 220px; height: 220px; position: relative; flex: none; }
-  #donut svg { width: 100%; height: 100%; display: block; }
-  .dleg { flex: 1 1 200px; display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
-  .dleg li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; font-size: 14px;
-    cursor: pointer; border-radius: 6px; padding: 3px 4px; }
-  .dleg li:hover, .dleg li.on { background: var(--surface-2); }
+  .donut { width: 200px; height: 200px; position: relative; flex: none; }
+  .donut svg { width: 100%; height: 100%; display: block; }
+  .dleg { flex: 1 1 180px; display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+  .dleg li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; font-size: 14px; border-radius: 6px; padding: 3px 4px; }
+  .dleg li.on { background: var(--surface-2); }
   .dleg i { width: 12px; height: 12px; border-radius: 3px; }
-  .dleg b { font-variant-numeric: tabular-nums; }
-  .dleg small { color: var(--ink-2); font-variant-numeric: tabular-nums; min-width: 40px; text-align: right; }
+  .dleg small { color: var(--ink-2); min-width: 36px; text-align: right; }
+
+  /* Alertes / conseils */
   .tips { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
   .tips li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: start; font-size: 14px; }
-  .tips .ic { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 15px; }
+  .tips .ic { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 14px; }
   .tips .ic.up { background: var(--good-bg); color: var(--good); }
   .tips .ic.down { background: var(--bad-bg); color: var(--bad); }
   .tips .ic.info { background: var(--warn-bg); color: var(--warn); }
   .tips b { display: block; }
+  .tips span, .tips a { font-size: 13px; }
   .tips span { color: var(--ink-2); }
-  @media (max-width: 900px) {
-    .ca-body, .duo { grid-template-columns: 1fr; }
-    .ca-kpis { grid-template-columns: repeat(2, 1fr); }
-    .ca-hero { font-size: 38px; }
-  }
-  .legend { display: flex; gap: 16px; font-size: 13px; color: var(--ink-2); margin-bottom: 6px; flex-wrap: wrap; }
-  .legend span { display: inline-flex; align-items: center; gap: 6px; }
-  #chart { width: 100%; height: 240px; position: relative; }
-  #chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
-  .tip { position: absolute; pointer-events: none; background: var(--surface-2); border: 1px solid var(--line);
-    border-radius: 8px; padding: 8px 10px; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.12); white-space: nowrap; display: none; z-index: 2; }
-  .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 24px 0 12px; }
-  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-  .seg button { border: 0; border-radius: 0; background: var(--surface-2); }
-  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
-  .filters input { flex: 1 1 220px; }
-  .count { color: var(--ink-2); font-size: 13px; margin-left: auto; }
-  .table-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--grid); vertical-align: top; }
-  th { position: sticky; top: 0; background: var(--surface); font-size: 12px; color: var(--ink-2); font-weight: 600;
-    text-transform: uppercase; letter-spacing: .03em; cursor: pointer; white-space: nowrap; }
-  tr:hover td { background: var(--surface-2); }
-  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .type { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-  .route { color: var(--ink-2); }
-  .route b { color: var(--ink); font-weight: 500; }
-  details summary { cursor: pointer; color: var(--accent); }
-  .empty, .loading { padding: 32px; text-align: center; color: var(--ink-2); }
-  @media (max-width: 640px) {
-    .kpis { grid-template-columns: repeat(2, 1fr); }
+
+  /* Chauffeurs */
+  .drivers { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .drv-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; cursor: pointer; }
+  .drv-card:hover { border-color: var(--accent); }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #fff; background: var(--accent); }
+  .drv-head { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+  .drv-head b { display: block; }
+  .drv-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .drv-stats div { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+  .drv-stats b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; }
+  .drv-stats span { font-size: 11px; color: var(--ink-2); }
+
+  /* Prospection : tableau Kanban */
+  .kanban { display: grid; grid-template-columns: repeat(5, minmax(200px, 1fr)); gap: 12px; overflow-x: auto; }
+  .col { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px; min-height: 120px; }
+  .col h3 { font-size: 13px; margin: 2px 4px 10px; display: flex; justify-content: space-between; color: var(--ink-2); }
+  .pcard { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 8px; font-size: 13px; }
+  .pcard a { font-weight: 600; color: var(--ink); text-decoration: none; font-size: 14px; }
+  .pcard a:hover { text-decoration: underline; }
+  .pcard p { margin: 6px 0; color: var(--ink-2); }
+  .meter { position: relative; height: 12px; border-radius: 6px; background: var(--grid); margin: 14px 0 6px; }
+  .meter > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: var(--accent); }
+  .meter > b { position: absolute; top: -5px; bottom: -5px; width: 2px; background: var(--ink); }
+
+  /* Panneau de détail */
+  .drawer-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 20; display: none; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100vw); background: var(--surface); z-index: 21;
+    box-shadow: -8px 0 32px rgba(0,0,0,.2); transform: translateX(100%); transition: transform .2s ease; display: flex; flex-direction: column; }
+  .drawer.open { transform: none; }
+  .drawer header { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+  .drawer header h3 { margin: 0; font-size: 17px; flex: 1; }
+  .drawer .body { padding: 16px 20px; overflow: auto; }
+  .kv { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 8px 12px; font-size: 14px; margin: 0; }
+  .kv dt { color: var(--ink-2); }
+  .kv dd { margin: 0; overflow-wrap: anywhere; }
+  .link-box { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 14px 0; background: var(--surface-2); }
+
+  @media (max-width: 1100px) { .g6 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 860px) {
+    .app { grid-template-columns: 1fr; }
+    .side { position: fixed; z-index: 30; width: 260px; left: 0; transform: translateX(-100%); transition: transform .2s ease; }
+    .side.open { transform: none; }
+    .menu-btn { display: inline-block; }
+    .g2, .g3 { grid-template-columns: 1fr; }
+    .span2 { grid-column: auto; }
+    .page, .top { padding-left: 16px; padding-right: 16px; }
     .hide-sm { display: none; }
-    th, td { padding: 8px; }
+    .kv { grid-template-columns: 120px minmax(0, 1fr); }
   }
+  @media (max-width: 520px) { .g6, .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tile b { font-size: 21px; } }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>Soriya<small id="sub">Documents de transport Ecotime · chargement…</small></h1>
-    <button id="refresh" type="button">↻ Actualiser</button>
-  </header>
-
-  <section class="grid" id="cards" aria-label="Activités"></section>
-
-  <section class="ca-card" aria-labelledby="ca-title">
-    <div class="ca-top">
-      <div>
-        <h2 id="ca-title">Chiffre d'affaires HT</h2>
-        <div class="ca-hero" id="caHero">—</div>
-        <div class="ca-sub" id="caSub">Calculé sur les confirmations d'affrètement archivées</div>
-      </div>
-      <div class="seg" id="caSeg" role="group" aria-label="Période">
-        <button type="button" data-v="month" aria-pressed="true">Ce mois</button>
-        <button type="button" data-v="year" aria-pressed="false">Depuis janvier</button>
-      </div>
+<div class="app">
+  <nav class="side" id="side" aria-label="Menu">
+    <div class="brand"><div class="logo">S</div><div><b>Soriya</b><small>GFD Logistic · gestion</small></div></div>
+    <div class="nav" id="nav"></div>
+    <div class="side-foot" id="sideFoot"></div>
+  </nav>
+  <div class="main">
+    <div class="top">
+      <button class="menu-btn" id="menuBtn" type="button" aria-label="Menu">☰</button>
+      <h1 id="title">Tableau de bord<small id="sub">chargement…</small></h1>
+      <span class="sp"></span>
+      <button id="refresh" type="button" title="Actualiser">↻<span class="lbl"> Actualiser</span></button>
     </div>
-    <div class="ca-kpis" id="caKpis"></div>
-    <div class="ca-body">
-      <div class="ca-panel">
-        <h3>Chiffre d'affaires par chauffeur</h3>
-        <div id="caDrivers"></div>
-      </div>
-      <div class="ca-panel">
-        <h3>Évolution mensuelle <small style="font-weight:400">(barre claire = projection du mois en cours)</small></h3>
-        <div id="caChart"><div class="tip" id="caTip"></div></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="card div-card" aria-labelledby="div-title">
-    <div class="card-head">
-      <h2 id="div-title" style="margin:0">Diversification clientèle</h2>
-      <span id="divPill"></span>
-    </div>
-    <div class="div-grid">
-      <div>
-        <p class="div-sub" id="divSub"></p>
-        <div class="share" id="divShare">—</div>
-        <div class="meter" id="divMeter"></div>
-        <div class="meter-lbl"><span>0 %</span><span id="divGoal"></span><span>100 %</span></div>
-        <div class="mini" id="divMini"></div>
-        <h3 style="font-size:13px;color:var(--ink-2);margin:0 0 6px">CA par donneur d'ordre (depuis janvier)</h3>
-        <div id="divClients"></div>
-      </div>
-      <div>
-        <div class="card-head" style="margin-bottom:8px">
-          <h3 style="font-size:13px;color:var(--ink-2);margin:0">Sociétés à prospecter</h3>
-          <a id="prosLink" class="meta" href="#">Mettre à jour les statuts ↗</a>
-        </div>
-        <div class="pipe" id="pipe"></div>
-        <div class="prospects" id="prospects"></div>
-      </div>
-    </div>
-  </section>
-
-  <div class="duo">
-    <section class="card" aria-labelledby="donut-title">
-      <h2 id="donut-title">Documents archivés par mois</h2>
-      <div class="donut-wrap">
-        <div id="donut"><div class="tip" id="tip"></div></div>
-        <ul class="dleg" id="dleg"></ul>
-      </div>
-    </section>
-    <section class="card" aria-labelledby="tips-title">
-      <h2 id="tips-title">Prévisions &amp; conseils</h2>
-      <ul class="tips" id="tips"></ul>
-    </section>
-  </div>
-
-  <div class="filters" role="search">
-    <div class="seg" id="typeSeg" role="group" aria-label="Type de document">
-      <button type="button" data-v="all" aria-pressed="true">Tous</button>
-      <button type="button" data-v="conf" aria-pressed="false">Confirmations</button>
-      <button type="button" data-v="ldv" aria-pressed="false">Lettres de voiture</button>
-    </div>
-    <select id="month" aria-label="Mois"><option value="">Tous les mois</option></select>
-    <select id="status" aria-label="Statut">
-      <option value="">Tous les statuts</option>
-      <option value="Archivé">Archivés</option>
-      <option value="À vérifier">À vérifier</option>
-      <option value="Mis de côté">Mis de côté</option>
-    </select>
-    <input id="q" type="search" placeholder="Rechercher : n°, ville, client, transporteur, prestation…" aria-label="Rechercher">
-    <span class="count" id="count"></span>
-  </div>
-
-  <div class="table-wrap">
-    <table>
-      <thead><tr>
-        <th data-s="date">Date</th>
-        <th data-s="type">Type</th>
-        <th data-s="number">N°</th>
-        <th>Trajet</th>
-        <th class="hide-sm">Client / expéditeur</th>
-        <th class="hide-sm">Transporteur</th>
-        <th class="hide-sm">Prestations réalisées</th>
-        <th class="hide-sm" data-s="price">Montant HT</th>
-        <th class="hide-sm">Attente</th>
-        <th class="hide-sm">Statut</th>
-        <th>PDF</th>
-      </tr></thead>
-      <tbody id="rows"><tr><td colspan="11" class="loading">Chargement des documents…</td></tr></tbody>
-    </table>
+    <div class="page" id="page"><div class="empty">Chargement des données…</div></div>
   </div>
 </div>
+<div class="drawer-bg" id="drawerBg"></div>
+<aside class="drawer" id="drawer" aria-label="Détail"><header><h3 id="dTitle"></h3><button type="button" id="dClose">✕</button></header><div class="body" id="dBody"></div></aside>
 
 <script>
 const KEY = <?!= JSON.stringify(key) ?>;
-const TYPES = { conf: { label: "Confirmation", color: "var(--s-conf)" }, ldv: { label: "Lettre de voiture", color: "var(--s-ldv)" } };
 const MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
-let DATA = null;
-const ui = { type: "all", month: "", status: "", q: "", sort: "date", dir: -1 };
-
+const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+const EUR = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+const EUR2 = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const fmtDate = d => /^\d{4}-\d{2}-\d{2}/.test(d) ? d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4) : esc(d);
+const fmtDate = d => /^\d{4}-\d{2}-\d{2}/.test(d || "") ? d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4) : esc(d || "—");
 const monthLabel = m => MONTHS[+m.slice(5, 7) - 1] + " " + m.slice(0, 4);
-const statusKind = s => s.indexOf("Archivé") === 0 ? "ok" : (s.indexOf("À vérifier") === 0 || s.indexOf("Mis de côté") === 0 ? "warn" : "bad");
+const pct = v => (v > 0 ? "+" : "") + Math.round(v * 100) + " %";
+const digits = s => String(s || "").replace(/\D/g, "");
+const short = (s, n) => { s = String(s || ""); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+const city = s => { const m = /(\d{5})\s+([^,(]+)/.exec(s || ""); return m ? m[2].trim() + " (" + m[1].slice(0, 2) + ")" : short((s || "").split(",")[0], 28); };
+function normParty(p) {
+  return (String(p || "").split(/,| - /)[0] || "").trim().toUpperCase().replace(/\s+(GROUP|GROUPE|SAS|SARL|SA)$/, "") || "NON RENSEIGNÉ";
+}
+const statusKind = s => s.indexOf("Archivé") === 0 && s.indexOf("impossible") < 0 ? "ok" : (s.indexOf("À vérifier") === 0 || s.indexOf("Mis de côté") === 0 ? "warn" : "bad");
+const statusShort = s => (s || "—").split(" — ")[0];
 
+let DATA = null, M = null;           // données brutes et dérivées
+const view = {};                     // état des filtres par page
+
+/* ---------- Chargement ---------- */
 function load() {
-  document.getElementById("sub").textContent = "Documents de transport Ecotime · chargement…";
+  document.getElementById("sub").textContent = "actualisation…";
   google.script.run
-    .withSuccessHandler(d => { DATA = d; render(); })
-    .withFailureHandler(e => {
-      document.getElementById("rows").innerHTML = '<tr><td colspan="11" class="empty">Impossible de charger les données : ' + esc(e.message) + "</td></tr>";
-    })
+    .withSuccessHandler(d => { DATA = d; M = derive(d); route(); })
+    .withFailureHandler(e => { document.getElementById("page").innerHTML = '<div class="empty">Impossible de charger les données : ' + esc(e.message) + "</div>"; })
     .soriyaWebData(KEY);
 }
 
-function render() {
-  document.getElementById("sub").textContent = "Documents de transport Ecotime · mis à jour le " + DATA.generatedAt;
-  renderCards(); renderRevenue(); renderDiversification(); renderChart(); renderTips(); renderMonths(); renderTable();
-}
-
-function renderCards() {
-  const thisMonth = new Date().toISOString().slice(0, 7);
-  document.getElementById("cards").innerHTML = DATA.activities.map(a => {
-    const type = a.id === "Mailing" ? "conf" : "ldv";
-    const docs = DATA.docs.filter(d => d.type === type);
-    const archived = docs.filter(d => d.status.indexOf("Archivé") === 0).length;
-    const toCheck = docs.filter(d => d.status.indexOf("À vérifier") === 0 || d.status.indexOf("Mis de côté") === 0).length;
-    const month = docs.filter(d => (d.date || "").slice(0, 7) === thisMonth).length;
-    let pill = '<span class="pill ok">● En service</span>';
-    if (!a.lastRun && !a.lastStart) pill = '<span class="pill warn">● En attente du 1er passage</span>';
-    else if (a.lastErrors) pill = '<span class="pill bad">▲ ' + a.lastErrors + " erreur(s)</span>";
-    else if (a.lastStart && a.lastStart !== a.lastRun) pill = '<span class="pill warn">● Passage en cours ou interrompu</span>';
-    return '<article class="card"><div class="card-head"><div><h2 style="margin:0">' +
-      '<i class="dot" style="background:' + TYPES[type].color + ';margin-right:8px"></i>' + esc(a.label) + "</h2>" +
-      '<div class="src">' + esc(a.source) + "</div></div>" + pill + "</div>" +
-      '<div class="kpis">' +
-      kpi(archived, "archivés") + kpi(month, "ce mois-ci") + kpi(toCheck, "à vérifier") + kpi(a.pending == null ? "—" : a.pending, "en attente") +
-      "</div>" +
-      (type === "ldv" ? carriersBlock(docs, thisMonth) : "") +
-      '<div class="meta">Dernier passage : ' + esc(a.lastRun || "—") +
-      (a.folderUrl ? ' · <a href="' + esc(a.folderUrl) + '">Dossier Drive</a>' : "") +
-      (a.journalUrl ? ' · <a href="' + esc(a.journalUrl) + '">Journal</a>' : "") + "</div>" +
-      (a.lastError ? '<div class="err">Dernière erreur : ' + esc(a.lastError) + "</div>" : "") +
-      "</article>";
-  }).join("");
-}
-// Courses par transporteur = nombre de lettres de voiture par transporteur (hors documents mis de côté).
-function carriersBlock(docs, thisMonth) {
-  const by = {};
-  docs.filter(d => d.status.indexOf("Archivé") === 0 || d.status.indexOf("À vérifier") === 0).forEach(d => {
-    const name = (d.carrier || "").replace(/\s+/g, " ").trim().toUpperCase() || "NON INDIQUÉ";
-    const c = by[name] || (by[name] = { name, total: 0, month: 0 });
-    c.total++;
-    if ((d.date || "").slice(0, 7) === thisMonth) c.month++;
-  });
-  const list = Object.values(by).sort((a, b) => b.total - a.total);
-  if (!list.length) return "";
-  const max = list[0].total;
-  return '<div class="carriers"><h3>Courses par transporteur</h3>' + list.map(c =>
-    '<button type="button" class="carrier" data-carrier="' + esc(c.name === "NON INDIQUÉ" ? "" : c.name) +
-      '" title="Voir les lettres de voiture de ce transporteur">' +
-      '<span class="n">' + esc(c.name) + "</span><b>" + c.total + "</b><small>" + c.month + " ce mois-ci</small>" +
-      '<span class="bar"><i style="width:' + Math.max(2, Math.round(c.total / max * 100)) + '%"></i></span></button>'
-  ).join("") + "</div>";
-}
-const kpi = (n, l) => '<div class="kpi"><b>' + esc(n) + "</b><span>" + esc(l) + "</span></div>";
-
-const EUR = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
-const EUR2 = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
-const pct = v => (v > 0 ? "+" : "") + Math.round(v * 100) + " %";
-const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
-let caPeriod = "month";
-
-/** Courses facturables : confirmations archivées avec un montant (listings, factures « À vérifier » exclus). */
-function sales() {
-  return DATA.docs.filter(d => d.type === "conf" && d.status.indexOf("Archivé") === 0 && d.amount > 0 && /^\d{4}-\d{2}-\d{2}/.test(d.date));
-}
-function monthKey(dt) { return dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0"); }
-
-function caStats() {
-  const now = new Date(), thisMonth = monthKey(now), year = String(now.getFullYear());
+/** Calculs communs : courses facturées, rapprochement confirmation ↔ lettre de voiture, mois… */
+function derive(d) {
+  const conf = d.docs.filter(x => x.type === "conf"), ldv = d.docs.filter(x => x.type === "ldv");
+  const ldvByNum = {}, confByNum = {};
+  ldv.forEach(x => { const k = digits(x.number); if (k && !ldvByNum[k]) ldvByNum[k] = x; });
+  conf.forEach(x => { const k = digits(x.number); if (k && !confByNum[k]) confByNum[k] = x; });
+  conf.forEach(x => { x.ldv = ldvByNum[digits(x.number)] || null; x.client = normParty(x.party); if (!x.driver && x.ldv) x.driver = x.ldv.driver; });
+  ldv.forEach(x => { x.conf = confByNum[digits(x.number)] || null; });
+  const sales = conf.filter(x => x.status.indexOf("Archivé") === 0 && x.amount > 0 && /^\d{4}-\d{2}-\d{2}/.test(x.date));
+  const now = new Date(), thisMonth = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+  const prevD = new Date(now.getFullYear(), now.getMonth() - 1, 1), prevMonth = prevD.getFullYear() + "-" + String(prevD.getMonth() + 1).padStart(2, "0");
   const day = now.getDate(), dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1), prevMonth = monthKey(prev);
-  const S = sales();
   const byMonth = {};
-  S.forEach(d => { const m = d.date.slice(0, 7); (byMonth[m] = byMonth[m] || { ca: 0, n: 0 }); byMonth[m].ca += d.amount; byMonth[m].n++; });
-  const sum = arr => arr.reduce((t, d) => t + d.amount, 0);
-  const mtd = S.filter(d => d.date.slice(0, 7) === thisMonth);
-  const prevSame = S.filter(d => d.date.slice(0, 7) === prevMonth && +d.date.slice(8, 10) <= day);
-  const ytd = S.filter(d => d.date.slice(0, 4) === year);
-  // Mois complets et représentatifs (au moins 10 courses) : le début de l'historique ne fausse pas les moyennes.
+  sales.forEach(x => { const m = x.date.slice(0, 7); (byMonth[m] = byMonth[m] || { ca: 0, n: 0 }); byMonth[m].ca += x.amount; byMonth[m].n++; });
+  const sum = a => a.reduce((t, x) => t + x.amount, 0);
+  const mtd = sales.filter(x => x.date.slice(0, 7) === thisMonth);
+  const ytd = sales.filter(x => x.date.slice(0, 4) === String(now.getFullYear()));
+  const prevSame = sales.filter(x => x.date.slice(0, 7) === prevMonth && +x.date.slice(8, 10) <= day);
   const closed = Object.keys(byMonth).filter(m => m < thisMonth && byMonth[m].n >= 10).sort();
-  const last3 = closed.slice(-3), prev3 = closed.slice(-6, -3);
   const avg = ms => ms.length ? ms.reduce((t, m) => t + byMonth[m].ca, 0) / ms.length : 0;
   const caMtd = sum(mtd);
+  const toCheck = d.docs.filter(x => statusKind(x.status) !== "ok");
+  const noLdv = mtd.filter(x => !x.ldv);
   return {
-    now, thisMonth, prevMonth, day, dim, byMonth, S, mtd, ytd,
-    caMtd, caYtd: sum(ytd), caPrevSame: sum(prevSame), caPrevFull: byMonth[prevMonth] ? byMonth[prevMonth].ca : 0,
-    projection: day ? caMtd / day * dim : 0,
-    avg3: avg(last3), avgPrev3: avg(prev3), last3, prev3, closed,
+    conf, ldv, sales, byMonth, mtd, ytd, now, thisMonth, prevMonth, day, dim, closed,
+    caMtd, caYtd: sum(ytd), caPrevSame: sum(prevSame), projection: day ? caMtd / day * dim : 0,
+    avg3: avg(closed.slice(-3)), avgPrev3: avg(closed.slice(-6, -3)),
+    toCheck, noLdv, orphanLdv: ldv.filter(x => !x.conf && statusKind(x.status) === "ok"),
   };
 }
 
-function renderRevenue() {
-  const st = caStats();
-  const list = caPeriod === "month" ? st.mtd : st.ytd;
-  const total = list.reduce((t, d) => t + d.amount, 0);
-  document.getElementById("caHero").textContent = EUR.format(total);
-  document.getElementById("caSub").textContent = (caPeriod === "month"
-    ? "Du 1er au " + st.day + " " + MONTHS[st.now.getMonth()].replace(".", "") + " " + st.now.getFullYear()
-    : "Du 1er janvier à aujourd'hui") + " · " + list.length + " course(s) facturée(s) · mis à jour en continu";
-  const growth = st.caPrevSame ? st.caMtd / st.caPrevSame - 1 : null;
-  const avgTicket = list.length ? total / list.length : 0;
-  const vsAvg = st.avg3 ? st.projection / st.avg3 - 1 : null;
-  const tone = v => v == null ? "" : '<em style="color:' + (v >= 0 ? "#bff0cd" : "#ffd0cc") + '">' + (v >= 0 ? "▲ " : "▼ ") + pct(v) + "</em>";
-  document.getElementById("caKpis").innerHTML =
-    caKpi(EUR.format(st.projection), "Projection fin de mois", tone(vsAvg) + (vsAvg == null ? "" : " vs moy. 3 mois")) +
-    caKpi(growth == null ? "—" : pct(growth), "vs même période mois dernier", '<span>' + EUR.format(st.caPrevSame) + " au " + st.day + "</span>") +
-    caKpi(EUR2.format(avgTicket), "Panier moyen par course", "") +
-    caKpi(String(list.length), "Courses facturées", "<span>" + (st.day ? (st.mtd.length / st.day).toFixed(1).replace(".", ",") : "0") + " / jour ce mois</span>");
-
-  // Par chauffeur (lettre de voiture rapprochée avec le même numéro)
-  const by = {};
-  list.forEach(d => { const k = d.driver || ""; (by[k] = by[k] || { ca: 0, n: 0 }); by[k].ca += d.amount; by[k].n++; });
-  const rows = Object.keys(by).map(k => ({ name: k, ...by[k] })).sort((a, b) => (a.name === "") - (b.name === "") || b.ca - a.ca);
-  const max = Math.max(1, ...rows.map(r => r.ca));
-  document.getElementById("caDrivers").innerHTML = rows.length ? rows.map(r =>
-    '<div class="drv' + (r.name ? "" : " none") + '"><span class="n">' + esc(r.name || "Sans lettre de voiture rapprochée") + "</span>" +
-    '<span class="v">' + EUR.format(r.ca) + "</span>" +
-    "<small>" + r.n + " course(s) · " + Math.round(r.ca / (total || 1) * 100) + " % du CA · " + EUR.format(r.ca / r.n) + " / course</small><small></small>" +
-    '<span class="bar"><i style="width:' + Math.max(2, Math.round(r.ca / max * 100)) + '%"></i></span></div>').join("")
-    : '<div class="empty">Aucune course facturée sur la période.</div>';
-  renderCaChart(st);
+/* ---------- Navigation ---------- */
+const PAGES = [
+  { id: "", ico: "◧", label: "Tableau de bord", render: pageHome },
+  { id: "courses", ico: "€", label: "Courses & CA", render: pageCourses },
+  { id: "lettres", ico: "✎", label: "Lettres de voiture", render: pageLetters },
+  { id: "rapprochement", ico: "⇄", label: "Rapprochement", render: pageMatch },
+  { id: "chauffeurs", ico: "☺", label: "Chauffeurs", render: pageDrivers },
+  { id: "clients", ico: "◎", label: "Clients & prospection", render: pageClients },
+  { id: "activite", ico: "⚙", label: "Activité Soriya", render: pageActivity },
+];
+function route() {
+  if (!DATA) return;
+  const hash = location.hash.replace(/^#\/?/, ""), [id, arg] = hash.split("/");
+  const p = PAGES.find(x => x.id === id) || PAGES[0];
+  document.getElementById("nav").innerHTML = PAGES.map(x => {
+    let cnt = "";
+    if (x.id === "rapprochement" && M.noLdv.length) cnt = '<span class="cnt">' + M.noLdv.length + "</span>";
+    if (x.id === "activite" && (M.toCheck.length || DATA.activities.some(a => a.lastErrors))) cnt = '<span class="cnt alert">' + (M.toCheck.length || "!") + "</span>";
+    return '<a href="#/' + x.id + '" target="_self" class="' + (x === p ? "on" : "") + '"><span class="ico">' + x.ico + "</span>" + x.label + cnt + "</a>";
+  }).join("");
+  document.getElementById("title").firstChild.nodeValue = p.label;
+  document.getElementById("sub").textContent = "Données à jour au " + DATA.generatedAt;
+  document.getElementById("sideFoot").innerHTML = DATA.activities.map(a =>
+    '<div><span class="dot" style="background:' + (a.lastErrors ? "#ff8a80" : "#6fcf8a") + '"></span> ' + esc(a.id) + " · " + esc(a.lastRun || "—") + "</div>").join("") +
+    '<div style="margin-top:6px;opacity:.7">Actualisation auto toutes les 5 min</div>';
+  document.getElementById("side").classList.remove("open");
+  p.render(document.getElementById("page"), arg ? decodeURIComponent(arg) : "");
 }
-const caKpi = (v, l, extra) => '<div class="ca-kpi"><b>' + esc(v) + "</b><span>" + esc(l) + "</span>" + (extra ? '<div style="font-size:12px">' + extra + "</div>" : "") + "</div>";
+window.addEventListener("hashchange", route);
 
-function renderCaChart(st) {
-  const box = document.getElementById("caChart"), tip = document.getElementById("caTip");
-  const months = Object.keys(st.byMonth).filter(m => m <= st.thisMonth).sort().slice(-12);
-  if (months.indexOf(st.thisMonth) < 0) months.push(st.thisMonth);
-  const W = Math.max(280, box.clientWidth || 600), H = 200, L = 44, B = 24, T = 8;
-  const val = m => st.byMonth[m] ? st.byMonth[m].ca : 0;
-  const max = Math.max(1, ...months.map(val), st.projection);
+/* ---------- Composants ---------- */
+const tile = (label, value, extra, cls) => '<div class="tile ' + (cls || "") + '"><span>' + esc(label) + "</span><b>" + esc(value) + "</b>" + (extra || "") + "</div>";
+const trend = (v, suffix) => v == null || !isFinite(v) ? "" : '<em class="' + (v >= 0 ? "up" : "down") + '">' + (v >= 0 ? "▲ " : "▼ ") + pct(v) + "</em> <em class='muted' style='font-weight:400'>" + (suffix || "") + "</em>";
+function barRows(rows, total, onKey) {
+  const max = Math.max(1, ...rows.map(r => r.ca));
+  return '<div class="bars">' + rows.map(r =>
+    '<div class="bar-row' + (r.none ? " none" : "") + '"' + (onKey ? ' data-k="' + esc(r.key) + '" style="cursor:pointer"' : "") + '><span class="n">' + esc(r.label) + '</span><span class="v">' + EUR.format(r.ca) + "</span>" +
+    "<small>" + r.n + " course(s) · " + Math.round(r.ca / (total || 1) * 100) + " % · " + EUR.format(r.ca / (r.n || 1)) + " / course</small>" +
+    '<span class="bar"><i style="width:' + Math.max(2, Math.round(r.ca / max * 100)) + '%"></i></span></div>').join("") + "</div>";
+}
+function groupCA(list, keyFn, labelFn) {
+  const o = {};
+  list.forEach(x => { const k = keyFn(x); (o[k] = o[k] || { key: k, ca: 0, n: 0 }); o[k].ca += x.amount; o[k].n++; });
+  return Object.values(o).map(r => Object.assign(r, { label: labelFn ? labelFn(r.key) : r.key, none: !r.key })).sort((a, b) => (a.none - b.none) || b.ca - a.ca);
+}
+
+/** Graphique en barres du CA mensuel (une seule échelle ; barre claire = projection du mois). */
+function caChart(el) {
+  const months = Object.keys(M.byMonth).filter(m => m <= M.thisMonth).sort().slice(-12);
+  if (months.indexOf(M.thisMonth) < 0) months.push(M.thisMonth);
+  const W = Math.max(280, el.clientWidth || 600), H = 220, L = 44, B = 24, T = 8;
+  const val = m => M.byMonth[m] ? M.byMonth[m].ca : 0;
+  const max = Math.max(1, ...months.map(val), M.projection);
   const step = Math.pow(10, Math.floor(Math.log10(max))), nice = Math.ceil(max / step) * step;
   const y = v => T + (H - T - B) * (1 - v / nice);
   const band = (W - L) / months.length, bw = Math.min(30, band * 0.55);
+  const bar = (x, v, extra) => { const yy = y(v), r = Math.min(4, (H - B - yy) / 2);
+    return '<path d="M' + x + "," + (H - B) + "V" + (yy + r) + "Q" + x + "," + yy + " " + (x + r) + "," + yy + "H" + (x + bw - r) + "Q" + (x + bw) + "," + yy + " " + (x + bw) + "," + (yy + r) + "V" + (H - B) + 'Z" fill="var(--accent)"' + (extra || "") + "/>"; };
   let svg = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Chiffre d\'affaires par mois">';
-  for (let i = 0; i <= 4; i++) {
-    const v = nice * i / 4, yy = y(v);
-    svg += '<line x1="' + L + '" x2="' + W + '" y1="' + yy + '" y2="' + yy + '" stroke="var(--grid)"/>' +
-      '<text x="' + (L - 6) + '" y="' + (yy + 4) + '" text-anchor="end" font-size="10" fill="var(--ink-3)">' + (v >= 1000 ? Math.round(v / 1000) + " k" : Math.round(v)) + "</text>";
-  }
-  const bar = (x, v, fill, extra) => {
-    const yy = y(v), r = Math.min(4, (H - B - yy) / 2);
-    return '<path d="M' + x + "," + (H - B) + "V" + (yy + r) + "Q" + x + "," + yy + " " + (x + r) + "," + yy + "H" + (x + bw - r) +
-      "Q" + (x + bw) + "," + yy + " " + (x + bw) + "," + (yy + r) + "V" + (H - B) + 'Z" fill="' + fill + '"' + (extra || "") + "/>";
-  };
-  months.forEach((m, i) => {
-    const x = L + band * i + (band - bw) / 2;
-    if (m === st.thisMonth && st.projection > val(m)) svg += bar(x, st.projection, "var(--accent)", ' opacity="0.25"');
-    if (val(m)) svg += bar(x, val(m), "var(--accent)");
+  for (let i = 0; i <= 4; i++) { const v = nice * i / 4, yy = y(v);
+    svg += '<line x1="' + L + '" x2="' + W + '" y1="' + yy + '" y2="' + yy + '" stroke="var(--grid)"/><text x="' + (L - 6) + '" y="' + (yy + 4) + '" text-anchor="end" font-size="10" fill="var(--ink-3)">' + (v >= 1000 ? Math.round(v / 1000) + " k" : Math.round(v)) + "</text>"; }
+  months.forEach((m, i) => { const x = L + band * i + (band - bw) / 2;
+    if (m === M.thisMonth && M.projection > val(m)) svg += bar(x, M.projection, ' opacity="0.25"');
+    if (val(m)) svg += bar(x, val(m));
     svg += '<text x="' + (x + bw / 2) + '" y="' + (H - 7) + '" text-anchor="middle" font-size="10" fill="var(--ink-2)">' + MONTHS[+m.slice(5) - 1] + "</text>" +
-      '<rect x="' + (L + band * i) + '" y="0" width="' + band + '" height="' + H + '" fill="transparent" data-m="' + m + '"/>';
-  });
-  box.innerHTML = svg + "</svg>";
-  box.appendChild(tip);
-  box.querySelectorAll("rect[data-m]").forEach(r => {
-    r.addEventListener("mousemove", ev => {
-      const m = r.dataset.m, c = st.byMonth[m] || { ca: 0, n: 0 }, rect = box.getBoundingClientRect();
-      tip.innerHTML = "<b>" + monthLabel(m) + "</b><br>CA : " + EUR.format(c.ca) + " · " + c.n + " course(s)" +
-        (m === st.thisMonth ? "<br>Projection : " + EUR.format(st.projection) : "");
-      tip.style.display = "block";
-      tip.style.left = Math.min(ev.clientX - rect.left + 12, rect.width - tip.offsetWidth - 4) + "px";
-      tip.style.top = Math.max(0, ev.clientY - rect.top - 50) + "px";
-    });
+      '<rect x="' + (L + band * i) + '" y="0" width="' + band + '" height="' + H + '" fill="transparent" data-m="' + m + '"/>'; });
+  el.innerHTML = svg + '</svg><div class="tip"></div>';
+  const tip = el.querySelector(".tip");
+  el.querySelectorAll("rect[data-m]").forEach(r => {
+    r.addEventListener("mousemove", ev => { const m = r.dataset.m, c = M.byMonth[m] || { ca: 0, n: 0 }, rect = el.getBoundingClientRect();
+      tip.innerHTML = "<b>" + monthLabel(m) + "</b><br>CA : " + EUR.format(c.ca) + " · " + c.n + " course(s)" + (m === M.thisMonth ? "<br>Projection : " + EUR.format(M.projection) : "");
+      tip.style.display = "block"; tip.style.left = Math.min(ev.clientX - rect.left + 12, rect.width - tip.offsetWidth - 4) + "px"; tip.style.top = Math.max(0, ev.clientY - rect.top - 50) + "px"; });
     r.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+    r.addEventListener("click", () => { view.courses = Object.assign(view.courses || {}, { month: r.dataset.m, page: 0 }); location.hash = "#/courses"; });
   });
 }
 
-/** « ECOTIME GROUP, 20 Rue … » → « ECOTIME » : un nom court par donneur d'ordre. */
-function normParty(p) {
-  return (String(p || "").split(/,| - /)[0] || "Non renseigné").trim().toUpperCase().replace(/\s+(GROUP|GROUPE|SAS|SARL|SA)$/, "") || "NON RENSEIGNÉ";
-}
-
-function renderDiversification() {
-  const st = caStats(), goal = DATA.maxShareTopClient || 0.8;
-  const sumBy = list => { const o = {}; list.forEach(d => { const k = normParty(d.party); o[k] = (o[k] || 0) + d.amount; }); return o; };
-  const ytd = sumBy(st.ytd), mtd = sumBy(st.mtd);
-  const totY = Object.values(ytd).reduce((a, b) => a + b, 0), totM = Object.values(mtd).reduce((a, b) => a + b, 0);
-  const clients = Object.keys(ytd).sort((a, b) => ytd[b] - ytd[a]);
-  const top = clients[0] || "—", share = totY ? ytd[top] / totY : 0;
-  const ok = share <= goal;
-  document.getElementById("divPill").innerHTML = ok
-    ? '<span class="pill ok">✔ Objectif atteint</span>'
-    : '<span class="pill bad">▲ Dépendance forte</span>';
-  document.getElementById("divSub").textContent = "Part du CA réalisée avec " + top + " depuis janvier · objectif : moins de " + Math.round(goal * 100) + " %";
-  document.getElementById("divShare").innerHTML = Math.round(share * 100) + " %<small>" + esc(top) + "</small>";
-  document.getElementById("divMeter").innerHTML = '<i style="width:' + Math.round(share * 100) + '%"></i><b style="left:' + Math.round(goal * 100) + '%" title="Objectif"></b>';
-  document.getElementById("divGoal").textContent = "objectif " + Math.round(goal * 100) + " %";
-  const otherM = totM - (mtd[top] || 0);
-  // Courses hors premier client à ajouter chaque jour ouvré pour atteindre l'objectif, à volume actuel constant.
-  const elapsed = st.now.getMonth() + st.day / st.dim;
-  const topM = (ytd[top] || 0) / elapsed, othersM = (totY - (ytd[top] || 0)) / elapsed;
-  const ticket = st.ytd.length ? totY / st.ytd.length : 63;
-  const needed = Math.max(0, topM * (1 - goal) / goal - othersM) / 21 / ticket;
-  document.getElementById("divMini").innerHTML =
-    "<div><b>" + clients.length + "</b><span>donneur(s) d'ordre</span></div>" +
-    "<div><b>" + EUR.format(otherM) + "</b><span>CA hors " + esc(top) + " ce mois</span></div>" +
-    "<div><b>" + (ok ? "—" : "≈ " + (needed < 1 ? needed.toFixed(1).replace(".", ",") : Math.round(needed)) + " / jour") + "</b><span>courses hors " + esc(top) + " à trouver</span></div>";
-  const max = Math.max(1, ...clients.map(c => ytd[c]));
-  document.getElementById("divClients").innerHTML = clients.slice(0, 6).map(c =>
-    '<div class="drv"><span class="n">' + esc(c) + '</span><span class="v">' + EUR.format(ytd[c]) + "</span>" +
-    "<small>" + Math.round(ytd[c] / (totY || 1) * 100) + " % du CA</small><small></small>" +
-    '<span class="bar"><i style="width:' + Math.max(2, Math.round(ytd[c] / max * 100)) + '%"></i></span></div>').join("") ||
-    '<div class="empty">Aucune course facturée.</div>';
-
-  // Prospection
-  const P = DATA.prospects || { list: [] };
-  document.getElementById("prosLink").href = P.url || "#";
-  const order = { "Fort": 0, "Moyen": 1, "Faible": 2 }, sOrder = { "Rendez-vous": 0, "Test en cours": 1, "Contacté": 2, "À contacter": 3, "Client": 4, "Pas intéressé": 5 };
+/** Camembert (anneau) des documents par mois : 5 derniers mois + « Mois précédents ». */
+function donut(el, leg) {
   const counts = {};
-  P.list.forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
-  document.getElementById("pipe").innerHTML = ["À contacter", "Contacté", "Rendez-vous", "Test en cours", "Client"].map(k =>
-    "<span>" + k + " <b>" + (counts[k] || 0) + "</b></span>").join("");
-  const list = P.list.filter(p => p.status !== "Pas intéressé").sort((a, b) =>
-    (sOrder[a.status] ?? 9) - (sOrder[b.status] ?? 9) || (order[a.potential] ?? 9) - (order[b.potential] ?? 9));
-  document.getElementById("prospects").innerHTML = list.length ? list.map(p =>
-    '<div class="pr"><span>' + (p.link ? '<a href="' + esc(p.link) + '">' + esc(p.name) + "</a>" : "<b>" + esc(p.name) + "</b>") +
-    ' <small style="color:var(--ink-2)">· ' + esc(p.type) + "</small></span>" +
-    '<span><span class="badge ' + esc((p.potential || "").toLowerCase()) + '">' + esc(p.potential || "?") + "</span> " +
-    '<span class="pill ' + (p.status === "Client" ? "ok" : p.status === "À contacter" ? "warn" : "ok") + '" style="font-size:12px">' + esc(p.status) + "</span></span>" +
-    '<span class="why">' + esc(p.why) + "</span>" +
-    (p.next ? '<span class="nx">➜ ' + esc(p.next) + (p.date ? " · " + esc(p.date) : "") + "</span>" : "") + "</div>").join("")
-    : '<div class="empty">' + esc(P.error || "Aucun prospect.") + "</div>";
-}
-
-/** Camembert (anneau) : 5 derniers mois + « Mois précédents » (6 parts au maximum, pour rester lisible). */
-function renderChart() {
-  const box = document.getElementById("donut"), tip = document.getElementById("tip"), leg = document.getElementById("dleg");
-  const counts = {};
-  DATA.docs.forEach(d => {
-    const m = (d.date || "").slice(0, 7);
-    if (!/^\d{4}-\d{2}$/.test(m)) return;
-    (counts[m] = counts[m] || { conf: 0, ldv: 0 })[d.type]++;
-  });
-  const months = Object.keys(counts).sort();
-  if (!months.length) { leg.innerHTML = ""; box.innerHTML = '<div class="empty">Aucun document.</div>'; return; }
+  DATA.docs.forEach(x => { const m = (x.date || "").slice(0, 7); if (/^\d{4}-\d{2}$/.test(m)) (counts[m] = counts[m] || { conf: 0, ldv: 0 })[x.type]++; });
+  const months = Object.keys(counts).sort(); if (!months.length) return;
   const recent = months.slice(-5), older = months.slice(0, -5);
-  const parts = older.length ? [{ key: "old", label: "Mois précédents (" + older.length + ")", conf: 0, ldv: 0, color: "var(--m-old)", months: older }] : [];
+  const parts = older.length ? [{ label: "Mois précédents (" + older.length + ")", conf: 0, ldv: 0, color: "var(--m-old)" }] : [];
   older.forEach(m => { parts[0].conf += counts[m].conf; parts[0].ldv += counts[m].ldv; });
   const ramp = ["var(--m1)", "var(--m2)", "var(--m3)", "var(--m4)", "var(--m5)"].slice(-recent.length);
-  recent.forEach((m, i) => parts.push({ key: m, label: monthLabel(m), conf: counts[m].conf, ldv: counts[m].ldv, color: ramp[i], months: [m] }));
-  const total = parts.reduce((t, p) => t + p.conf + p.ldv, 0);
-  const R = 100, r = 64, C = 110;
-  let a0 = -Math.PI / 2, svg = '<svg viewBox="0 0 220 220" role="img" aria-label="Répartition des documents par mois">';
-  parts.forEach((p, i) => {
-    const v = p.conf + p.ldv, a1 = a0 + v / total * Math.PI * 2, gap = parts.length > 1 ? 0.012 : 0;
-    const s = a0 + gap, e = Math.max(s + 0.001, a1 - gap), large = e - s > Math.PI ? 1 : 0;
+  recent.forEach((m, i) => parts.push({ label: monthLabel(m), conf: counts[m].conf, ldv: counts[m].ldv, color: ramp[i] }));
+  const total = parts.reduce((t, p) => t + p.conf + p.ldv, 0), R = 100, r = 64, C = 110;
+  let a0 = -Math.PI / 2, svg = '<svg viewBox="0 0 220 220" role="img" aria-label="Documents par mois">';
+  parts.forEach((p, i) => { const a1 = a0 + (p.conf + p.ldv) / total * Math.PI * 2, s = a0 + 0.012, e = Math.max(s + 0.001, a1 - 0.012), lg = e - s > Math.PI ? 1 : 0;
     const P = (rad, a) => (C + rad * Math.cos(a)).toFixed(2) + "," + (C + rad * Math.sin(a)).toFixed(2);
-    svg += parts.length === 1
-      ? '<circle cx="110" cy="110" r="82" fill="none" stroke="' + p.color + '" stroke-width="36" data-i="0"/>'
-      : '<path d="M' + P(R, s) + "A" + R + "," + R + " 0 " + large + " 1 " + P(R, e) + "L" + P(r, e) + "A" + r + "," + r + " 0 " + large + " 0 " + P(r, s) +
-        'Z" fill="' + p.color + '" data-i="' + i + '" style="cursor:pointer"/>';
-    a0 = a1;
-  });
-  svg += '<text x="110" y="106" text-anchor="middle" font-size="30" font-weight="700" fill="var(--ink)">' + total + "</text>" +
-    '<text x="110" y="128" text-anchor="middle" font-size="12" fill="var(--ink-2)">documents</text></svg>';
-  box.innerHTML = svg;
-  box.appendChild(tip);
-  leg.innerHTML = parts.slice().reverse().map(p => {
-    const i = parts.indexOf(p), v = p.conf + p.ldv;
-    return '<li data-i="' + i + '"><i style="background:' + p.color + '"></i><span>' + esc(p.label) + "</span><b>" + v + "</b><small>" + Math.round(v / total * 100) + " %</small></li>";
-  }).join("");
-  const show = (i, ev) => {
-    const p = parts[i], rect = box.getBoundingClientRect();
-    tip.innerHTML = "<b>" + esc(p.label) + "</b><br>" +
-      '<i class="dot" style="background:var(--s-conf)"></i> Confirmations : ' + p.conf + "<br>" +
-      '<i class="dot" style="background:var(--s-ldv)"></i> Lettres de voiture : ' + p.ldv;
-    tip.style.display = "block";
-    tip.style.left = (ev ? Math.min(ev.clientX - rect.left + 12, rect.width - 20) : 120) + "px";
-    tip.style.top = (ev ? Math.max(0, ev.clientY - rect.top - 40) : 10) + "px";
-    leg.querySelectorAll("li").forEach(li => li.classList.toggle("on", +li.dataset.i === i));
-  };
+    svg += '<path d="M' + P(R, s) + "A" + R + "," + R + " 0 " + lg + " 1 " + P(R, e) + "L" + P(r, e) + "A" + r + "," + r + " 0 " + lg + " 0 " + P(r, s) + 'Z" fill="' + p.color + '" data-i="' + i + '"/>'; a0 = a1; });
+  el.innerHTML = svg + '<text x="110" y="106" text-anchor="middle" font-size="30" font-weight="700" fill="var(--ink)">' + total + '</text><text x="110" y="128" text-anchor="middle" font-size="12" fill="var(--ink-2)">documents</text></svg><div class="tip"></div>';
+  leg.innerHTML = parts.slice().reverse().map(p => '<li data-i="' + parts.indexOf(p) + '"><i style="background:' + p.color + '"></i><span>' + esc(p.label) + "</span><b>" + (p.conf + p.ldv) + "</b><small>" + Math.round((p.conf + p.ldv) / total * 100) + " %</small></li>").join("");
+  const tip = el.querySelector(".tip");
+  const show = (i, ev) => { const p = parts[i], rect = el.getBoundingClientRect();
+    tip.innerHTML = "<b>" + esc(p.label) + '</b><br><i class="dot" style="background:var(--s-conf)"></i> Confirmations : ' + p.conf + '<br><i class="dot" style="background:var(--s-ldv)"></i> Lettres de voiture : ' + p.ldv;
+    tip.style.display = "block"; tip.style.left = (ev ? Math.min(ev.clientX - rect.left + 12, rect.width - 20) : 110) + "px"; tip.style.top = (ev ? Math.max(0, ev.clientY - rect.top - 40) : 10) + "px";
+    leg.querySelectorAll("li").forEach(li => li.classList.toggle("on", +li.dataset.i === i)); };
   const hide = () => { tip.style.display = "none"; leg.querySelectorAll("li").forEach(li => li.classList.remove("on")); };
-  const pick = i => { const p = parts[i]; ui.month = p.months.length === 1 ? p.months[0] : ""; document.getElementById("month").value = ui.month; renderTable(); };
-  box.querySelectorAll("[data-i]").forEach(el => {
-    el.addEventListener("mousemove", ev => show(+el.dataset.i, ev));
-    el.addEventListener("mouseleave", hide);
-    el.addEventListener("click", () => pick(+el.dataset.i));
-  });
-  leg.querySelectorAll("li").forEach(li => {
-    li.addEventListener("mouseenter", () => show(+li.dataset.i));
-    li.addEventListener("mouseleave", hide);
-    li.addEventListener("click", () => pick(+li.dataset.i));
-  });
+  el.querySelectorAll("[data-i]").forEach(x => { x.addEventListener("mousemove", ev => show(+x.dataset.i, ev)); x.addEventListener("mouseleave", hide); });
+  leg.querySelectorAll("li").forEach(li => { li.addEventListener("mouseenter", () => show(+li.dataset.i)); li.addEventListener("mouseleave", hide); });
 }
 
-/** Prévisions et conseils, calculés à partir des courses facturées et des lettres de voiture. */
-function renderTips() {
-  const st = caStats(), tips = [];
-  const add = (kind, title, text) => tips.push('<li><span class="ic ' + kind + '">' + ({ up: "▲", down: "▼", info: "●" })[kind] + "</span><div><b>" + esc(title) + "</b><span>" + esc(text) + "</span></div></li>");
-  if (st.avg3) {
-    const v = st.projection / st.avg3 - 1;
-    if (st.day < 7) add("info", "Début de mois : projection encore fragile", "Au rythme actuel, le mois finirait vers " + EUR.format(st.projection) + " (moyenne des 3 derniers mois : " + EUR.format(st.avg3) + "). À confirmer après le 10.");
-    else if (v >= 0.05) add("up", "Mois en hausse : " + pct(v) + " vs la moyenne", "Projection " + EUR.format(st.projection) + ". Sécurisez des chauffeurs et véhicules supplémentaires pour absorber la charge sans refuser de courses.");
-    else if (v <= -0.05) add("down", "Mois en baisse : " + pct(v) + " vs la moyenne", "Projection " + EUR.format(st.projection) + " contre " + EUR.format(st.avg3) + " en moyenne. Relancez Ecotime et prospectez d'autres donneurs d'ordre dès maintenant.");
-    else add("info", "Activité stable", "Projection " + EUR.format(st.projection) + ", dans la moyenne des 3 derniers mois (" + EUR.format(st.avg3) + ").");
-  }
-  if (st.avgPrev3 && st.avg3) {
-    const t = st.avg3 / st.avgPrev3 - 1;
-    add(t >= 0 ? "up" : "down", "Tendance de fond : " + pct(t), "Moyenne des 3 derniers mois (" + EUR.format(st.avg3) + ") comparée aux 3 mois d'avant (" + EUR.format(st.avgPrev3) + ").");
-  }
-  // Jours les plus chargés
-  const wd = [0, 0, 0, 0, 0, 0, 0];
-  // Les dates arrivent en « AAAA-MM-JJ » ou « AAAA-MM-JJ HH:mm » : on ne garde que le jour, à midi (pas d'effet de fuseau).
-  let dated = 0;
-  st.S.forEach(d => {
-    const p = d.date.slice(0, 10).split("-").map(Number), wday = new Date(p[0], p[1] - 1, p[2], 12).getDay();
-    if (!isNaN(wday)) { wd[wday] += d.amount; dated++; }
-  });
-  if (dated > 20) {
-    const week = [1, 2, 3, 4, 5]; // lundi → vendredi
-    const best = wd.indexOf(Math.max(...wd));
-    const worst = week.reduce((a, b) => wd[a] <= wd[b] ? a : b);
-    add("info", "Jour le plus rentable : le " + DAYS[best] + " (" + EUR.format(wd[best]) + " depuis janvier)",
-      "Prévoyez le maximum de chauffeurs disponibles ce jour-là ; le " + DAYS[worst] + " est le jour de semaine le plus calme (" +
-      EUR.format(wd[worst]) + ") : idéal pour l'entretien et les congés.");
-  }
-  // Saisonnalité
-  const ms = st.closed;
-  if (ms.length >= 4) {
-    const hi = ms.reduce((a, b) => st.byMonth[a].ca >= st.byMonth[b].ca ? a : b), lo = ms.reduce((a, b) => st.byMonth[a].ca <= st.byMonth[b].ca ? a : b);
-    add("info", "Meilleur mois : " + monthLabel(hi) + " (" + EUR.format(st.byMonth[hi].ca) + ")", "Mois le plus faible : " + monthLabel(lo) + " (" + EUR.format(st.byMonth[lo].ca) + "). Anticipez ces creux : trésorerie, congés, prospection.");
-  }
-  // Dépendance client
-  const parties = {};
-  st.ytd.forEach(d => { const p = normParty(d.party); parties[p] = (parties[p] || 0) + d.amount; });
-  const top = Object.keys(parties).sort((a, b) => parties[b] - parties[a])[0];
-  const share = top ? parties[top] / st.ytd.reduce((t, d) => t + d.amount, 0) : 0;
-  if (share > 0.6) add("down", Math.round(share * 100) + " % du CA vient de " + top, "Forte dépendance à un seul donneur d'ordre : une baisse chez lui se répercute directement. Plan d'action dans la carte « Diversification clientèle » : bourses de fret et affréteurs à contacter cette semaine.");
-  // Courses sans lettre de voiture (mois en cours)
-  const ldvCovered = st.mtd.filter(d => d.driver).length;
-  if (st.mtd.length) {
-    const miss = st.mtd.length - ldvCovered;
-    if (miss > 0) add("info", miss + " course(s) du mois sans lettre de voiture reçue", "Demandez aux chauffeurs d'envoyer la lettre signée au 06 52 13 53 08 : c'est la preuve de livraison en cas de litige ou de retard de paiement.");
-  }
-  // Attentes facturées
-  const waits = st.ytd.filter(d => d.waiting && d.waiting !== "—").length;
-  add("info", waits + " attente(s) facturée(s) depuis janvier", "Notez systématiquement les heures d'arrivée et de départ sur la lettre de voiture pour facturer toutes les attentes.");
-  document.getElementById("tips").innerHTML = tips.join("") || '<li class="empty">Pas encore assez de données.</li>';
+/** Tableau triable, paginé, exportable en CSV. */
+function dataTable(host, rows, cols, opts) {
+  const st = opts.state;
+  st.sort = st.sort || opts.sort || cols[0].key; st.dir = st.dir || -1; st.page = st.page || 0;
+  const get = (r, c) => c.val ? c.val(r) : r[c.key];
+  rows = rows.slice().sort((a, b) => { const x = get(a, cols.find(c => c.key === st.sort) || cols[0]), y = get(b, cols.find(c => c.key === st.sort) || cols[0]);
+    return (typeof x === "number" && typeof y === "number" ? x - y : String(x || "").localeCompare(String(y || ""), "fr", { numeric: true })) * st.dir; });
+  const per = 50, pages = Math.max(1, Math.ceil(rows.length / per)); st.page = Math.min(st.page, pages - 1);
+  const slice = rows.slice(st.page * per, st.page * per + per);
+  host.innerHTML = '<div class="table-wrap"><table><thead><tr>' + cols.map(c =>
+    '<th data-s="' + c.key + '" class="' + (c.num ? "num " : "") + (c.sm ? "hide-sm" : "") + '">' + esc(c.label) + (st.sort === c.key ? (st.dir > 0 ? " ▲" : " ▼") : "") + "</th>").join("") + "</tr></thead><tbody>" +
+    (slice.length ? slice.map((r, i) => '<tr data-i="' + (st.page * per + i) + '">' + cols.map(c => '<td class="' + (c.num ? "num " : "") + (c.nw ? "nw " : "") + (c.sm ? "hide-sm" : "") + '">' + (c.html ? c.html(r) : esc(get(r, c) == null || get(r, c) === "" ? "—" : get(r, c))) + "</td>").join("") + "</tr>").join("")
+      : '<tr><td colspan="' + cols.length + '" class="empty">Aucun résultat.</td></tr>') +
+    "</tbody></table>" + (pages > 1 ? '<div class="pager"><span class="muted small">Page ' + (st.page + 1) + " / " + pages + '</span><button type="button" data-p="-1">‹</button><button type="button" data-p="1">›</button></div>' : "") + "</div>";
+  host.querySelectorAll("th[data-s]").forEach(th => th.onclick = () => { st.dir = st.sort === th.dataset.s ? -st.dir : -1; st.sort = th.dataset.s; dataTable(host, rows, cols, opts); });
+  host.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { st.page = Math.max(0, Math.min(pages - 1, st.page + +b.dataset.p)); dataTable(host, rows, cols, opts); });
+  host.querySelectorAll("tbody tr[data-i]").forEach(tr => tr.onclick = () => opts.onRow && opts.onRow(rows[+tr.dataset.i]));
+  host._csv = () => [cols.map(c => c.label)].concat(rows.map(r => cols.map(c => { const v = c.csv ? c.csv(r) : get(r, c); return v == null ? "" : v; })));
+}
+function downloadCsv(name, table) {
+  const csv = "﻿" + table.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(";")).join("\r\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = name + ".csv"; a.target = "_self"; document.body.appendChild(a); a.click(); a.remove();
+}
+function monthOptions(list, sel) {
+  const ms = Array.from(new Set(list.map(x => (x.date || "").slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m)))).sort().reverse();
+  return '<option value="">Tous les mois</option>' + ms.map(m => '<option value="' + m + '"' + (m === sel ? " selected" : "") + ">" + monthLabel(m) + "</option>").join("");
 }
 
-function renderMonths() {
-  const sel = document.getElementById("month");
-  const months = Array.from(new Set(DATA.docs.map(d => (d.date || "").slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m)))).sort().reverse();
-  sel.innerHTML = '<option value="">Tous les mois</option>' + months.map(m => '<option value="' + m + '">' + monthLabel(m) + "</option>").join("");
-  sel.value = ui.month;
+/* ---------- Panneau de détail ---------- */
+function openDoc(x) {
+  const isC = x.type === "conf";
+  document.getElementById("dTitle").textContent = (isC ? "Course n° " : "Lettre de voiture n° ") + (x.number || "—");
+  const kv = rows => '<dl class="kv">' + rows.filter(r => r[1]).map(r => "<dt>" + esc(r[0]) + "</dt><dd>" + (r[2] ? r[1] : esc(r[1])) + "</dd>").join("") + "</dl>";
+  const other = isC ? x.ldv : x.conf;
+  document.getElementById("dBody").innerHTML =
+    '<p><span class="pill ' + statusKind(x.status) + '">' + esc(statusShort(x.status)) + "</span> " + (x.url ? '<a href="' + esc(x.url) + '">Ouvrir le PDF ↗</a>' : "") + "</p>" +
+    kv([["Date", fmtDate(x.date)], [isC ? "Montant HT" : "", isC && x.amount ? EUR2.format(x.amount) : ""], ["Donneur d'ordre / expéditeur", x.party],
+      ["Destinataire", x.consignee], ["Chargement", x.from], ["Livraison", x.to], ["Chauffeur", x.driver], ["Transporteur", x.carrier],
+      ["Marchandise", x.goods], ["Prestations", x.services], ["Attente", x.waiting], ["Réserves", x.reserves], ["Reçu le", x.received],
+      ["Fichier", x.name], ["Statut complet", x.status.indexOf(" — ") > 0 ? x.status : ""], ["Remarques", x.remarks]]) +
+    '<div class="link-box">' + (other
+      ? "<b>" + (isC ? "Lettre de voiture associée" : "Confirmation associée") + " ✔</b><br>" + fmtDate(other.date) + " · n° " + esc(other.number) + (other.url ? ' · <a href="' + esc(other.url) + '">PDF ↗</a>' : "") +
+        (isC ? "" : " · " + EUR2.format(other.amount || 0))
+      : "<b>" + (isC ? "⚠ Aucune lettre de voiture reçue" : "⚠ Aucune confirmation avec ce numéro") + "</b><br><span class='muted small'>" +
+        (isC ? "Demandez au chauffeur d'envoyer la lettre signée au 06 52 13 53 08." : "La course n'a pas (encore) de confirmation d'affrètement dans Soriya.") + "</span>") + "</div>";
+  document.getElementById("drawer").classList.add("open"); document.getElementById("drawerBg").style.display = "block";
+}
+function closeDoc() { document.getElementById("drawer").classList.remove("open"); document.getElementById("drawerBg").style.display = "none"; }
+document.getElementById("dClose").onclick = closeDoc;
+document.getElementById("drawerBg").onclick = closeDoc;
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeDoc(); });
+
+/* ---------- Pages ---------- */
+function pageHome(el) {
+  const vsAvg = M.avg3 ? M.projection / M.avg3 - 1 : null, growth = M.caPrevSame ? M.caMtd / M.caPrevSame - 1 : null;
+  const ldvMonth = M.ldv.filter(x => (x.date || "").slice(0, 7) === M.thisMonth).length;
+  const matched = M.mtd.length ? (M.mtd.length - M.noLdv.length) / M.mtd.length : 0;
+  el.innerHTML =
+    '<div class="grid g6">' +
+      tile("CA du mois (HT)", EUR.format(M.caMtd), trend(growth, "vs même période"), "hero") +
+      tile("Projection fin de mois", EUR.format(M.projection), trend(vsAvg, "vs moy. 3 mois")) +
+      tile("CA depuis janvier", EUR.format(M.caYtd), "<em class='muted' style='font-weight:400'>" + M.ytd.length + " courses</em>") +
+      tile("Courses ce mois", String(M.mtd.length), "<em class='muted' style='font-weight:400'>" + (M.mtd.length / Math.max(1, M.day)).toFixed(1).replace(".", ",") + " / jour</em>") +
+      tile("Lettres de voiture reçues", String(ldvMonth), "<em class='muted' style='font-weight:400'>ce mois</em>") +
+      tile("Courses avec lettre", Math.round(matched * 100) + " %", M.noLdv.length ? "<em class='down'>" + M.noLdv.length + " sans lettre</em>" : "<em class='up'>complet</em>") +
+    "</div>" +
+    '<div class="grid g3" style="margin-top:16px">' +
+      '<div class="card span2"><h2>Chiffre d\'affaires par mois <a class="more" href="#/courses" target="_self">Voir les courses →</a></h2><div class="chart" id="hChart"></div><p class="muted small" style="margin:6px 0 0">Barre claire : projection du mois en cours. Cliquez sur un mois pour voir ses courses.</p></div>' +
+      '<div class="card"><h2>À traiter</h2><ul class="tips" id="hTodo"></ul></div>' +
+      '<div class="card"><h2>CA par chauffeur · ce mois <a class="more" href="#/chauffeurs" target="_self">Détail →</a></h2>' + barRows(groupCA(M.mtd, x => x.driver || "", k => k || "Sans lettre rapprochée"), M.caMtd) + "</div>" +
+      '<div class="card"><h2>Documents par mois</h2><div class="donut-wrap"><div class="donut" id="hDonut"></div><ul class="dleg" id="hLeg"></ul></div></div>' +
+      '<div class="card"><h2>Prévisions & conseils</h2><ul class="tips" id="hTips"></ul></div>' +
+    "</div>";
+  caChart(document.getElementById("hChart"));
+  donut(document.getElementById("hDonut"), document.getElementById("hLeg"));
+  const todo = [];
+  const item = (k, t, s, href) => todo.push('<li><span class="ic ' + k + '">' + ({ up: "▲", down: "▼", info: "●" })[k] + "</span><div><b>" + esc(t) + "</b><span>" + esc(s) + "</span>" + (href ? ' <a href="' + href + '" target="_self">Voir →</a>' : "") + "</div></li>");
+  if (M.noLdv.length) item("info", M.noLdv.length + " course(s) du mois sans lettre de voiture", "Relancez les chauffeurs concernés.", "#/rapprochement");
+  if (M.toCheck.length) item("down", M.toCheck.length + " document(s) à vérifier", "Lecture incertaine, listing ou facture.", "#/activite");
+  DATA.activities.filter(a => a.lastErrors).forEach(a => item("down", "Erreur " + a.id, a.lastError, "#/activite"));
+  if (M.orphanLdv.length) item("info", M.orphanLdv.length + " lettre(s) sans confirmation", "Courses à vérifier avec Ecotime.", "#/rapprochement");
+  const P = (DATA.prospects || { list: [] }).list, todoP = P.filter(p => p.status === "À contacter").length;
+  if (todoP) item("info", todoP + " prospect(s) à contacter", "Diversifiez vos donneurs d'ordre.", "#/clients");
+  document.getElementById("hTodo").innerHTML = todo.join("") || '<li class="muted">Rien à traiter. 👍</li>';
+  document.getElementById("hTips").innerHTML = tipsHtml();
 }
 
-function renderTable() {
-  const q = ui.q.trim().toLowerCase();
-  let list = DATA.docs.filter(d =>
-    (ui.type === "all" || d.type === ui.type) &&
-    (!ui.month || (d.date || "").slice(0, 7) === ui.month) &&
-    (!ui.status || d.status.indexOf(ui.status) === 0) &&
-    (!q || [d.number, d.from, d.to, d.party, d.consignee, d.carrier, d.goods, d.services, d.name, d.remarks].join(" ").toLowerCase().indexOf(q) >= 0));
-  list.sort((a, b) => (a[ui.sort] || "").localeCompare(b[ui.sort] || "", "fr", { numeric: true }) * ui.dir);
-  document.getElementById("count").textContent = list.length + " document(s)";
-  if (!list.length) { document.getElementById("rows").innerHTML = '<tr><td colspan="11" class="empty">Aucun document ne correspond.</td></tr>'; return; }
-  document.getElementById("rows").innerHTML = list.slice(0, 500).map(d =>
-    "<tr>" +
-    '<td class="num">' + fmtDate(d.date) + "</td>" +
-    '<td><span class="type"><i class="dot" style="background:' + TYPES[d.type].color + '"></i>' + TYPES[d.type].label + "</span></td>" +
-    '<td class="num">' + esc(d.number || "—") + "</td>" +
-    '<td class="route"><b>' + esc(d.from || "?") + "</b> → <b>" + esc(d.to || "?") + "</b>" +
-      (d.goods ? "<br><small>" + esc(d.goods) + "</small>" : "") +
-      (d.reserves ? '<br><small style="color:var(--bad)">Réserves : ' + esc(d.reserves) + "</small>" : "") + "</td>" +
-    '<td class="hide-sm">' + esc((d.party || "").split(",")[0]) + "</td>" +
-    '<td class="hide-sm">' + esc(d.carrier || "—") + "</td>" +
-    '<td class="hide-sm"><small>' + esc(d.services || "—").replace(/ ; /g, "<br>") + "</small></td>" +
-    '<td class="hide-sm num">' + esc(d.price || "—") + "</td>" +
-    '<td class="hide-sm">' + esc(d.waiting || "—") + "</td>" +
-    '<td class="hide-sm"><span class="pill ' + statusKind(d.status) + '">' + esc(d.status.split(" — ")[0] || "—") + "</span></td>" +
-    "<td>" + (d.url ? '<a href="' + esc(d.url) + '" title="' + esc(d.name) + '">Ouvrir</a>' : "—") + "</td>" +
-    "</tr>").join("");
+function tipsHtml() {
+  const t = [], add = (k, a, b) => t.push('<li><span class="ic ' + k + '">' + ({ up: "▲", down: "▼", info: "●" })[k] + "</span><div><b>" + esc(a) + "</b><span>" + esc(b) + "</span></div></li>");
+  if (M.avg3) { const v = M.projection / M.avg3 - 1;
+    if (M.day < 7) add("info", "Début de mois : projection fragile", "Au rythme actuel ≈ " + EUR.format(M.projection) + " (moyenne 3 mois : " + EUR.format(M.avg3) + "). À confirmer après le 10.");
+    else if (v >= 0.05) add("up", "Mois en hausse : " + pct(v), "Sécurisez chauffeurs et véhicules pour absorber la charge.");
+    else if (v <= -0.05) add("down", "Mois en baisse : " + pct(v), "Relancez Ecotime et contactez vos prospects dès maintenant.");
+    else add("info", "Activité stable", "Projection " + EUR.format(M.projection) + ", dans la moyenne."); }
+  if (M.avg3 && M.avgPrev3) { const v = M.avg3 / M.avgPrev3 - 1; add(v >= 0 ? "up" : "down", "Tendance de fond : " + pct(v), "3 derniers mois vs les 3 précédents."); }
+  const wd = [0, 0, 0, 0, 0, 0, 0]; let n = 0;
+  M.sales.forEach(x => { const p = x.date.slice(0, 10).split("-").map(Number), w = new Date(p[0], p[1] - 1, p[2], 12).getDay(); if (!isNaN(w)) { wd[w] += x.amount; n++; } });
+  if (n > 20) { const best = wd.indexOf(Math.max(...wd)), worst = [1, 2, 3, 4, 5].reduce((a, b) => wd[a] <= wd[b] ? a : b);
+    add("info", "Jour le plus rentable : le " + DAYS[best], "Le " + DAYS[worst] + " est le plus calme : entretien, congés, prospection."); }
+  const cl = groupCA(M.ytd, x => x.client); if (cl.length && cl[0].ca / (M.caYtd || 1) > (DATA.maxShareTopClient || 0.8))
+    add("down", Math.round(cl[0].ca / M.caYtd * 100) + " % du CA vient de " + cl[0].key, "Voir le plan d'action dans « Clients & prospection ».");
+  return t.join("");
 }
 
-document.getElementById("refresh").addEventListener("click", load);
-let resizeT;
-window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (DATA) renderRevenue(); }, 150); });
-document.querySelectorAll("#caSeg button").forEach(b => b.addEventListener("click", () => {
-  caPeriod = b.dataset.v;
-  document.querySelectorAll("#caSeg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
-  renderRevenue();
-}));
-document.querySelectorAll("#typeSeg button").forEach(b => b.addEventListener("click", () => {
-  ui.type = b.dataset.v;
-  document.querySelectorAll("#typeSeg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
-  renderTable();
-}));
-// Clic sur un transporteur : liste filtrée sur ses lettres de voiture.
-document.getElementById("cards").addEventListener("click", e => {
-  const b = e.target.closest(".carrier");
-  if (!b) return;
-  ui.type = "ldv"; ui.q = b.dataset.carrier;
-  document.querySelectorAll("#typeSeg button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === "ldv")));
-  document.getElementById("q").value = ui.q;
-  renderTable();
-  document.getElementById("typeSeg").scrollIntoView({ behavior: "smooth", block: "start" });
-});
-document.getElementById("month").addEventListener("change", e => { ui.month = e.target.value; renderTable(); });
-document.getElementById("status").addEventListener("change", e => { ui.status = e.target.value; renderTable(); });
-document.getElementById("q").addEventListener("input", e => { ui.q = e.target.value; renderTable(); });
-document.querySelectorAll("th[data-s]").forEach(th => th.addEventListener("click", () => {
-  ui.dir = ui.sort === th.dataset.s ? -ui.dir : -1; ui.sort = th.dataset.s; renderTable();
-}));
+function pageCourses(el) {
+  const st = view.courses = view.courses || { month: "", driver: "", status: "", q: "" };
+  const drivers = Array.from(new Set(M.conf.map(x => x.driver).filter(Boolean))).sort();
+  el.innerHTML = '<div class="toolbar"><select id="fMonth">' + monthOptions(M.conf, st.month) + '</select>' +
+    '<select id="fDriver"><option value="">Tous les chauffeurs</option>' + drivers.map(d => '<option' + (d === st.driver ? " selected" : "") + ">" + esc(d) + "</option>").join("") + '<option value="-"' + (st.driver === "-" ? " selected" : "") + '>Sans lettre de voiture</option></select>' +
+    '<select id="fStatus"><option value="">Tous les statuts</option><option value="ok"' + (st.status === "ok" ? " selected" : "") + '>Archivées</option><option value="warn"' + (st.status === "warn" ? " selected" : "") + '>À vérifier</option></select>' +
+    '<input type="search" id="fQ" placeholder="Rechercher : n°, ville, client, prestation…" value="' + esc(st.q) + '">' +
+    '<button type="button" id="csv">⤓ Export CSV</button><span class="count" id="cnt"></span></div><div class="grid g4" id="sum" style="margin-bottom:12px"></div><div id="tbl"></div>';
+  const draw = () => {
+    const q = st.q.trim().toLowerCase();
+    const rows = M.conf.filter(x => (!st.month || (x.date || "").slice(0, 7) === st.month) &&
+      (!st.driver || (st.driver === "-" ? !x.ldv : x.driver === st.driver)) && (!st.status || statusKind(x.status) === st.status) &&
+      (!q || [x.number, x.from, x.to, x.party, x.services, x.goods, x.driver].join(" ").toLowerCase().indexOf(q) >= 0));
+    const billed = rows.filter(x => x.amount > 0 && x.status.indexOf("Archivé") === 0), ca = billed.reduce((t, x) => t + x.amount, 0);
+    document.getElementById("cnt").textContent = rows.length + " course(s)";
+    document.getElementById("sum").innerHTML = tile("CA HT de la sélection", EUR.format(ca), "", "hero") + tile("Courses facturées", String(billed.length)) +
+      tile("Panier moyen", EUR2.format(billed.length ? ca / billed.length : 0)) + tile("Sans lettre de voiture", String(rows.filter(x => !x.ldv).length));
+    dataTable(document.getElementById("tbl"), rows, [
+      { key: "date", label: "Date", html: x => fmtDate(x.date), csv: x => x.date },
+      { key: "number", label: "N°", nw: true },
+      { key: "route", label: "Trajet", val: x => city(x.from) + " → " + city(x.to), html: x => '<span class="route"><b>' + esc(city(x.from)) + "</b> → <b>" + esc(city(x.to)) + "</b></span>" },
+      { key: "driver", label: "Chauffeur", sm: true, html: x => x.driver ? esc(x.driver) : '<span class="pill warn">sans lettre</span>', csv: x => x.driver },
+      { key: "services", label: "Prestations", sm: true, html: x => '<span class="small">' + esc(short(x.services, 48) || "—") + "</span>" },
+      { key: "amount", label: "Montant HT", num: true, html: x => x.amount ? EUR2.format(x.amount) : "—", csv: x => String(x.amount).replace(".", ",") },
+      { key: "status", label: "Statut", sm: true, html: x => '<span class="pill ' + statusKind(x.status) + '">' + esc(statusShort(x.status)) + "</span>", csv: x => statusShort(x.status) },
+    ], { state: st, sort: "date", onRow: openDoc });
+  };
+  const bind = (id, k, ev) => document.getElementById(id).addEventListener(ev || "change", e => { st[k] = e.target.value; st.page = 0; draw(); });
+  bind("fMonth", "month"); bind("fDriver", "driver"); bind("fStatus", "status"); bind("fQ", "q", "input");
+  document.getElementById("csv").onclick = () => downloadCsv("courses-" + (st.month || "toutes"), document.getElementById("tbl")._csv());
+  draw();
+}
+
+function pageLetters(el) {
+  const st = view.lettres = view.lettres || { month: "", driver: "", q: "" };
+  const drivers = Array.from(new Set(M.ldv.map(x => x.driver).filter(Boolean))).sort();
+  el.innerHTML = '<div class="toolbar"><select id="fMonth">' + monthOptions(M.ldv, st.month) + '</select>' +
+    '<select id="fDriver"><option value="">Tous les chauffeurs</option>' + drivers.map(d => '<option' + (d === st.driver ? " selected" : "") + ">" + esc(d) + "</option>").join("") + "</select>" +
+    '<input type="search" id="fQ" placeholder="Rechercher : n°, ville, expéditeur, destinataire…" value="' + esc(st.q) + '">' +
+    '<button type="button" id="csv">⤓ Export CSV</button><span class="count" id="cnt"></span></div><div id="tbl"></div>';
+  const draw = () => {
+    const q = st.q.trim().toLowerCase();
+    const rows = M.ldv.filter(x => (!st.month || (x.date || "").slice(0, 7) === st.month) && (!st.driver || x.driver === st.driver) &&
+      (!q || [x.number, x.from, x.to, x.party, x.consignee, x.services, x.goods].join(" ").toLowerCase().indexOf(q) >= 0));
+    document.getElementById("cnt").textContent = rows.length + " lettre(s)";
+    dataTable(document.getElementById("tbl"), rows, [
+      { key: "date", label: "Livraison", html: x => fmtDate(x.date), csv: x => x.date },
+      { key: "number", label: "N°", nw: true },
+      { key: "route", label: "Trajet", val: x => city(x.from) + " → " + city(x.to), html: x => '<span class="route"><b>' + esc(city(x.from)) + "</b> → <b>" + esc(city(x.to)) + "</b></span>" },
+      { key: "driver", label: "Chauffeur", sm: true },
+      { key: "party", label: "Expéditeur", sm: true, html: x => esc(short(x.party.split(",")[0], 30) || "—") },
+      { key: "reserves", label: "Réserves", sm: true, html: x => x.reserves ? '<span class="pill bad">' + esc(short(x.reserves, 30)) + "</span>" : "—" },
+      { key: "conf", label: "Confirmation", val: x => x.conf ? 1 : 0, html: x => x.conf ? '<span class="pill ok">✔ ' + EUR.format(x.conf.amount || 0) + "</span>" : '<span class="pill warn">absente</span>', csv: x => x.conf ? "oui" : "non" },
+    ], { state: st, sort: "date", onRow: openDoc });
+  };
+  const bind = (id, k, ev) => document.getElementById(id).addEventListener(ev || "change", e => { st[k] = e.target.value; st.page = 0; draw(); });
+  bind("fMonth", "month"); bind("fDriver", "driver"); bind("fQ", "q", "input");
+  document.getElementById("csv").onclick = () => downloadCsv("lettres-de-voiture-" + (st.month || "toutes"), document.getElementById("tbl")._csv());
+  draw();
+}
+
+function pageMatch(el) {
+  const st = view.match = view.match || { month: M.thisMonth };
+  el.innerHTML = '<div class="toolbar"><select id="fMonth">' + monthOptions(M.conf, st.month) + '</select><span class="muted small">Une course est rapprochée quand la lettre de voiture porte le même numéro que la confirmation.</span></div>' +
+    '<div class="grid g3" id="mSum" style="margin-bottom:16px"></div><div class="grid g2"><div class="card"><h2>⚠ Courses sans lettre de voiture</h2><div id="t1"></div></div><div class="card"><h2>Lettres sans confirmation</h2><div id="t2"></div></div></div>';
+  const draw = () => {
+    const inM = x => !st.month || (x.date || "").slice(0, 7) === st.month;
+    const conf = M.conf.filter(x => inM(x) && x.amount > 0 && x.status.indexOf("Archivé") === 0), miss = conf.filter(x => !x.ldv);
+    const orph = M.orphanLdv.filter(inM);
+    document.getElementById("mSum").innerHTML = tile("Courses facturées", String(conf.length)) + tile("Avec lettre de voiture", Math.round((conf.length - miss.length) / (conf.length || 1) * 100) + " %", "", "hero") +
+      tile("CA sans preuve de livraison", EUR.format(miss.reduce((t, x) => t + x.amount, 0)));
+    dataTable(document.getElementById("t1"), miss, [
+      { key: "date", label: "Date", html: x => fmtDate(x.date) }, { key: "number", label: "N°", nw: true },
+      { key: "route", label: "Trajet", val: x => city(x.from) + " → " + city(x.to) }, { key: "amount", label: "HT", num: true, html: x => EUR.format(x.amount) },
+    ], { state: (st.t1 = st.t1 || {}), sort: "date", onRow: openDoc });
+    dataTable(document.getElementById("t2"), orph, [
+      { key: "date", label: "Date", html: x => fmtDate(x.date) }, { key: "number", label: "N°", nw: true },
+      { key: "route", label: "Trajet", val: x => city(x.from) + " → " + city(x.to) }, { key: "driver", label: "Chauffeur" },
+    ], { state: (st.t2 = st.t2 || {}), sort: "date", onRow: openDoc });
+  };
+  document.getElementById("fMonth").onchange = e => { st.month = e.target.value; draw(); };
+  draw();
+}
+
+function pageDrivers(el) {
+  const st = view.drivers = view.drivers || { period: "month" };
+  el.innerHTML = '<div class="toolbar"><div class="seg" id="per"><button type="button" data-v="month">Ce mois</button><button type="button" data-v="year">Depuis janvier</button></div>' +
+    '<span class="muted small">CA attribué via la lettre de voiture portant le même numéro que la confirmation.</span></div><div class="drivers" id="dl"></div>';
+  const draw = () => {
+    document.querySelectorAll("#per button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === st.period)));
+    const list = st.period === "month" ? M.mtd : M.ytd, total = list.reduce((t, x) => t + x.amount, 0);
+    const names = Array.from(new Set(M.ldv.map(x => x.driver).filter(Boolean)));
+    const rows = names.map(n => { const s = list.filter(x => x.driver === n), ca = s.reduce((t, x) => t + x.amount, 0);
+      const l = M.ldv.filter(x => x.driver === n), last = l.map(x => x.date).sort().pop();
+      return { n, ca, cnt: s.length, ldv: l.filter(x => st.period !== "month" || (x.date || "").slice(0, 7) === M.thisMonth).length, last }; }).sort((a, b) => b.ca - a.ca);
+    const none = list.filter(x => !x.driver), caNone = none.reduce((t, x) => t + x.amount, 0);
+    document.getElementById("dl").innerHTML = rows.map(r =>
+      '<div class="drv-card" data-d="' + esc(r.n) + '"><div class="drv-head"><div class="avatar">' + esc(r.n.slice(0, 1)) + '</div><div><b>' + esc(r.n) + '</b><span class="muted small">Dernière livraison : ' + fmtDate(r.last) + "</span></div></div>" +
+      '<div class="drv-stats"><div><b>' + EUR.format(r.ca) + "</b><span>CA HT</span></div><div><b>" + r.cnt + "</b><span>courses facturées</span></div><div><b>" + r.ldv + "</b><span>lettres reçues</span></div></div>" +
+      '<div class="meter" style="margin-bottom:0"><i style="width:' + Math.round(r.ca / (total || 1) * 100) + '%"></i></div><span class="muted small">' + Math.round(r.ca / (total || 1) * 100) + " % du CA de la période · " + EUR.format(r.ca / (r.cnt || 1)) + " / course</span></div>").join("") +
+      '<div class="drv-card" data-d="-"><div class="drv-head"><div class="avatar" style="background:var(--ink-3)">?</div><div><b>Sans lettre rapprochée</b><span class="muted small">courses dont le chauffeur est inconnu</span></div></div>' +
+      '<div class="drv-stats"><div><b>' + EUR.format(caNone) + "</b><span>CA HT</span></div><div><b>" + none.length + "</b><span>courses</span></div><div><b>" + Math.round(caNone / (total || 1) * 100) + " %</b><span>du CA</span></div></div></div>";
+    document.querySelectorAll(".drv-card").forEach(c => c.onclick = () => { view.courses = { month: st.period === "month" ? M.thisMonth : "", driver: c.dataset.d, status: "", q: "" }; location.hash = "#/courses"; });
+  };
+  document.querySelectorAll("#per button").forEach(b => b.onclick = () => { st.period = b.dataset.v; draw(); });
+  draw();
+}
+
+function pageClients(el) {
+  const goal = DATA.maxShareTopClient || 0.8, cl = groupCA(M.ytd, x => x.client), top = cl[0] || { key: "—", ca: 0 }, share = M.caYtd ? top.ca / M.caYtd : 0;
+  const elapsed = M.now.getMonth() + M.day / M.dim, ticket = M.ytd.length ? M.caYtd / M.ytd.length : 63;
+  const needed = Math.max(0, top.ca / elapsed * (1 - goal) / goal - (M.caYtd - top.ca) / elapsed) / 21 / ticket;
+  const P = DATA.prospects || { list: [] }, cols = ["À contacter", "Contacté", "Rendez-vous", "Test en cours", "Client"];
+  const ord = { "Fort": 0, "Moyen": 1, "Faible": 2 };
+  el.innerHTML = '<div class="grid g3">' +
+    '<div class="card"><h2>Dépendance au premier client ' + (share <= goal ? '<span class="pill ok">✔ objectif atteint</span>' : '<span class="pill bad">▲ forte</span>') + "</h2>" +
+      '<div style="font-size:44px;font-weight:700;line-height:1">' + Math.round(share * 100) + ' %<small class="muted" style="font-size:14px;font-weight:500"> ' + esc(top.key) + "</small></div>" +
+      '<div class="meter"><i style="width:' + Math.round(share * 100) + '%"></i><b style="left:' + Math.round(goal * 100) + '%"></b></div><div class="muted small">Objectif : moins de ' + Math.round(goal * 100) + " % du CA · " +
+      (share > goal ? "≈ " + (needed < 1 ? needed.toFixed(1).replace(".", ",") : Math.round(needed)) + " course(s) / jour hors " + esc(top.key) + " pour l'atteindre" : "bravo") + "</div></div>" +
+    '<div class="card span2"><h2>CA par donneur d\'ordre · depuis janvier</h2>' + barRows(cl.slice(0, 8), M.caYtd) +
+      '<p class="muted small" style="margin:8px 0 0">Nouveaux clients : appliquez le libellé Gmail <b>clients</b> à leurs commandes (PDF) ; Soriya les ajoute ici automatiquement.</p></div></div>' +
+    '<div class="card" style="margin-top:16px"><h2>Prospection <a class="more" href="' + esc(P.url || "#") + '">Modifier la liste (Google Sheet) ↗</a></h2>' +
+      (P.error ? '<div class="empty">' + esc(P.error) + "</div>" : '<div class="kanban">' + cols.map(c => {
+        const items = P.list.filter(p => p.status === c).sort((a, b) => (ord[a.potential] ?? 9) - (ord[b.potential] ?? 9));
+        return '<div class="col"><h3>' + c + "<span>" + items.length + "</span></h3>" + items.map(p =>
+          '<div class="pcard">' + (p.link ? '<a href="' + esc(p.link) + '">' + esc(p.name) + "</a>" : "<b>" + esc(p.name) + "</b>") +
+          ' <span class="badge ' + esc((p.potential || "").toLowerCase()) + '">' + esc(p.potential || "?") + "</span><p>" + esc(p.why) + "</p>" +
+          (p.next ? '<span class="muted">➜ ' + esc(p.next) + (p.date ? " · " + esc(p.date) : "") + "</span>" : "") + "</div>").join("") + "</div>"; }).join("") + "</div>") +
+    "</div>";
+}
+
+function pageActivity(el) {
+  el.innerHTML = '<div class="grid g2">' + DATA.activities.map(a => {
+    const type = a.id === "Mailing" ? "conf" : "ldv", docs = DATA.docs.filter(x => x.type === type);
+    let pill = '<span class="pill ok">● En service</span>';
+    if (a.lastErrors) pill = '<span class="pill bad">▲ ' + a.lastErrors + " erreur(s)</span>";
+    else if (a.lastStart && a.lastRun && a.lastStart !== a.lastRun) pill = '<span class="pill warn">● Passage en cours</span>';
+    return '<div class="card"><h2><span class="dot" style="background:var(--s-' + type + ')"></span>' + esc(a.label) + ' <span style="margin-left:auto">' + pill + "</span></h2>" +
+      '<p class="muted small" style="margin:-6px 0 12px">' + esc(a.source) + "</p>" +
+      '<div class="grid g4">' + tile("Archivés", String(docs.filter(x => statusKind(x.status) === "ok").length)) + tile("À vérifier", String(docs.filter(x => statusKind(x.status) !== "ok").length)) +
+      tile("En attente", a.pending == null ? "—" : String(a.pending)) + tile("Ce mois", String(docs.filter(x => (x.date || "").slice(0, 7) === M.thisMonth).length)) + "</div>" +
+      '<p class="small" style="margin:12px 0 0">Dernier passage : <b>' + esc(a.lastRun || "—") + "</b>" + (a.folderUrl ? ' · <a href="' + esc(a.folderUrl) + '">Dossier Drive ↗</a>' : "") + (a.journalUrl ? ' · <a href="' + esc(a.journalUrl) + '">Journal ↗</a>' : "") + "</p>" +
+      (a.lastError ? '<p class="pill bad" style="white-space:normal;margin-top:8px">Dernière erreur : ' + esc(a.lastError) + "</p>" : "") + "</div>";
+  }).join("") + "</div>" +
+  '<div class="card" style="margin-top:16px"><h2>Documents à vérifier <span class="muted small" style="font-weight:400">lecture incertaine, listings, factures, documents non lus</span></h2><div id="tv"></div></div>';
+  dataTable(document.getElementById("tv"), M.toCheck, [
+    { key: "date", label: "Date", html: x => fmtDate(x.date) },
+    { key: "type", label: "Type", html: x => '<span class="dot" style="background:var(--s-' + x.type + ')"></span> ' + (x.type === "conf" ? "Confirmation" : "Lettre de voiture") },
+    { key: "name", label: "Fichier", html: x => esc(short(x.name, 48)) },
+    { key: "status", label: "Motif", html: x => '<span class="small">' + esc(short(x.status, 110)) + "</span>" },
+  ], { state: (view.tv = view.tv || {}), sort: "date", onRow: openDoc });
+}
+
+/* ---------- Démarrage ---------- */
+document.getElementById("refresh").onclick = load;
+document.getElementById("menuBtn").onclick = () => document.getElementById("side").classList.toggle("open");
+let resizeT; window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (DATA && !location.hash.replace(/^#\/?/, "")) route(); }, 200); });
 load();
-// Données rafraîchies automatiquement toutes les 5 minutes (rythme des passages de Soriya).
 setInterval(() => { if (!document.hidden) load(); }, 5 * 60 * 1000);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
 </script>
 </body>
 </html>
