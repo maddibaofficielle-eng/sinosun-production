@@ -163,6 +163,7 @@ function soriyaMigrations_() {
     if (p.getProperty('SORIYA_RESCAN_UNTIL')) p.deleteProperty('SORIYA_RESCAN_OFFSET');
     p.setProperty('SORIYA_MIG_HISTORY_2026', 'ok');
   }
+  if (p.getProperty('SORIYA_MIG_PURGE_BEFORE_START') !== 'ok') soriyaPurgeAvantHistorique_();
   const props = PropertiesService.getScriptProperties();
   if (props.getProperty('SORIYA_MIG_CONFIRMATION_NAMES_V2') !== 'done') {
     const n = renommerConfirmations();
@@ -544,4 +545,78 @@ function soriyaRelireNonLus_(started, report) {
     }
   }
   return done;
+}
+
+// ---------- Retrait des confirmations reçues avant le début de l'historique ----------
+
+/**
+ * Retire du journal des confirmations les lignes reçues avant HISTORY_START (onglets Journal et
+ * Doublons) et met leurs PDF à la corbeille de Drive (récupérables 30 jours), puis supprime les
+ * dossiers devenus vides. Avance par lots (environ 2 min par passage) et reprend au passage suivant.
+ */
+function soriyaPurgeAvantHistorique_() {
+  // Le passage WhatsApp écrit aussi dans ce journal (rapprochement des transporteurs) : on attend qu'il soit libre.
+  if (!soriyaTryLock_('WhatsApp')) return;
+  const props = PropertiesService.getScriptProperties();
+  const started = Date.now();
+  const budget = 2 * 60 * 1000;
+  const start = soriyaHistoryStart_();
+  let finished = true;
+  try {
+    const root = soriyaRootFolder_('confirmation');
+    const j = soriyaJournalSpreadsheet_(root, 'confirmation');
+    const iRecu = j.headers.indexOf('Reçu le');
+    const iUrl = j.headers.indexOf('Lien Drive');
+    [j.main, j.dup].forEach(function (sh) {
+      const n = sh.getLastRow() - 1;
+      if (n < 1 || !finished) return;
+      const rows = sh.getRange(2, 1, n, j.headers.length).getValues();
+      const old = [];
+      rows.forEach(function (r, i) { if (r[iRecu] instanceof Date && r[iRecu] < start) old.push(i + 2); });
+      // Du bas vers le haut, pour que la suppression d'une ligne ne décale pas les suivantes.
+      const done = [];
+      for (let k = old.length - 1; k >= 0; k--) {
+        if (Date.now() - started > budget) { finished = false; break; }
+        const id = (/\/d\/([\w-]+)/.exec(String(rows[old[k] - 2][iUrl])) || [])[1];
+        if (id) {
+          try { DriveApp.getFileById(id).setTrashed(true); } catch (e) { /* déjà supprimé */ }
+        }
+        done.push(old[k]);
+      }
+      // Sheets refuse de supprimer toutes les lignes non figées : dans ce cas, on vide simplement.
+      if (done.length && done.length === sh.getMaxRows() - 1) {
+        sh.getRange(2, 1, n, j.headers.length).clearContent();
+        done.length = 0;
+      }
+      // Suppression par blocs de lignes consécutives (done est trié du bas vers le haut).
+      for (let k = 0; k < done.length;) {
+        let end = k;
+        while (end + 1 < done.length && done[end + 1] === done[end] - 1) end++;
+        sh.deleteRows(done[end], k === end ? 1 : done[k] - done[end] + 1);
+        k = end + 1;
+      }
+      Logger.log('Avant %s : %s ligne(s) retirée(s) de « %s ».', SORIYA_CONFIG.HISTORY_START, done.length, sh.getName());
+    });
+    if (finished) {
+      soriyaTrashEmptyFolders_(root, Number(SORIYA_CONFIG.HISTORY_START.slice(0, 4)));
+      props.setProperty('SORIYA_MIG_PURGE_BEFORE_START', 'ok');
+    }
+  } finally {
+    soriyaUnlock_('WhatsApp');
+  }
+}
+
+/** Met à la corbeille les dossiers d'année antérieurs à startYear qui ne contiennent plus aucun fichier. */
+function soriyaTrashEmptyFolders_(root, startYear) {
+  const hasFiles = function (folder) {
+    if (folder.searchFiles('trashed = false').hasNext()) return true;
+    const sub = folder.getFolders();
+    while (sub.hasNext()) if (hasFiles(sub.next())) return true;
+    return false;
+  };
+  const it = root.getFolders();
+  while (it.hasNext()) {
+    const f = it.next();
+    if (/^\d{4}$/.test(f.getName()) && Number(f.getName()) < startYear && !hasFiles(f)) f.setTrashed(true);
+  }
 }
