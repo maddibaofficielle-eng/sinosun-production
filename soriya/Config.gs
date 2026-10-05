@@ -81,7 +81,8 @@ const SORIYA_CONFIG = {
   WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbw8NAz4kKY0k4aUc2VMTFNI3m_dn6LL3i1DhbCRUla1_RJUbkcQiSblA5mqUevj9qY-NA/exec',
   // Interface à accès par compte Google, sans clé (projet « Soriya - Interface », dossier soriya-web/).
   // Si renseignée, c'est elle qui est affichée dans le tableau de bord.
-  WEB_APP_SIMPLE_URL: 'https://script.google.com/macros/s/AKfycbzs5Y9lPhUWmcVa229rCFnTs2HIg-eBnpL33TPRt8wwpXHsfMTXHMAT7rp5KiVrAl_Y/exec',
+  // Lien court (tinyurl.com/soriya-gfd → https://script.google.com/macros/s/AKfycbzs5Y9lPhUWmcVa229rCFnTs2HIg-eBnpL33TPRt8wwpXHsfMTXHMAT7rp5KiVrAl_Y/exec).
+  WEB_APP_SIMPLE_URL: 'https://tinyurl.com/soriya-gfd',
 
   // Complément des anciens documents (relecture des PDF archivés pour les nouvelles colonnes).
   // false = en pause.
