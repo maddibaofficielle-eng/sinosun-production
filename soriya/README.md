@@ -61,7 +61,7 @@ Tout est visible dans le Journal (filtres et tableaux croisés possibles) et dan
 | `PROCESSED_LABEL` | `ecotime/Archivé par Soriya` | Libellé posé sur les conversations traitées |
 | `DRIVE_ROOT_FOLDER` | `Ecotime - Confirmations d'affrètement` | Dossier Drive racine |
 | `TRIGGER_EVERY_MINUTES` | `15` | Fréquence de vérification |
-| `CLAUDE_MODEL` / `CLAUDE_EFFORT` | `claude-opus-5` / `low` | Modèle et effort de lecture |
+| `CLAUDE_MODEL` / `CLAUDE_EFFORT` | `claude-sonnet-5-5` / `low` | Modèle et effort de lecture |
 | `SEND_SUMMARY_EMAIL` | `true` | Compte rendu par e-mail après chaque passage utile |
 
 ## Fiabilité

@@ -40,7 +40,7 @@ const SORIYA_CONFIG = {
 
   // Intelligence (Claude). Si aucune clé API n'est enregistrée, Soriya archive quand même
   // les PDF, mais sans lecture ni renommage intelligent.
-  CLAUDE_MODEL: 'claude-opus-5',
+  CLAUDE_MODEL: 'claude-sonnet-5-5', // bon rapport qualité/prix pour l'extraction (Opus : 'claude-opus-5-5')
   CLAUDE_EFFORT: 'low', // extraction simple : 'low' reste rapide ; passer à 'medium' si besoin
   MAX_PDF_MB_FOR_AI: 20,
 
