@@ -69,6 +69,8 @@ const SORIYA_CONFIG = {
   // Liste vide [] = tous les PDF reçus sur le WhatsApp de Soriya sont traités, quel que soit l'expéditeur.
   // Pour filtrer à nouveau, par exemple : ['0769391541', '0651516936']
   WHATSAPP_ALLOWED_SENDERS: [],
+  // Nom du groupe WhatsApp dont les exports de discussion (.zip) sont déposés dans le dossier d'entrée.
+  WHATSAPP_GROUP_NAME: 'Lettre de voiture',
 
   // Adresse publique de l'interface web (déploiement « Soriya interface web »).
   WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbw8NAz4kKY0k4aUc2VMTFNI3m_dn6LL3i1DhbCRUla1_RJUbkcQiSblA5mqUevj9qY-NA/exec',

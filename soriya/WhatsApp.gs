@@ -91,13 +91,20 @@ function soriyaWhatsAppRun() {
     const allowed = soriyaAllowedSenders_();
     const aiEnabled = !!PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY');
 
+    // Exports de discussion WhatsApp (.zip déposés dans le dossier d'entrée) : médias extraits.
+    try {
+      soriyaWhatsAppUnzipExports_(inbox, report);
+    } catch (e) {
+      report.errors.push('Export WhatsApp : ' + e.message);
+    }
+
     const files = soriyaWhatsAppPdfs_(inbox);
     for (let i = 0; i < files.length; i++) {
       if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS) break; // la suite au prochain passage
       const file = files[i];
       try {
         const info = soriyaWhatsAppParseName_(file.getName());
-        if (allowed.size && (!info || !allowed.has(info.sender))) {
+        if (allowed.size && !(info && info.group) && (!info || !allowed.has(info.sender))) {
           // Ni lu ni archivé : mis de côté pour que vous décidiez.
           file.moveTo(soriyaSubFolder_(inbox, ['Expéditeur non autorisé']));
           journal.append([
@@ -160,7 +167,7 @@ function soriyaWhatsAppArchive_(file, info, inbox, root, journal, aiEnabled) {
   const key = 'wa:' + file.getId();
   const blob = file.getBlob().setName(info.originalName);
   const hash = soriyaSha256_(blob.getBytes());
-  const sender = (info.sender === 'inconnu' ? 'inconnu' : '+' + info.sender) + ' (WhatsApp)';
+  const sender = info.senderLabel || ((info.sender === 'inconnu' ? 'inconnu' : '+' + info.sender) + ' (WhatsApp)');
   const received = info.date || file.getDateCreated();
   // L'apostrophe force le texte : sinon Sheets lit « +33… » comme une formule (#ERROR!).
   const base = [new Date(), received, "'" + sender, 'WhatsApp', info.originalName];
@@ -301,6 +308,48 @@ function soriyaConvertirCapturesArchivees_(started, report) {
   return done;
 }
 
+/**
+ * Exports de discussion WhatsApp (« Exporter la discussion » → « Joindre les médias ») déposés en .zip
+ * dans le dossier d'entrée : les PDF et photos sont extraits, avec l'auteur et la date lus dans _chat.txt,
+ * puis traités comme les autres. Le .zip part ensuite dans « Exports traités ».
+ */
+function soriyaWhatsAppUnzipExports_(inbox, report) {
+  const it = inbox.getFiles();
+  while (it.hasNext()) {
+    const zip = it.next();
+    if (!/\.zip$/i.test(zip.getName()) && zip.getMimeType() !== 'application/zip') continue;
+    const blobs = Utilities.unzip(zip.getBlob().setContentType('application/zip'));
+    const chat = blobs.filter(function (b) { return /\.txt$/i.test(b.getName()); })[0];
+    const lines = chat ? chat.getDataAsString('UTF-8').split(/\r?\n/) : [];
+    let extracted = 0;
+    blobs.forEach(function (b) {
+      const base = b.getName().split('/').pop();
+      if (!/\.(pdf|jpe?g|png|webp)$/i.test(base)) return;
+      const meta = soriyaWhatsAppChatMeta_(lines, base);
+      const iso = (meta.date || zip.getDateCreated()).toISOString();
+      const author = (meta.author || '').replace(/[^\wÀ-ÿ+ -]/g, '').trim().replace(/\s+/g, '_').slice(0, 40);
+      inbox.createFile(b.setName('WAG_' + iso + '_' + author + '__' + base));
+      extracted++;
+    });
+    zip.moveTo(soriyaSubFolder_(inbox, ['Exports traités']));
+    Logger.log('Export WhatsApp « %s » : %s fichier(s) extrait(s).', zip.getName(), extracted);
+  }
+}
+
+/** Retrouve l'auteur et la date d'une pièce jointe dans le texte d'un export WhatsApp (Android ou iPhone). */
+function soriyaWhatsAppChatMeta_(lines, fileName) {
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].indexOf(fileName) === -1) continue;
+    // Android : 05/10/2026 14:32 - Moussa: IMG-….jpg (fichier joint)
+    // iPhone  : [05/10/2026 14:32:10] Moussa: <pièce jointe : 00000012-PHOTO-….jpg>
+    const m = /\[?(\d{1,2})\/(\d{1,2})\/(\d{2,4})[ ,]+(\d{1,2}):(\d{2})(?::\d{2})?\]?\s*(?:-\s*)?([^:]+):/.exec(lines[i]);
+    if (!m) return {};
+    const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+    return { date: new Date(year, Number(m[2]) - 1, Number(m[1]), Number(m[4]), Number(m[5])), author: m[6].replace(/^\u200e/, '').trim() };
+  }
+  return {};
+}
+
 /** Capture d'écran ou photo d'une lettre de voiture (JPEG, PNG, WebP) : lue comme un PDF puis archivée en PDF. */
 function soriyaIsPhoto_(f) {
   return /^image\/(jpeg|png|webp)$/.test(f.getMimeType()) || /\.(jpe?g|png|webp)$/i.test(f.getName());
@@ -308,6 +357,24 @@ function soriyaIsPhoto_(f) {
 
 /** WA_33769391541_1759480000_confirmation.pdf → { sender, date, originalName } */
 function soriyaWhatsAppParseName_(name) {
+  // Média extrait d'un export de groupe : WAG_<date ISO>_<auteur>__<nom d'origine>
+  const g = /^WAG_(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)_(.*?)__(.+)$/.exec(name);
+  if (g) {
+    const d = new Date(g[1]);
+    return {
+      sender: 'groupe', group: true,
+      senderLabel: (g[2] ? g[2].replace(/_/g, ' ') + ' ' : '') + '(groupe WhatsApp « ' + SORIYA_CONFIG.WHATSAPP_GROUP_NAME + ' »)',
+      date: isNaN(d.getTime()) ? null : d,
+      originalName: g[3],
+    };
+  }
+  // Média WhatsApp déposé tel quel (IMG-20261005-WA0003.jpg, 00000012-PHOTO-2026-10-05-14-32-10.jpg…)
+  const wm = /(?:IMG|DOC|PTT|VID)-(\d{4})(\d{2})(\d{2})-WA\d+|PHOTO-(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})/.exec(name);
+  if (wm && name.indexOf('WA_') === -1) {
+    const d = wm[1] ? new Date(+wm[1], +wm[2] - 1, +wm[3], 12) : new Date(+wm[4], +wm[5] - 1, +wm[6], +wm[7], +wm[8]);
+    return { sender: 'groupe', group: true, senderLabel: 'Groupe WhatsApp « ' + SORIYA_CONFIG.WHATSAPP_GROUP_NAME + ' »',
+      date: d, originalName: name };
+  }
   // Le dernier « WA_<numéro>_<horodatage>_ » du nom fait foi (un nom peut avoir été préfixé deux fois).
   // Horodatage : secondes Unix (1759480000) ou date ISO (2026-10-03T16:16:20.000Z).
   const re = /WA_\+?(\d{8,15})_(\d{9,13}|\d{4}-\d{2}-\d{2}T[\d:.]+Z?)_/g;
