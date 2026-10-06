@@ -443,21 +443,33 @@ function dataTable(host, rows, cols, opts) {
  * Pied de page des listes : totaux par mois et par chauffeur de la sélection affichée.
  * Un clic sur une ligne filtre le tableau sur ce mois / ce chauffeur (re-clic : retire le filtre).
  */
+/** Type de prestation d'une course, d'après « Prestations réalisées » : FOURGON IDF, BREAK ILE DE FRANCE, GV ILE DE FRANCE… */
+function vehicle(x) {
+  const p = String(x.services || "").toUpperCase();
+  if (/FOURGON/.test(p)) return "FOURGON IDF";
+  if (/BREAK/.test(p)) return "BREAK ILE DE FRANCE";
+  if (/\bGV\b|GRAND VOLUME/.test(p)) return "GV ILE DE FRANCE";
+  return "";
+}
+
 function totalsPanel(host, rows, o) {
   const amt = o.amount || (() => 0), withCA = !!o.amount;
   const group = keyFn => { const g = {}; rows.forEach(x => { const k = keyFn(x); (g[k] = g[k] || { k, n: 0, ca: 0 }); g[k].n++; g[k].ca += amt(x); }); return Object.values(g); };
   const months = group(x => (x.date || "").slice(0, 7) || "—").sort((a, b) => b.k.localeCompare(a.k));
   const drivers = group(x => x.driver || "").sort((a, b) => (a.k === "") - (b.k === "") || b.n - a.n);
   const totN = rows.length, totCA = rows.reduce((t, x) => t + amt(x), 0);
-  const tbl = (title, list, label, kind, sel) => '<div class="card"><h2>' + title + '</h2><div class="table-wrap" style="border:0"><table><thead><tr><th>' + (kind === "m" ? "Mois" : "Chauffeur") + '</th><th class="num">' + o.unit + "</th>" +
+  const tbl = (title, list, label, kind, sel) => '<div class="card"><h2>' + title + '</h2><div class="table-wrap" style="border:0"><table><thead><tr><th>' + (kind === "m" ? "Mois" : kind === "v" ? "Prestation" : "Chauffeur") + '</th><th class="num">' + o.unit + "</th>" +
     (withCA ? '<th class="num">CA HT</th><th class="num hide-sm">Moy. / course</th>' : "") + '<th class="num">Part</th></tr></thead><tbody>' +
     list.map(r => '<tr data-' + kind + '="' + esc(r.k) + '" class="' + ((sel && sel === r.k) || (sel === "-" && r.k === "") ? "on" : "") + '"><td>' + esc(label(r.k)) + '</td><td class="num">' + r.n + "</td>" +
       (withCA ? '<td class="num">' + EUR.format(r.ca) + '</td><td class="num hide-sm">' + EUR2.format(r.n ? r.ca / r.n : 0) + "</td>" : "") +
       '<td class="num">' + Math.round((withCA ? r.ca / (totCA || 1) : r.n / (totN || 1)) * 100) + " %</td></tr>").join("") +
     '</tbody><tfoot><tr><td>Total</td><td class="num">' + totN + "</td>" + (withCA ? '<td class="num">' + EUR.format(totCA) + '</td><td class="num hide-sm">' + EUR2.format(totN ? totCA / totN : 0) + "</td>" : "") + '<td class="num">100 %</td></tr></tfoot></table></div></div>';
+  const vehicles = o.vehicle ? group(vehicle).sort((a, b) => (a.k === "") - (b.k === "") || b.ca - a.ca || b.n - a.n) : null;
   host.innerHTML = '<div class="totals">' +
+    (vehicles ? '<div style="grid-column:1/-1">' + tbl("Totaux par type de prestation", vehicles, k => k || "Non identifié", "v", "") + "</div>" : "") +
     tbl("Totaux par mois", months, k => /^\d{4}-\d{2}$/.test(k) ? monthLabel(k) : "Sans date", "m", o.month) +
     tbl("Totaux par chauffeur", drivers, k => k || "Sans chauffeur identifié", "d", o.driver) + "</div>";
+  host.querySelectorAll("tr[data-v]").forEach(tr => tr.onclick = () => o.onVehicle && o.onVehicle(tr.dataset.v));
   host.querySelectorAll("tr[data-m]").forEach(tr => tr.onclick = () => o.onMonth(tr.dataset.m === o.month ? "" : tr.dataset.m));
   host.querySelectorAll("tr[data-d]").forEach(tr => tr.onclick = () => o.onDriver(tr.dataset.d === o.driver ? "" : (tr.dataset.d || "-")));
 }
@@ -577,7 +589,8 @@ function pageCourses(el) {
       group: { key: x => (x.date || "").slice(0, 7), label: k => /^\d{4}-\d{2}$/.test(k) ? monthLabel(k) : "Sans date",
         summary: g => { const b = g.filter(x => x.amount > 0 && x.status.indexOf("Archivé") === 0); return g.length + " course(s) · " + EUR.format(b.reduce((t, x) => t + x.amount, 0)) + " HT"; } },
       foot: (rs, c) => c.key === "date" ? "Total" : c.key === "number" ? rs.length + " course(s)" : c.key === "amount" ? EUR2.format(rs.filter(x => x.status.indexOf("Archivé") === 0).reduce((t, x) => t + (x.amount || 0), 0)) : "" });
-    totalsPanel(document.getElementById("tot"), billed, { unit: "Courses", amount: x => x.amount, month: st.month, driver: st.driver,
+    totalsPanel(document.getElementById("tot"), billed, { unit: "Courses", amount: x => x.amount, month: st.month, driver: st.driver, vehicle: true,
+      onVehicle: v => { st.q = v ? v.split(" ")[0] : ""; st.page = 0; pageCourses(el); },
       onMonth: m => { st.month = m; st.page = 0; pageCourses(el); }, onDriver: d => { st.driver = d === "-" ? "-" : d; st.page = 0; pageCourses(el); } });
   };
   const bind = (id, k, ev) => document.getElementById(id).addEventListener(ev || "change", e => { st[k] = e.target.value; st.page = 0; draw(); });
