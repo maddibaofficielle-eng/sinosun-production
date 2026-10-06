@@ -24,6 +24,10 @@ const SORIYA_CONFIG = {
   // (ni lus par Claude, ni archivés, ni relus). Format AAAA-MM-JJ.
   HISTORY_START: '2026-01-01',
 
+  // Relecture complète de la boîte (depuis HISTORY_START) : changer cette valeur relance une relecture
+  // au prochain passage (ex. après avoir rangé d'anciens mails dans le libellé « ecotime »).
+  RESCAN_REQUEST: '2026-10-06-a',
+
   // IMPORTANT : Soriya lit la boîte Gmail du compte Google qui a créé ce projet Apps Script.
   // Pour lire gfd.logistic@gmail.com, le projet doit être créé en étant connecté à ce compte.
 

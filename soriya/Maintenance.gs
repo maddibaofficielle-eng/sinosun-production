@@ -163,6 +163,12 @@ function soriyaMigrations_() {
     if (p.getProperty('SORIYA_RESCAN_UNTIL')) p.deleteProperty('SORIYA_RESCAN_OFFSET');
     p.setProperty('SORIYA_MIG_HISTORY_2026', 'ok');
   }
+  // Relecture complète demandée dans la configuration (RESCAN_REQUEST).
+  if (SORIYA_CONFIG.RESCAN_REQUEST && p.getProperty('SORIYA_RESCAN_REQUEST') !== SORIYA_CONFIG.RESCAN_REQUEST) {
+    p.setProperty('SORIYA_RESCAN_UNTIL', String(Date.now() + 6 * 3600 * 1000));
+    p.deleteProperty('SORIYA_RESCAN_OFFSET');
+    p.setProperty('SORIYA_RESCAN_REQUEST', SORIYA_CONFIG.RESCAN_REQUEST);
+  }
   if (p.getProperty('SORIYA_MIG_PURGE_BEFORE_START') !== 'ok') soriyaPurgeAvantHistorique_();
   // Nouvelle adresse dans SHARE_WITH : accès aux journaux, au tableau de bord et aux prospects (interface web).
   const shareKey = JSON.stringify(SORIYA_CONFIG.SHARE_WITH || []);
