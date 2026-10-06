@@ -53,7 +53,7 @@ const SORIYA_CONFIG = {
   SEND_SUMMARY_EMAIL: true,
   DAILY_REPORT_HOUR: 18,
   // Journaux et tableau de bord partagés en lecture seule avec ces adresses.
-  SHARE_WITH: ['diabymohamed85@gmail.com'],
+  SHARE_WITH: ['diabymohamed85@gmail.com', 'soriya.paletou@gmail.com'],
   // Destinataire du compte rendu ('' = le compte qui exécute Soriya).
   NOTIFY_EMAIL: '',
 

@@ -164,6 +164,12 @@ function soriyaMigrations_() {
     p.setProperty('SORIYA_MIG_HISTORY_2026', 'ok');
   }
   if (p.getProperty('SORIYA_MIG_PURGE_BEFORE_START') !== 'ok') soriyaPurgeAvantHistorique_();
+  // Nouvelle adresse dans SHARE_WITH : accès aux journaux, au tableau de bord et aux prospects (interface web).
+  const shareKey = JSON.stringify(SORIYA_CONFIG.SHARE_WITH || []);
+  if (p.getProperty('SORIYA_SHARED_WITH') !== shareKey) {
+    soriyaPartagerInterface_();
+    p.setProperty('SORIYA_SHARED_WITH', shareKey);
+  }
   const props = PropertiesService.getScriptProperties();
   if (props.getProperty('SORIYA_MIG_CONFIRMATION_NAMES_V2') !== 'done') {
     const n = renommerConfirmations();
@@ -619,4 +625,25 @@ function soriyaTrashEmptyFolders_(root, startYear) {
     const f = it.next();
     if (/^\d{4}$/.test(f.getName()) && Number(f.getName()) < startYear && !hasFiles(f)) f.setTrashed(true);
   }
+}
+
+// ---------- Partage des fichiers lus par l'interface web ----------
+
+/** Journaux et tableau de bord en lecture, liste des prospects en modification, pour chaque adresse de SHARE_WITH. */
+function soriyaPartagerInterface_() {
+  const files = [];
+  ['confirmation', 'lettre_voiture'].forEach(function (t) {
+    files.push([DriveApp.getFileById(soriyaJournalSpreadsheet_(soriyaRootFolder_(t), t).ss.getId()), false]);
+  });
+  try { files.push([soriyaDashboardFile_(), false]); } catch (e) { Logger.log('Tableau de bord : %s', e.message); }
+  try { files.push([DriveApp.getFileById(soriyaProspectsSheet_().getParent().getId()), true]); } catch (e) { Logger.log('Prospects : %s', e.message); }
+  (SORIYA_CONFIG.SHARE_WITH || []).forEach(function (email) {
+    files.forEach(function (f) {
+      try {
+        if (f[1]) f[0].addEditor(email); else f[0].addViewer(email);
+      } catch (e) {
+        Logger.log('Partage de %s avec %s impossible : %s', f[0].getName(), email, e.message);
+      }
+    });
+  });
 }

@@ -18,11 +18,25 @@ const SORIYA_WEB = {
 };
 
 function doGet() {
+  // Consentement « granulaire » de Google : si la case « Voir vos feuilles de calcul » n'a pas été cochée,
+  // on redemande l'autorisation au lieu d'échouer.
+  if (typeof ScriptApp.requireAllScopes === 'function') ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
   try {
     Sheets.Spreadsheets.get(SORIYA_WEB.CONF_JOURNAL_ID, { fields: 'spreadsheetId' }); // accès aux journaux ?
   } catch (e) {
     Logger.log('Accès refusé : %s', e.message);
     const who = Session.getActiveUser().getEmail() || 'ce compte';
+    if (/autoris|authoriz|scope|spreadsheets\.readonly/i.test(e.message)) {
+      return HtmlService.createHtmlOutput(
+        '<div style="font-family:sans-serif;padding:24px;max-width:560px">' +
+        '<h2>Autorisation incomplète</h2><p>Le compte <b>' + who + '</b> a ouvert Soriya sans cocher la case ' +
+        '« <b>Voir toutes vos feuilles de calcul Google Sheets</b> ».</p><ol>' +
+        '<li>Ouvrez <a href="https://myaccount.google.com/connections" target="_blank">myaccount.google.com/connections</a>, ' +
+        'choisissez <b>Soriya - Interface</b> et cliquez sur <b>Supprimer tout accès</b>.</li>' +
+        '<li>Revenez sur <b>tinyurl.com/soriya-gfd</b> : à l\'écran d\'autorisation, <b>cochez la case</b> ' +
+        '« Voir toutes vos feuilles de calcul » puis <b>Continuer</b>.</li></ol></div>')
+        .setTitle('Soriya');
+    }
     return HtmlService.createHtmlOutput(
       '<div style="font-family:sans-serif;padding:24px;max-width:520px">' +
       '<h2>Accès réservé</h2><p>Le compte <b>' + who + '</b> n\'a pas accès aux journaux Soriya.</p>' +
