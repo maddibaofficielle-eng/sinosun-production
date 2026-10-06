@@ -219,7 +219,8 @@ function soriyaFieldsRow_(data, typeKey) {
 function soriyaQuery_() {
   // Dans la recherche Gmail, espaces et "/" d'un libellé s'écrivent avec des tirets.
   const labels = [SORIYA_CONFIG.GMAIL_LABEL].concat(SORIYA_CONFIG.EXTRA_GMAIL_LABELS || [])
-    .map(function (l) { return 'label:' + l.toLowerCase().replace(/[\s\/]+/g, '-'); });
+    .map(function (l) { return 'label:' + l.toLowerCase().replace(/[\s\/]+/g, '-'); })
+    .concat((SORIYA_CONFIG.GMAIL_SENDERS || []).map(function (f) { return 'from:' + f; }));
   // Après reinitialiserSoriya(), tout l'historique est relu pendant quelques heures.
   const props = PropertiesService.getScriptProperties();
   const base = (labels.length > 1 ? '{' + labels.join(' ') + '}' : labels[0]) + ' has:attachment filename:pdf ';

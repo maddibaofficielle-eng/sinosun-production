@@ -8,6 +8,8 @@ const SORIYA_CONFIG = {
   // Libellés Gmail supplémentaires lus comme des confirmations / commandes (nouveaux donneurs d'ordre).
   // Appliquez le libellé « clients » aux mails de commande de vos nouveaux clients : Soriya les traite pareil.
   EXTRA_GMAIL_LABELS: ['clients'],
+  // Expéditeurs dont les PDF sont traités même si le mail n'a pas reçu le libellé (filtre Gmail manquant…).
+  GMAIL_SENDERS: ['ecotimegroup.com'],
   // Objectif de diversification : part maximale du CA venant du premier donneur d'ordre.
   MAX_SHARE_TOP_CLIENT: 0.8,
 
