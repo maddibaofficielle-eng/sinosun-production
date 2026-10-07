@@ -559,6 +559,35 @@ function soriyaRelireNonLus_(started, report) {
   return done;
 }
 
+// ---------- Lettres de voiture sans numéro ----------
+
+/**
+ * Une lettre de voiture sans numéro ne compte pas : sa ligne est retirée du journal et son fichier mis
+ * à la corbeille de Drive (récupérable 30 jours). Les documents pas encore lus (crédit Claude épuisé…)
+ * et ceux mis de côté (expéditeur non autorisé) sont gardés : ils seront relus ou décidés plus tard.
+ */
+function soriyaSupprimerLdvSansNumero_() {
+  const j = soriyaJournalSpreadsheet_(soriyaRootFolder_('lettre_voiture'), 'lettre_voiture');
+  const n = j.main.getLastRow() - 1;
+  if (n < 1) return 0;
+  const col = function (title) { return j.headers.indexOf(title); };
+  const rows = j.main.getRange(2, 1, n, j.headers.length).getValues();
+  let removed = 0;
+  for (let r = rows.length - 1; r >= 0; r--) { // de bas en haut : les suppressions ne décalent pas les lignes restantes
+    if (String(rows[r][col('N° lettre de voiture')]).trim()) continue;
+    const status = String(rows[r][col('Statut')]);
+    if (!/^(Archivé|À vérifier)/.test(status) || /^Archivé (— lecture IA impossible|\(sans lecture IA\))/.test(status)) continue;
+    const id = (/\/d\/([\w-]+)/.exec(String(rows[r][col('Lien Drive')])) || [])[1];
+    if (id) {
+      try { DriveApp.getFileById(id).setTrashed(true); } catch (e) { /* fichier déjà supprimé */ }
+    }
+    Logger.log('Lettre de voiture sans numéro retirée : %s (%s)', rows[r][col('Nom dans Drive')], status);
+    j.main.deleteRow(r + 2);
+    removed++;
+  }
+  return removed;
+}
+
 // ---------- Retrait des confirmations reçues avant le début de l'historique ----------
 
 /**

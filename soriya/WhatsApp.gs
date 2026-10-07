@@ -135,6 +135,13 @@ function soriyaWhatsAppRun() {
     } catch (e) {
       report.errors.push('Reprise des documents non lus : ' + e.message);
     }
+    // Lettres de voiture lues sans numéro : retirées (ne comptent pas).
+    try {
+      const sansNumero = soriyaSupprimerLdvSansNumero_();
+      if (sansNumero) Logger.log('%s lettre(s) de voiture sans numéro retirée(s).', sansNumero);
+    } catch (e) {
+      report.errors.push('Retrait des lettres de voiture sans numéro : ' + e.message);
+    }
     // Confirmations : transporteur de la lettre de voiture portant le même numéro.
     try {
       soriyaRapprocherTransporteurs_();

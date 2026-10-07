@@ -93,6 +93,9 @@ function soriyaWebDocs_(typeKey) {
       url: v(r, 'Lien Drive'),
       remarks: v(r, 'Remarques'),
     };
+  }).filter(function (d) {
+    // Lettre de voiture lue sans numéro : ne compte pas (retirée du journal au prochain passage WhatsApp).
+    return d.type !== 'ldv' || String(d.number).trim() || /lecture IA impossible|sans lecture IA|Mis de côté/.test(d.status);
   });
 }
 
