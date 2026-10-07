@@ -271,11 +271,14 @@ let DATA = null, M = null;           // données brutes et dérivées
 const view = {};                     // état des filtres par page
 
 /* ---------- Chargement ---------- */
+let loadedAt = 0, loading = false;
 function load() {
+  if (loading) return;
+  loading = true; loadedAt = Date.now();
   document.getElementById("sub").textContent = "actualisation…";
   google.script.run
-    .withSuccessHandler(d => { DATA = d; M = derive(d); route(); })
-    .withFailureHandler(e => { document.getElementById("page").innerHTML = '<div class="empty">Impossible de charger les données : ' + esc(e.message) + "</div>"; })
+    .withSuccessHandler(d => { loading = false; DATA = d; M = derive(d); route(); })
+    .withFailureHandler(e => { loading = false; document.getElementById("page").innerHTML = '<div class="empty">Impossible de charger les données : ' + esc(e.message) + "</div>"; })
     .soriyaWebData(KEY);
 }
 
@@ -747,6 +750,11 @@ document.getElementById("menuBtn").onclick = () => document.getElementById("side
 let resizeT; window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (DATA && !location.hash.replace(/^#\/?/, "")) route(); }, 200); });
 load();
 setInterval(() => { if (!document.hidden) load(); }, 5 * 60 * 1000);
+// Sur téléphone, un onglet en arrière-plan est mis en pause : on recharge dès qu'on revient sur la page.
+const reloadIfStale = () => { if (!document.hidden && Date.now() - loadedAt > 60 * 1000) load(); };
+document.addEventListener("visibilitychange", reloadIfStale);
+window.addEventListener("focus", reloadIfStale);
+window.addEventListener("pageshow", e => { if (e.persisted) load(); });
 </script>
 </body>
 </html>
