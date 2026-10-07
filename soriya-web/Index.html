@@ -134,6 +134,8 @@
   .totals tbody tr:hover td { background: var(--accent-soft); }
   .totals tr.on td { background: var(--accent-soft); font-weight: 700; }
   .totals tfoot td { position: static; }
+  .totals .sub { font-size: 11px; color: var(--ink-3); font-weight: 400; }
+  .totals td.muted { color: var(--ink-3); }
   @media (max-width: 860px) { .totals { grid-template-columns: 1fr; } }
   .pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; padding: 10px 12px; }
   .empty { padding: 32px; text-align: center; color: var(--ink-2); }
@@ -465,8 +467,23 @@ function totalsPanel(host, rows, o) {
       '<td class="num">' + Math.round((withCA ? r.ca / (totCA || 1) : r.n / (totN || 1)) * 100) + " %</td></tr>").join("") +
     '</tbody><tfoot><tr><td>Total</td><td class="num">' + totN + "</td>" + (withCA ? '<td class="num">' + EUR.format(totCA) + '</td><td class="num hide-sm">' + EUR2.format(totN ? totCA / totN : 0) + "</td>" : "") + '<td class="num">100 %</td></tr></tfoot></table></div></div>';
   const vehicles = o.vehicle ? group(vehicle).sort((a, b) => (a.k === "") - (b.k === "") || b.ca - a.ca || b.n - a.n) : null;
+  // CA par chauffeur et par prestation : une ligne par chauffeur, une colonne par type de prestation.
+  const matrix = () => {
+    const vs = vehicles.map(v => v.k), m = {};
+    rows.forEach(x => { const d = x.driver || "", v = vehicle(x); const r = (m[d] = m[d] || { k: d, n: 0, ca: 0, c: {} });
+      const c = (r.c[v] = r.c[v] || { n: 0, ca: 0 }); c.n++; c.ca += amt(x); r.n++; r.ca += amt(x); });
+    const list = Object.values(m).sort((a, b) => (a.k === "") - (b.k === "") || b.ca - a.ca || b.n - a.n);
+    const cell = c => c && c.n ? '<td class="num">' + EUR.format(c.ca) + '<div class="sub">' + c.n + " course" + (c.n > 1 ? "s" : "") + "</div></td>" : '<td class="num muted">—</td>';
+    return '<div class="card" style="grid-column:1/-1"><h2>CA par chauffeur et par prestation</h2><div class="table-wrap" style="border:0"><table><thead><tr><th>Chauffeur</th>' +
+      vs.map(v => '<th class="num">' + esc(v || "Non identifié") + "</th>").join("") + '<th class="num">Total</th></tr></thead><tbody>' +
+      list.map(r => '<tr data-d="' + esc(r.k) + '" class="' + ((o.driver && o.driver === r.k) || (o.driver === "-" && r.k === "") ? "on" : "") + '"><td>' + esc(r.k || "Sans chauffeur identifié") + "</td>" +
+        vs.map(v => cell(r.c[v])).join("") + "<td class=\"num\"><b>" + EUR.format(r.ca) + '</b><div class="sub">' + r.n + " course" + (r.n > 1 ? "s" : "") + "</div></td></tr>").join("") +
+      '</tbody><tfoot><tr><td>Total</td>' + vehicles.map(v => '<td class="num">' + EUR.format(v.ca) + '<div class="sub">' + v.n + " courses</div></td>").join("") +
+      '<td class="num">' + EUR.format(totCA) + '<div class="sub">' + totN + " courses</div></td></tr></tfoot></table></div></div>";
+  };
   host.innerHTML = '<div class="totals">' +
     (vehicles ? '<div style="grid-column:1/-1">' + tbl("Totaux par type de prestation", vehicles, k => k || "Non identifié", "v", "") + "</div>" : "") +
+    (vehicles && withCA ? matrix() : "") +
     tbl("Totaux par mois", months, k => /^\d{4}-\d{2}$/.test(k) ? monthLabel(k) : "Sans date", "m", o.month) +
     tbl("Totaux par chauffeur", drivers, k => k || "Sans chauffeur identifié", "d", o.driver) + "</div>";
   host.querySelectorAll("tr[data-v]").forEach(tr => tr.onclick = () => o.onVehicle && o.onVehicle(tr.dataset.v));
