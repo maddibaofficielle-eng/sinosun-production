@@ -121,36 +121,42 @@ function soriyaSchema_(typeKey) {
  */
 function soriyaReadPdf(pdfBlob, context, typeKey, model) {
   const docType = soriyaDocType_(typeKey);
+  return soriyaClaudeJson_(pdfBlob, soriyaPrompt_(typeKey), soriyaSchema_(typeKey),
+    'Contexte : ' + (context || '(aucun)') + '\nExtrais les informations de cette ' + docType.label + '.', model, 16000);
+}
+
+/**
+ * Appel à l'API Messages : un document (PDF ou photo) + une consigne → objet JSON conforme au schéma.
+ * Réessaie sur 429 / 5xx ; lève une erreur explicite sinon.
+ */
+function soriyaClaudeJson_(pdfBlob, system, schema, text, model, maxTokens) {
   const apiKey = PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY');
   if (!apiKey) throw new Error('CLAUDE_API_KEY non configurée');
 
   model = model || SORIYA_CONFIG.CLAUDE_MODEL;
   // Haiku (modèle économique) ne prend ni le réglage d'effort ni le repli automatique.
   const light = model.indexOf('claude-haiku') === 0;
+  const isImage = /^image\//.test(pdfBlob.getContentType());
   const body = {
     model: model,
-    max_tokens: 16000,
-    system: soriyaPrompt_(typeKey),
+    max_tokens: maxTokens || 16000,
+    system: system,
     output_config: {
-      format: { type: 'json_schema', schema: soriyaSchema_(typeKey) },
+      format: { type: 'json_schema', schema: schema },
     },
     messages: [{
       role: 'user',
       content: [
         {
           // PDF → bloc « document » ; photo (JPEG, PNG, WebP) → bloc « image ».
-          type: /^image\//.test(pdfBlob.getContentType()) ? 'image' : 'document',
+          type: isImage ? 'image' : 'document',
           source: {
             type: 'base64',
-            media_type: /^image\//.test(pdfBlob.getContentType()) ? pdfBlob.getContentType() : 'application/pdf',
+            media_type: isImage ? pdfBlob.getContentType() : 'application/pdf',
             data: Utilities.base64Encode(pdfBlob.getBytes()),
           },
         },
-        {
-          type: 'text',
-          text: 'Contexte : ' + (context || '(aucun)') +
-            '\nExtrais les informations de cette ' + docType.label + '.',
-        },
+        { type: 'text', text: text },
       ],
     }],
   };

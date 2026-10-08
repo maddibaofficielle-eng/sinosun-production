@@ -117,6 +117,13 @@ function soriyaRun() {
       props.deleteProperty('SORIYA_RESCAN_UNTIL');
       props.deleteProperty('SORIYA_RESCAN_OFFSET');
     }
+    // Relevés mensuels « Statistique sous-traitant détaillée » : rangés à part et lus (voir Releves.gs).
+    try {
+      const lus = soriyaTraiterReleves_(started, report);
+      if (lus) Logger.log('Relevés sous-traitant : %s lecture(s).', lus);
+    } catch (e) {
+      report.errors.push('Relevés sous-traitant : ' + e.message);
+    }
   } catch (e) {
     report.errors.push('Erreur générale : ' + e.message);
   } finally {

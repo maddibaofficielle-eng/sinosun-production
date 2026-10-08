@@ -60,8 +60,58 @@ function soriyaWebData() {
     docs: soriyaWebDocs_('confirmation').concat(soriyaWebDocs_('lettre_voiture')),
     prospects: soriyaWebProspects_(),
     maxShareTopClient: SORIYA_WEB.MAX_SHARE_TOP_CLIENT,
+    releves: soriyaWebReleves_(),
   };
 }
+
+/** Onglets « Relevés sous-traitant » et « Lignes relevés » du Journal Soriya (créés au premier relevé lu). */
+function soriyaWebReleves_() {
+  try {
+    const get = function (tab) {
+      try { return soriyaRead_(SORIYA_WEB.CONF_JOURNAL_ID, 'UNFORMATTED_VALUE', "'" + tab + "'!A1:Z5000"); } catch (e) { return []; }
+    };
+    return soriyaWebRelevesFrom_(get('Relevés sous-traitant'), get('Lignes relevés'));
+  } catch (e) {
+    return { folderUrl: '', list: [], lines: [], error: e.message };
+  }
+}
+
+/**
+ * Relevés « Statistique sous-traitant détaillée » pour l'interface (onglets du Journal Soriya).
+ * rel / lines : lignes des onglets, en-tête compris (valeurs brutes).
+ */
+function soriyaWebRelevesFrom_(rel, lines) {
+  const idx = function (rows) { const h = (rows[0] || []).map(String); return function (t) { return h.indexOf(t); }; };
+  const c = idx(rel), l = idx(lines);
+  const str = function (x) { return x === null || x === undefined ? '' : String(x); };
+  const list = rel.slice(1).filter(function (r) { return r[c('Lien Drive')]; }).map(function (r) {
+    let sts = [];
+    try { sts = JSON.parse(str(r[c('Sous-traitants (détail)')]) || '[]'); } catch (e) { /* illisible */ }
+    return {
+      key: str(r[c('Clé')]), subject: str(r[c('Objet')]), month: str(r[c('Mois')]),
+      from: str(r[c('Période début')]), to: str(r[c('Période fin')]), edited: str(r[c('Édité le')]),
+      orders: Number(r[c('Nb ordres')]) || 0, total: Number(r[c('Total HT')]) || 0,
+      current: /^En vigueur/.test(str(r[c('Version')])), name: str(r[c('Nom dans Drive')]), url: str(r[c('Lien Drive')]),
+      remarks: str(r[c('Remarques')]),
+      sts: sts.map(function (x) {
+        const parts = str(x.nom).split('/');
+        return { code: str(x.code), name: str(x.nom), driver: parts[parts.length - 1].trim().toUpperCase(),
+          orders: Number(x.ordres) || 0, total: Number(x.total) || 0, read: x.lu === 'oui' || x.lu === 'aucun ordre', lines: x.lignes || 0 };
+      }),
+    };
+  });
+  const folder = rel.slice(1).map(function (r) { return str(r[c('Dossier')]); }).filter(String).pop() || '';
+  return {
+    folderUrl: folder, list: list,
+    lines: lines.slice(1).map(function (r) {
+      return { key: str(r[l('Clé relevé')]), month: str(r[l('Mois')]), number: str(r[l('N° ordre')]),
+        driver: str(r[l('Chauffeur')]), agency: str(r[l('Agence')]), date: str(r[l('Date')]),
+        from: str(r[l('Enlèvement')]), to: str(r[l('Livraison')]), service: str(r[l('Prestation')]),
+        qty: Number(r[l('Qté')]) || 0, amount: Number(r[l('Montant HT')]) || 0 };
+    }),
+  };
+}
+
 
 /** État des activités, lu dans « Soriya - Tableau de bord » (colonne B = Mailing, C = WhatsApp). */
 function soriyaWebActivities_() {
@@ -136,7 +186,9 @@ function soriyaWebDocs_(typeKey) {
     };
   }).filter(function (d) {
     // Lettre de voiture lue sans numéro : ne compte pas (retirée du journal au prochain passage WhatsApp).
-    return d.type !== 'ldv' || String(d.number).trim() || /lecture IA impossible|sans lecture IA|Mis de côté/.test(d.status);
+    // Relevé « Statistique sous-traitant » rangé dans le journal des confirmations : affiché dans « Sous-traitants ».
+    if (d.type === 'conf') return !/^Relevé sous-traitant/.test(d.status);
+    return String(d.number).trim() || /lecture IA impossible|sans lecture IA|Mis de côté/.test(d.status);
   });
 }
 
@@ -164,8 +216,8 @@ function soriyaWebProspects_() {
 }
 
 /** Lit le premier onglet d'une feuille (API Sheets, lecture seule). */
-function soriyaRead_(id, render) {
-  const res = Sheets.Spreadsheets.Values.get(id, 'A1:AZ5000', {
+function soriyaRead_(id, render, range) {
+  const res = Sheets.Spreadsheets.Values.get(id, range || 'A1:AZ5000', {
     valueRenderOption: render, dateTimeRenderOption: 'SERIAL_NUMBER',
   });
   const rows = res.values || [];

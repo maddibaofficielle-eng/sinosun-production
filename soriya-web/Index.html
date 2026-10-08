@@ -134,7 +134,8 @@
   .totals tbody tr:hover td { background: var(--accent-soft); }
   .totals tr.on td { background: var(--accent-soft); font-weight: 700; }
   .totals tfoot td { position: static; }
-  .totals .sub { font-size: 11px; color: var(--ink-3); font-weight: 400; }
+  .totals .sub, .card .sub { font-size: 11px; color: var(--ink-3); font-weight: 400; }
+  .card tr.on td { background: var(--accent-soft); }
   .totals td.muted { color: var(--ink-3); }
   @media (max-width: 860px) { .totals { grid-template-columns: 1fr; } }
   .pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; padding: 10px 12px; }
@@ -320,6 +321,7 @@ const PAGES = [
   { id: "lettres", ico: "✎", label: "Lettres de voiture", render: pageLetters },
   { id: "rapprochement", ico: "⇄", label: "Rapprochement", render: pageMatch },
   { id: "chauffeurs", ico: "☺", label: "Chauffeurs", render: pageDrivers },
+  { id: "sous-traitants", ico: "▤", label: "Sous-traitants", render: pageSubcontractors },
   { id: "clients", ico: "◎", label: "Clients & prospection", render: pageClients },
   { id: "activite", ico: "⚙", label: "Activité Soriya", render: pageActivity },
 ];
@@ -672,6 +674,104 @@ function pageMatch(el) {
     ], { state: (st.t2 = st.t2 || {}), sort: "date", onRow: openDoc });
   };
   document.getElementById("fMonth").onchange = e => { st.month = e.target.value; draw(); };
+  draw();
+}
+
+/* ---------- Statistique sous-traitant (relevés mensuels d'Ecotime) ---------- */
+function pageSubcontractors(el) {
+  const R = DATA.releves || { list: [], lines: [] };
+  const cur = R.list.filter(r => r.current && /^\d{4}-\d{2}$/.test(r.month)).sort((a, b) => b.month.localeCompare(a.month));
+  const folder = R.folderUrl ? '<a class="more" href="' + esc(R.folderUrl) + '">Dossier des relevés ↗</a>' : "";
+  if (!cur.length) {
+    el.innerHTML = '<div class="card"><h2>Statistique sous-traitant détaillée ' + folder + '</h2><p class="muted">' +
+      (R.error ? esc(R.error) : "Soriya range et lit les relevés mensuels d'Ecotime (mails « LISTING … ») : les premiers résultats apparaissent ici au fil des passages (un relevé toutes les 5 minutes environ).") + "</p></div>";
+    return;
+  }
+  const st = view.sub = view.sub || { month: cur[0].month };
+  if (!cur.some(r => r.month === st.month)) st.month = cur[0].month;
+  const salesBy = m => M.sales.filter(x => x.date.slice(0, 7) === m);
+  const linesOf = r => R.lines.filter(l => l.key === r.key);
+  el.innerHTML = '<div class="toolbar"><select id="fMonth">' + cur.map(r => '<option value="' + r.month + '"' + (r.month === st.month ? " selected" : "") + ">" + monthLabel(r.month) + "</option>").join("") +
+    '</select><span class="muted small">Relevés « Statistique sous-traitant détaillée » envoyés par Ecotime chaque mois : ce qu\'Ecotime vous paie, ordre par ordre.</span></div>' +
+    '<div class="grid g4" id="sSum" style="margin-bottom:16px"></div>' +
+    '<div class="grid g2"><div class="card"><h2>Par sous-traitant</h2><div id="sSt"></div></div><div class="card"><h2>Par sous-traitant et par prestation</h2><div id="sMx"></div></div></div>' +
+    '<div class="card" style="margin-top:16px"><h2>Relevé ↔ confirmations reçues</h2><div id="sChk"></div></div>' +
+    '<div class="card" style="margin-top:16px"><h2>Ordres du relevé</h2><div class="toolbar" style="margin:0 0 8px"><select id="fSt"></select></div><div id="sLines"></div></div>' +
+    '<div class="card" style="margin-top:16px"><h2>Tous les relevés ' + folder + '</h2><div id="sAll"></div></div>';
+  const table = (head, rows, foot) => '<div class="table-wrap" style="border:0"><table><thead><tr>' + head.map(h => '<th class="' + (h.num ? "num" : "") + '">' + esc(h.l) + "</th>").join("") + "</tr></thead><tbody>" +
+    (rows.length ? rows.join("") : '<tr><td colspan="' + head.length + '" class="muted">Aucune ligne.</td></tr>') + "</tbody>" + (foot ? "<tfoot>" + foot + "</tfoot>" : "") + "</table></div>";
+  const td = (v, num) => '<td class="' + (num ? "num" : "") + '">' + v + "</td>";
+  const draw = () => {
+    const r = cur.find(x => x.month === st.month), lines = linesOf(r), sales = salesBy(r.month);
+    const caConf = sales.reduce((t, x) => t + x.amount, 0), allRead = r.sts.every(x => x.read);
+    const gap = r.total - caConf;
+    document.getElementById("sSum").innerHTML = tile("Total HT du relevé", EUR2.format(r.total), "<em class='muted' style='font-weight:400'>" + monthLabel(r.month) + (r.edited ? " · édité le " + esc(r.edited) : "") + "</em>", "hero") +
+      tile("Ordres payés", String(r.orders)) + tile("CA des confirmations reçues", EUR2.format(caConf), "<em class='muted' style='font-weight:400'>" + sales.length + " confirmation(s)</em>") +
+      tile("Écart relevé − confirmations", (gap > 0 ? "+" : "") + EUR2.format(gap), "<em class='" + (Math.abs(gap) < 1 ? "up" : "down") + "'>" + (Math.abs(gap) < 1 ? "concordant" : gap > 0 ? "confirmations manquantes ?" : "courses non payées ?") + "</em>");
+    // Par sous-traitant (totaux imprimés sur le relevé).
+    const tot = r.sts.reduce((t, x) => t + x.total, 0), ord = r.sts.reduce((t, x) => t + x.orders, 0);
+    document.getElementById("sSt").innerHTML = table([{ l: "Sous-traitant" }, { l: "Ordres", num: 1 }, { l: "Total HT", num: 1 }, { l: "Moy. / ordre", num: 1 }, { l: "Part", num: 1 }],
+      r.sts.slice().sort((a, b) => b.total - a.total).map(x => '<tr data-d="' + esc(x.driver) + '" style="cursor:pointer">' + td(esc(x.driver) + '<div class="sub">' + esc(x.code) + " · " + esc(x.name) + (x.read ? "" : " · détail en cours de lecture") + "</div>") +
+        td(x.orders, 1) + td(EUR2.format(x.total), 1) + td(EUR2.format(x.orders ? x.total / x.orders : 0), 1) + td(Math.round(x.total / (tot || 1) * 100) + " %", 1) + "</tr>"),
+      "<tr><td>Total</td>" + td(ord, 1) + td(EUR2.format(tot), 1) + td(EUR2.format(ord ? tot / ord : 0), 1) + td("100 %", 1) + "</tr>");
+    document.querySelectorAll("#sSt tr[data-d]").forEach(tr => tr.onclick = () => { st.driver = st.driver === tr.dataset.d ? "" : tr.dataset.d; drawLines(); });
+    // Matrice sous-traitant × prestation (lignes lues).
+    const svc = l => { const p = String(l.service || "").toUpperCase(); return /FOURGON/.test(p) ? "FOURGON" : /BREAK/.test(p) ? "BREAK" : /^GV/.test(p) ? "GV" : p || "Autre"; };
+    const svcs = Array.from(new Set(lines.map(svc))).sort((a, b) => { const o = k => { const i = ["GV", "FOURGON", "BREAK"].indexOf(k); return i < 0 ? 9 : i; }; return o(a) - o(b) || a.localeCompare(b); });
+    const mx = {}; lines.forEach(l => { const d = (mx[l.driver] = mx[l.driver] || { n: 0, ca: 0 }), k = svc(l); d.n++; d.ca += l.amount; (d[k] = d[k] || { n: 0, ca: 0 }); d[k].n++; d[k].ca += l.amount; });
+    const cell = c => c ? td(EUR2.format(c.ca) + '<div class="sub">' + c.n + " ordre" + (c.n > 1 ? "s" : "") + "</div>", 1) : td('<span class="muted">—</span>', 1);
+    const colTot = k => lines.filter(l => svc(l) === k).reduce((o, l) => (o.n++, o.ca += l.amount, o), { n: 0, ca: 0 });
+    document.getElementById("sMx").innerHTML = lines.length ? table([{ l: "Sous-traitant" }].concat(svcs.map(k => ({ l: k, num: 1 })), [{ l: "Total", num: 1 }]),
+      Object.keys(mx).sort((a, b) => mx[b].ca - mx[a].ca).map(d => "<tr>" + td(esc(d)) + svcs.map(k => cell(mx[d][k])).join("") + cell(mx[d]) + "</tr>"),
+      "<tr><td>Total</td>" + svcs.map(k => cell(colTot(k))).join("") + cell({ n: lines.length, ca: lines.reduce((t, l) => t + l.amount, 0) }) + "</tr>") +
+      (allRead ? "" : '<p class="muted small">Détail partiel : Soriya lit encore certains sous-traitants.</p>') : '<p class="muted">Détail des ordres en cours de lecture par Soriya.</p>';
+    // Rapprochement avec les confirmations.
+    const inRel = {}; lines.forEach(l => { const k = digits(l.number); if (k) inRel[k] = (inRel[k] || 0) + l.amount; });
+    const confNum = {}; M.conf.forEach(x => { const k = digits(x.number); if (k) confNum[k] = x; });
+    const paidNoConf = lines.filter(l => digits(l.number) && !confNum[digits(l.number)] && l.amount > 0);
+    // Une confirmation renvoyée (modifiée) peut figurer deux fois : on garde la dernière reçue par numéro.
+    const uniq = {}; sales.slice().sort((a, b) => String(a.received).localeCompare(String(b.received))).forEach(x => { const k = digits(x.number); if (k) uniq[k] = x; });
+    const confNotPaid = Object.values(uniq).filter(x => !(digits(x.number) in inRel));
+    const diff = Object.values(uniq).filter(x => digits(x.number) in inRel && Math.abs(inRel[digits(x.number)] - x.amount) >= 0.01);
+    const lst = (title, rows, empty) => '<div><h3 style="font-size:14px;margin:8px 0">' + title + " (" + rows.length + ")</h3>" + (rows.length ? table(rows[0].h, rows.map(x => x.tr)) : '<p class="muted small">' + empty + "</p>") + "</div>";
+    const H1 = [{ l: "Date" }, { l: "N° ordre" }, { l: "Sous-traitant" }, { l: "Trajet" }, { l: "HT", num: 1 }];
+    const H2 = [{ l: "Date" }, { l: "N°" }, { l: "Chauffeur" }, { l: "Trajet" }, { l: "Confirmation", num: 1 }, { l: "Relevé", num: 1 }];
+    document.getElementById("sChk").innerHTML = !lines.length ? '<p class="muted">Disponible quand Soriya aura lu le détail des ordres.</p>' :
+      '<div class="grid">' +
+      lst("⚠ Confirmations absentes du relevé", confNotPaid.map(x => ({ h: H2, tr: "<tr>" + td(fmtDate(x.date)) + td(esc(x.number)) + td(esc(x.driver || "—")) + td(esc(city(x.from) + " → " + city(x.to))) + td(EUR2.format(x.amount), 1) + td("—", 1) + "</tr>" })), "Toutes les confirmations du mois figurent sur le relevé.") +
+      lst("Montants différents", diff.map(x => ({ h: H2, tr: "<tr>" + td(fmtDate(x.date)) + td(esc(x.number)) + td(esc(x.driver || "—")) + td(esc(city(x.from) + " → " + city(x.to))) + td(EUR2.format(x.amount), 1) + td(EUR2.format(inRel[digits(x.number)]), 1) + "</tr>" })), "Aucun écart de montant.") +
+      lst("Ordres payés sans confirmation reçue", paidNoConf.map(l => ({ h: H1, tr: "<tr>" + td(fmtDate(l.date)) + td(esc(l.number)) + td(esc(l.driver)) + td(esc(l.from + " → " + l.to)) + td(EUR2.format(l.amount), 1) + "</tr>" })), "Chaque ordre payé a sa confirmation.") +
+      "</div>" + (allRead ? "" : '<p class="muted small">Détail encore partiel : ces listes se complètent au fil des passages.</p>');
+    drawLines();
+    // Tous les relevés, y compris les versions remplacées.
+    const all = R.list.slice().sort((a, b) => b.month.localeCompare(a.month) || (b.current - a.current));
+    const sumT = cur.reduce((t, x) => t + x.total, 0), sumO = cur.reduce((t, x) => t + x.orders, 0), sumC = cur.reduce((t, x) => t + salesBy(x.month).reduce((u, y) => u + y.amount, 0), 0);
+    document.getElementById("sAll").innerHTML = table([{ l: "Mois" }, { l: "Fichier" }, { l: "Ordres", num: 1 }, { l: "Total relevé", num: 1 }, { l: "Confirmations", num: 1 }, { l: "Écart", num: 1 }],
+      all.map(x => { const c = salesBy(x.month).reduce((t, y) => t + y.amount, 0);
+        return '<tr class="' + (x.month === st.month && x.current ? "on" : "") + '">' + td(esc(/^\d{4}-\d{2}$/.test(x.month) ? monthLabel(x.month) : "—") + (x.current ? "" : '<div class="sub">version remplacée</div>')) +
+          td('<a href="' + esc(x.url) + '">' + esc(x.name) + " ↗</a>" + '<div class="sub">' + esc(x.subject) + (x.edited ? " · édité le " + esc(x.edited) : "") + "</div>") +
+          td(x.orders, 1) + td(EUR2.format(x.total), 1) + td(x.current ? EUR2.format(c) : "", 1) + td(x.current ? (x.total - c > 0 ? "+" : "") + EUR2.format(x.total - c) : "", 1) + "</tr>"; }),
+      "<tr><td>Total (versions en vigueur)</td><td></td>" + td(sumO, 1) + td(EUR2.format(sumT), 1) + td(EUR2.format(sumC), 1) + td((sumT - sumC > 0 ? "+" : "") + EUR2.format(sumT - sumC), 1) + "</tr>");
+  };
+  const drawLines = () => {
+    const r = cur.find(x => x.month === st.month), lines = linesOf(r);
+    const drivers = Array.from(new Set(lines.map(l => l.driver))).sort();
+    if (st.driver && drivers.indexOf(st.driver) < 0) st.driver = "";
+    const sel = document.getElementById("fSt");
+    sel.innerHTML = '<option value="">Tous les sous-traitants</option>' + drivers.map(d => '<option value="' + esc(d) + '"' + (d === st.driver ? " selected" : "") + ">" + esc(d) + "</option>").join("");
+    sel.onchange = e => { st.driver = e.target.value; drawLines(); };
+    const confNum = {}; M.conf.forEach(x => { const k = digits(x.number); if (k) confNum[k] = x; });
+    const rows = lines.filter(l => !st.driver || l.driver === st.driver).map(l => Object.assign({}, l, { conf: confNum[digits(l.number)] || null }));
+    dataTable(document.getElementById("sLines"), rows, [
+      { key: "date", label: "Date", html: x => fmtDate(x.date) }, { key: "number", label: "N° ordre", nw: true },
+      { key: "driver", label: "Sous-traitant" }, { key: "route", label: "Trajet", val: x => x.from + " → " + x.to },
+      { key: "service", label: "Prestation" }, { key: "amount", label: "HT", num: true, html: x => EUR2.format(x.amount) },
+      { key: "conf", label: "Confirmation", val: x => x.conf ? "✓ reçue" : "absente" },
+    ], { state: (st.lt = st.lt || {}), sort: "date", onRow: x => x.conf && openDoc(x.conf),
+      foot: (rs, c) => c.key === "date" ? "Total" : c.key === "number" ? rs.length + " ordre(s)" : c.key === "amount" ? EUR2.format(rs.reduce((t, x) => t + x.amount, 0)) : c.key === "conf" ? rs.filter(x => !x.conf).length + " absente(s)" : "" });
+    document.querySelectorAll("#sSt tr[data-d]").forEach(tr => tr.classList.toggle("on", tr.dataset.d === st.driver));
+  };
+  document.getElementById("fMonth").onchange = e => { st.month = e.target.value; st.driver = ""; draw(); };
   draw();
 }
 
