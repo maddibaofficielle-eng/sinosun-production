@@ -18,7 +18,7 @@ const SORIYA_VERIF = {
 function soriyaVerifierConfirmationsManquantes_(started) {
   const props = PropertiesService.getScriptProperties();
   const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
-  if (props.getProperty('SORIYA_VERIF_GMAIL_DAY') === today) return 0;
+  if (props.getProperty('SORIYA_VERIF_GMAIL_DAY_V2') === today) return 0;
 
   const digits = function (s) { return String(s || '').replace(/\D/g, ''); };
   const conf = soriyaJournalSpreadsheet_(soriyaRootFolder_('confirmation'), 'confirmation');
@@ -47,9 +47,14 @@ function soriyaVerifierConfirmationsManquantes_(started) {
     if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS) return 0; // on reprendra au passage suivant
     const n = nums[i], m = missing[n];
     const spaced = n.length === 6 ? n.slice(0, 3) + ' ' + n.slice(3) : n;
-    const threads = GmailApp.search('("' + n + '" OR "' + spaced + '") after:2026/07/01', 0, 5);
+    const words = '("' + n + '" OR "' + spaced + '") after:2026/07/01';
+    // Les relevés « LISTING » et les factures citent tous les numéros : on les écarte de la recherche.
+    const threads = GmailApp.search(words + ' -subject:listing -filename:facture', 0, 5);
     if (!threads.length) {
-      out.push([n, m.date, m.driver, 0, '', '', '', '', '', 'Aucun mail : confirmation jamais reçue par e-mail', new Date()]);
+      const inListing = GmailApp.search(words + ' subject:listing', 0, 1).length > 0;
+      out.push([n, m.date, m.driver, 0, '', '', '', '', '', inListing
+        ? 'Payée au relevé Ecotime, mais confirmation jamais reçue par e-mail'
+        : 'Aucun mail ni relevé : confirmation jamais reçue (relevé du mois pas encore arrivé ?)', new Date()]);
       continue;
     }
     const msg = threads[0].getMessages()[0];
@@ -57,7 +62,7 @@ function soriyaVerifierConfirmationsManquantes_(started) {
       return a.getContentType() === 'application/pdf' || /\.pdf$/i.test(a.getName());
     });
     const read = keys.has(msg.getId());
-    let result = read ? 'Déjà lu par Soriya (n° de confirmation différent ?)' : pdf ? 'Mail avec PDF non lu : relecture lancée' : 'Mail sans PDF (numéro cité dans le texte)';
+    let result = read ? 'Mail déjà lu par Soriya (n° écrit autrement sur la confirmation ?)' : pdf ? 'Mail avec PDF non lu : relecture lancée' : 'Mail sans PDF (numéro cité dans le texte)';
     if (pdf && !read) { label.addToThread(threads[0]); relabeled++; }
     out.push([n, m.date, m.driver, threads.length, msg.getSubject(), msg.getFrom(), msg.getDate(), pdf ? 'oui' : 'non',
       read ? 'oui' : 'non', result, new Date()]);
@@ -70,6 +75,6 @@ function soriyaVerifierConfirmationsManquantes_(started) {
   sh.getRange(1, 1, 1, SORIYA_VERIF.HEADERS.length).setValues([SORIYA_VERIF.HEADERS]).setFontWeight('bold');
   sh.setFrozenRows(1);
   if (out.length) sh.getRange(2, 1, out.length, SORIYA_VERIF.HEADERS.length).setValues(out);
-  props.setProperty('SORIYA_VERIF_GMAIL_DAY', today);
+  props.setProperty('SORIYA_VERIF_GMAIL_DAY_V2', today);
   return nums.length;
 }
