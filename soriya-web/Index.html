@@ -56,6 +56,19 @@
   .nav .ico { width: 20px; text-align: center; }
   .nav .cnt { margin-left: auto; font-size: 11px; font-weight: 700; background: rgba(255,255,255,.14); border-radius: 999px; padding: 1px 7px; }
   .nav .cnt.alert { background: #c5221f; color: #fff; }
+  .nav .grp { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--side-ink); opacity: .6; padding: 14px 12px 4px; }
+  .nav details summary { list-style: none; cursor: pointer; }
+  .nav details summary::-webkit-details-marker { display: none; }
+  .nav details[open] .grp::after { content: " ▴"; } .nav details:not([open]) .grp::after { content: " ▾"; }
+  details.fold { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; margin-top: 16px; }
+  details.fold > summary { cursor: pointer; padding: 14px 16px; font-weight: 700; font-size: 15px; list-style: none; display: flex; align-items: center; gap: 8px; }
+  details.fold > summary::-webkit-details-marker { display: none; }
+  details.fold > summary::before { content: "▸"; color: var(--ink-3); transition: transform .15s; }
+  details.fold[open] > summary::before { transform: rotate(90deg); }
+  details.fold > summary .more { margin-left: auto; font-weight: 400; font-size: 13px; }
+  details.fold > .fold-body { padding: 0 16px 16px; }
+  details.fold > .fold-body > .card, details.fold .totals .card { box-shadow: none; }
+  .todo-list li b { font-weight: 600; }
   .side-foot { margin-top: auto; font-size: 12px; color: var(--side-ink); padding: 8px; line-height: 1.5; }
   .main { min-width: 0; }
   .top { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line);
@@ -316,28 +329,31 @@ function derive(d) {
 
 /* ---------- Navigation ---------- */
 const PAGES = [
+  // L'essentiel en haut ; les documents ensuite ; le reste replié sous « Plus ».
   { id: "", ico: "◧", label: "Tableau de bord", render: pageHome },
   { id: "courses", ico: "€", label: "Courses & CA", render: pageCourses },
-  { id: "lettres", ico: "✎", label: "Lettres de voiture", render: pageLetters },
-  { id: "rapprochement", ico: "⇄", label: "Rapprochement", render: pageMatch },
-  { id: "chauffeurs", ico: "☺", label: "Chauffeurs", render: pageDrivers },
-  { id: "sous-traitants", ico: "▤", label: "Sous-traitants", render: pageSubcontractors },
-  { id: "factures", ico: "▣", label: "Factures", render: pageInvoices },
-  { id: "administratif", ico: "▧", label: "Administratif", render: pageAdmin },
   { id: "depenses", ico: "⛽", label: "Dépenses", render: pageExpenses },
-  { id: "clients", ico: "◎", label: "Clients & prospection", render: pageClients },
-  { id: "activite", ico: "⚙", label: "Activité Soriya", render: pageActivity },
+  { id: "factures", ico: "▣", label: "Factures", render: pageInvoices },
+  { id: "lettres", ico: "✎", label: "Lettres de voiture", render: pageLetters, group: "Documents" },
+  { id: "rapprochement", ico: "⇄", label: "Rapprochement", render: pageMatch, group: "Documents" },
+  { id: "sous-traitants", ico: "▤", label: "Sous-traitants", render: pageSubcontractors, group: "Documents" },
+  { id: "administratif", ico: "▧", label: "Administratif", render: pageAdmin, group: "Documents" },
+  { id: "chauffeurs", ico: "☺", label: "Chauffeurs", render: pageDrivers, group: "Plus" },
+  { id: "clients", ico: "◎", label: "Clients & prospection", render: pageClients, group: "Plus" },
+  { id: "activite", ico: "⚙", label: "Activité Soriya", render: pageActivity, group: "Plus" },
 ];
 function route() {
   if (!DATA) return;
   const hash = location.hash.replace(/^#\/?/, ""), [id, arg] = hash.split("/");
   const p = PAGES.find(x => x.id === id) || PAGES[0];
-  document.getElementById("nav").innerHTML = PAGES.map(x => {
+  const link = x => {
     let cnt = "";
-    if (x.id === "rapprochement" && M.noLdv.length) cnt = '<span class="cnt">' + M.noLdv.length + "</span>";
-    if (x.id === "activite" && (M.toCheck.length || DATA.activities.some(a => a.lastErrors))) cnt = '<span class="cnt alert">' + (M.toCheck.length || "!") + "</span>";
+    if (x.id === "activite" && DATA.activities.some(a => a.lastErrors)) cnt = '<span class="cnt alert">!</span>';
     return '<a href="#/' + x.id + '" target="_self" class="' + (x === p ? "on" : "") + '"><span class="ico">' + x.ico + "</span>" + x.label + cnt + "</a>";
-  }).join("");
+  };
+  const grp = g => PAGES.filter(x => (x.group || "") === g).map(link).join("");
+  document.getElementById("nav").innerHTML = grp("") + '<div class="grp">Documents</div>' + grp("Documents") +
+    "<details" + (p.group === "Plus" ? " open" : "") + '><summary><div class="grp">Plus</div></summary>' + grp("Plus") + "</details>";
   document.getElementById("title").firstChild.nodeValue = p.label;
   document.getElementById("sub").textContent = "Données à jour au " + DATA.generatedAt;
   document.getElementById("sideFoot").innerHTML = DATA.activities.map(a =>
@@ -349,6 +365,11 @@ function route() {
 window.addEventListener("hashchange", route);
 
 /* ---------- Composants ---------- */
+/** Volet repliable pour les informations secondaires (fermé par défaut, ouvert/fermé mémorisé pendant la visite). */
+const FOLD = {};
+const fold = (title, inner, open, extra) => '<details class="fold" data-f="' + esc(title) + '"' + ((FOLD[title] !== undefined ? FOLD[title] : open) ? " open" : "") +
+  '><summary>' + esc(title) + (extra ? " " + extra : "") + '</summary><div class="fold-body">' + inner + "</div></details>";
+document.addEventListener("toggle", e => { if (e.target.matches && e.target.matches("details.fold")) FOLD[e.target.dataset.f] = e.target.open; }, true);
 const tile = (label, value, extra, cls) => '<div class="tile ' + (cls || "") + '"><span>' + esc(label) + "</span><b>" + esc(value) + "</b>" + (extra || "") + "</div>";
 const trend = (v, suffix) => v == null || !isFinite(v) ? "" : '<em class="' + (v >= 0 ? "up" : "down") + '">' + (v >= 0 ? "▲ " : "▼ ") + pct(v) + "</em> <em class='muted' style='font-weight:400'>" + (suffix || "") + "</em>";
 function barRows(rows, total, onKey) {
@@ -396,32 +417,6 @@ function caChart(el) {
 }
 
 /** Camembert (anneau) des documents par mois : 5 derniers mois + « Mois précédents ». */
-function donut(el, leg) {
-  const counts = {};
-  DATA.docs.forEach(x => { const m = (x.date || "").slice(0, 7); if (/^\d{4}-\d{2}$/.test(m)) (counts[m] = counts[m] || { conf: 0, ldv: 0 })[x.type]++; });
-  const months = Object.keys(counts).sort(); if (!months.length) return;
-  const recent = months.slice(-5), older = months.slice(0, -5);
-  const parts = older.length ? [{ label: "Mois précédents (" + older.length + ")", conf: 0, ldv: 0, color: "var(--m-old)" }] : [];
-  older.forEach(m => { parts[0].conf += counts[m].conf; parts[0].ldv += counts[m].ldv; });
-  const ramp = ["var(--m1)", "var(--m2)", "var(--m3)", "var(--m4)", "var(--m5)"].slice(-recent.length);
-  recent.forEach((m, i) => parts.push({ label: monthLabel(m), conf: counts[m].conf, ldv: counts[m].ldv, color: ramp[i] }));
-  const total = parts.reduce((t, p) => t + p.conf + p.ldv, 0), R = 100, r = 64, C = 110;
-  let a0 = -Math.PI / 2, svg = '<svg viewBox="0 0 220 220" role="img" aria-label="Documents par mois">';
-  parts.forEach((p, i) => { const a1 = a0 + (p.conf + p.ldv) / total * Math.PI * 2, s = a0 + 0.012, e = Math.max(s + 0.001, a1 - 0.012), lg = e - s > Math.PI ? 1 : 0;
-    const P = (rad, a) => (C + rad * Math.cos(a)).toFixed(2) + "," + (C + rad * Math.sin(a)).toFixed(2);
-    svg += '<path d="M' + P(R, s) + "A" + R + "," + R + " 0 " + lg + " 1 " + P(R, e) + "L" + P(r, e) + "A" + r + "," + r + " 0 " + lg + " 0 " + P(r, s) + 'Z" fill="' + p.color + '" data-i="' + i + '"/>'; a0 = a1; });
-  el.innerHTML = svg + '<text x="110" y="106" text-anchor="middle" font-size="30" font-weight="700" fill="var(--ink)">' + total + '</text><text x="110" y="128" text-anchor="middle" font-size="12" fill="var(--ink-2)">documents</text></svg><div class="tip"></div>';
-  leg.innerHTML = parts.slice().reverse().map(p => '<li data-i="' + parts.indexOf(p) + '"><i style="background:' + p.color + '"></i><span>' + esc(p.label) + "</span><b>" + (p.conf + p.ldv) + "</b><small>" + Math.round((p.conf + p.ldv) / total * 100) + " %</small></li>").join("");
-  const tip = el.querySelector(".tip");
-  const show = (i, ev) => { const p = parts[i], rect = el.getBoundingClientRect();
-    tip.innerHTML = "<b>" + esc(p.label) + '</b><br><i class="dot" style="background:var(--s-conf)"></i> Confirmations : ' + p.conf + '<br><i class="dot" style="background:var(--s-ldv)"></i> Lettres de voiture : ' + p.ldv;
-    tip.style.display = "block"; tip.style.left = (ev ? Math.min(ev.clientX - rect.left + 12, rect.width - 20) : 110) + "px"; tip.style.top = (ev ? Math.max(0, ev.clientY - rect.top - 40) : 10) + "px";
-    leg.querySelectorAll("li").forEach(li => li.classList.toggle("on", +li.dataset.i === i)); };
-  const hide = () => { tip.style.display = "none"; leg.querySelectorAll("li").forEach(li => li.classList.remove("on")); };
-  el.querySelectorAll("[data-i]").forEach(x => { x.addEventListener("mousemove", ev => show(+x.dataset.i, ev)); x.addEventListener("mouseleave", hide); });
-  leg.querySelectorAll("li").forEach(li => { li.addEventListener("mouseenter", () => show(+li.dataset.i)); li.addEventListener("mouseleave", hide); });
-}
-
 /** Tableau triable, paginé, exportable en CSV. */
 function dataTable(host, rows, cols, opts) {
   const st = opts.state;
@@ -429,7 +424,7 @@ function dataTable(host, rows, cols, opts) {
   const get = (r, c) => c.val ? c.val(r) : r[c.key];
   rows = rows.slice().sort((a, b) => { const x = get(a, cols.find(c => c.key === st.sort) || cols[0]), y = get(b, cols.find(c => c.key === st.sort) || cols[0]);
     return (typeof x === "number" && typeof y === "number" ? x - y : String(x || "").localeCompare(String(y || ""), "fr", { numeric: true })) * st.dir; });
-  const per = 50, pages = Math.max(1, Math.ceil(rows.length / per)); st.page = Math.min(st.page, pages - 1);
+  const per = 25, pages = Math.max(1, Math.ceil(rows.length / per)); st.page = Math.min(st.page, pages - 1);
   const slice = rows.slice(st.page * per, st.page * per + per);
   host.innerHTML = '<div class="table-wrap"><table><thead><tr>' + cols.map(c =>
     '<th data-s="' + c.key + '" class="' + (c.num ? "num " : "") + (c.sm ? "hide-sm" : "") + '">' + esc(c.label) + (st.sort === c.key ? (st.dir > 0 ? " ▲" : " ▼") : "") + "</th>").join("") + "</tr></thead><tbody>" +
@@ -536,53 +531,64 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") closeDoc(); 
 /* ---------- Pages ---------- */
 function pageHome(el) {
   const vsAvg = M.avg3 ? M.projection / M.avg3 - 1 : null, growth = M.caPrevSame ? M.caMtd / M.caPrevSame - 1 : null;
-  const ldvMonth = M.ldv.filter(x => (x.date || "").slice(0, 7) === M.thisMonth).length;
-  const matched = M.mtd.length ? (M.mtd.length - M.noLdv.length) / M.mtd.length : 0;
+  const today = new Date().toISOString().slice(0, 10);
+  // Carburant du mois (tickets WhatsApp) et factures à encaisser.
+  const fuel = ((DATA.depenses || {}).list || []).filter(x => x.category === "Carburant" && x.date.slice(0, 7) === M.thisMonth);
+  const fuelTTC = fuel.reduce((t, x) => t + x.ttc, 0), fuelHT = fuel.reduce((t, x) => t + (x.ht || x.ttc / 1.2), 0);
+  const inv = {}; ((DATA.factures || {}).list || []).forEach(x => { inv[x.number] = x; });
+  const invoices = Object.values(inv), toCash = invoices.filter(x => x.due && x.due >= today);
   el.innerHTML =
-    '<div class="grid g6">' +
+    '<div class="grid g4">' +
       tile("CA du mois (HT)", EUR.format(M.caMtd), trend(growth, "vs même période"), "hero") +
       tile("Projection fin de mois", EUR.format(M.projection), trend(vsAvg, "vs moy. 3 mois")) +
-      tile("CA depuis janvier", EUR.format(M.caYtd), "<em class='muted' style='font-weight:400'>" + M.ytd.length + " courses</em>") +
-      tile("Courses ce mois", String(M.mtd.length), "<em class='muted' style='font-weight:400'>" + (M.mtd.length / Math.max(1, M.day)).toFixed(1).replace(".", ",") + " / jour</em>") +
-      tile("Lettres de voiture reçues", String(ldvMonth), "<em class='muted' style='font-weight:400'>ce mois</em>") +
-      tile("Courses avec lettre", Math.round(matched * 100) + " %", M.noLdv.length ? "<em class='down'>" + M.noLdv.length + " sans lettre</em>" : "<em class='up'>complet</em>") +
+      tile("Carburant du mois (TTC)", EUR.format(fuelTTC), "<em class='muted' style='font-weight:400'>" + (M.caMtd ? (fuelHT / M.caMtd * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " % du CA · " : "") + fuel.length + " ticket(s)</em>") +
+      tile("Factures à encaisser (TTC)", EUR.format(toCash.reduce((t, x) => t + x.ttc, 0)), "<em class='muted' style='font-weight:400'>" + toCash.length + " facture(s) pas encore à échéance</em>") +
     "</div>" +
     '<div class="grid g3" style="margin-top:16px">' +
-      '<div class="card span2"><h2>Chiffre d\'affaires par mois <a class="more" href="#/courses" target="_self">Voir les courses →</a></h2><div class="chart" id="hChart"></div><p class="muted small" style="margin:6px 0 0">Barre claire : projection du mois en cours. Cliquez sur un mois pour voir ses courses.</p></div>' +
-      '<div class="card"><h2>À traiter</h2><ul class="tips" id="hTodo"></ul></div>' +
-      '<div class="card"><h2>CA par chauffeur · ce mois <a class="more" href="#/chauffeurs" target="_self">Détail →</a></h2>' + barRows(groupCA(M.mtd, x => x.driver || "", k => k || "Sans lettre rapprochée"), M.caMtd) + "</div>" +
-      '<div class="card"><h2>Documents par mois</h2><div class="donut-wrap"><div class="donut" id="hDonut"></div><ul class="dleg" id="hLeg"></ul></div></div>' +
-      '<div class="card"><h2>Prévisions & conseils</h2><ul class="tips" id="hTips"></ul></div>' +
+      '<div class="card span2"><h2>Chiffre d\'affaires par mois <a class="more" href="#/courses" target="_self">Voir les courses →</a></h2><div class="chart" id="hChart"></div><p class="muted small" style="margin:6px 0 0">Barre claire : projection du mois en cours.</p></div>' +
+      '<div class="card"><h2>À faire</h2><ul class="tips todo-list" id="hTodo"></ul></div>' +
     "</div>";
   caChart(document.getElementById("hChart"));
-  donut(document.getElementById("hDonut"), document.getElementById("hLeg"));
+  // Seulement ce qui demande une action, du plus urgent au moins urgent (5 au maximum).
   const todo = [];
   const item = (k, t, s, href) => todo.push('<li><span class="ic ' + k + '">' + ({ up: "▲", down: "▼", info: "●" })[k] + "</span><div><b>" + esc(t) + "</b><span>" + esc(s) + "</span>" + (href ? ' <a href="' + href + '" target="_self">Voir →</a>' : "") + "</div></li>");
-  if (M.noLdv.length) item("info", M.noLdv.length + " course(s) du mois sans lettre de voiture", "Relancez les chauffeurs concernés.", "#/rapprochement");
-  if (M.toCheck.length) item("down", M.toCheck.length + " document(s) à vérifier", "Lecture incertaine, listing ou facture.", "#/activite");
-  DATA.activities.filter(a => a.lastErrors).forEach(a => item("down", "Erreur " + a.id, a.lastError, "#/activite"));
-  if (M.orphanLdv.length) item("info", M.orphanLdv.length + " lettre(s) sans confirmation", "Courses à vérifier avec Ecotime.", "#/rapprochement");
-  const P = (DATA.prospects || { list: [] }).list, todoP = P.filter(p => p.status === "À contacter").length;
-  if (todoP) item("info", todoP + " prospect(s) à contacter", "Diversifiez vos donneurs d'ordre.", "#/clients");
-  document.getElementById("hTodo").innerHTML = todo.join("") || '<li class="muted">Rien à traiter. 👍</li>';
-  document.getElementById("hTips").innerHTML = tipsHtml();
+  DATA.activities.filter(a => a.lastErrors).forEach(a => item("down", "Soriya : erreur " + a.id, a.lastError, "#/activite"));
+  adminAlerts().forEach(a => item("down", a.type + " " + a.txt, "Envoyez une pièce à jour à Ecotime.", "#/administratif"));
+  const rel = releveGaps();
+  if (rel && rel.missing) item("down", rel.missing + " course(s) absente(s) du relevé " + monthLabel(rel.month), "Courses confirmées mais non payées par Ecotime : à réclamer.", "#/sous-traitants");
+  const late = invoices.filter(x => x.due && x.due < today && x.due >= addDays(today, -45));
+  if (late.length) item("info", late.length + " facture(s) arrivée(s) à échéance", "Vérifiez le paiement : " + late.map(x => x.number).join(", ") + ".", "#/factures");
+  if (M.noLdv.length) item("info", M.noLdv.length + " course(s) du mois sans lettre de voiture", "Demandez la lettre aux chauffeurs.", "#/rapprochement");
+  if (M.toCheck.length) item("info", M.toCheck.length + " document(s) à vérifier", "Lecture incertaine par Soriya.", "#/activite");
+  document.getElementById("hTodo").innerHTML = todo.slice(0, 5).join("") || '<li class="muted">Rien à faire pour l\'instant. 👍</li>';
 }
 
-function tipsHtml() {
-  const t = [], add = (k, a, b) => t.push('<li><span class="ic ' + k + '">' + ({ up: "▲", down: "▼", info: "●" })[k] + "</span><div><b>" + esc(a) + "</b><span>" + esc(b) + "</span></div></li>");
-  if (M.avg3) { const v = M.projection / M.avg3 - 1;
-    if (M.day < 7) add("info", "Début de mois : projection fragile", "Au rythme actuel ≈ " + EUR.format(M.projection) + " (moyenne 3 mois : " + EUR.format(M.avg3) + "). À confirmer après le 10.");
-    else if (v >= 0.05) add("up", "Mois en hausse : " + pct(v), "Sécurisez chauffeurs et véhicules pour absorber la charge.");
-    else if (v <= -0.05) add("down", "Mois en baisse : " + pct(v), "Relancez Ecotime et contactez vos prospects dès maintenant.");
-    else add("info", "Activité stable", "Projection " + EUR.format(M.projection) + ", dans la moyenne."); }
-  if (M.avg3 && M.avgPrev3) { const v = M.avg3 / M.avgPrev3 - 1; add(v >= 0 ? "up" : "down", "Tendance de fond : " + pct(v), "3 derniers mois vs les 3 précédents."); }
-  const wd = [0, 0, 0, 0, 0, 0, 0]; let n = 0;
-  M.sales.forEach(x => { const p = x.date.slice(0, 10).split("-").map(Number), w = new Date(p[0], p[1] - 1, p[2], 12).getDay(); if (!isNaN(w)) { wd[w] += x.amount; n++; } });
-  if (n > 20) { const best = wd.indexOf(Math.max(...wd)), worst = [1, 2, 3, 4, 5].reduce((a, b) => wd[a] <= wd[b] ? a : b);
-    add("info", "Jour le plus rentable : le " + DAYS[best], "Le " + DAYS[worst] + " est le plus calme : entretien, congés, prospection."); }
-  const cl = groupCA(M.ytd, x => x.client); if (cl.length && cl[0].ca / (M.caYtd || 1) > (DATA.maxShareTopClient || 0.8))
-    add("down", Math.round(cl[0].ca / M.caYtd * 100) + " % du CA vient de " + cl[0].key, "Voir le plan d'action dans « Clients & prospection ».");
-  return t.join("");
+const addDays = (d, n) => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+
+/** Pièces administratives expirées ou qui expirent sous 30 jours (règles d'Ecotime : Kbis 3 mois, URSSAF 6 mois). */
+function adminAlerts() {
+  const list = ((DATA.admin || {}).list || []).filter(x => x.type !== "Demande de documents");
+  const today = new Date().toISOString().slice(0, 10), out = [];
+  ["Extrait Kbis", "Attestation de vigilance URSSAF", "Attestation d'assurance", "Licence de transport"].forEach(t => {
+    const x = list.filter(y => y.type === t).sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
+    if (!x) return;
+    const months = { "Extrait Kbis": 3, "Attestation de vigilance URSSAF": 6 }[t];
+    let e = /^\d{4}-\d{2}-\d{2}$/.test(x.validUntil) ? x.validUntil : "";
+    if (!e && months && /^\d{4}-\d{2}-\d{2}/.test(x.date)) { const d = new Date(x.date.slice(0, 10) + "T12:00:00"); d.setMonth(d.getMonth() + months); e = d.toISOString().slice(0, 10); }
+    if (e && e < today) out.push({ type: t, txt: "expiré depuis le " + fmtDate(e) });
+    else if (e && e <= addDays(today, 30)) out.push({ type: t, txt: "expire le " + fmtDate(e) });
+  });
+  return out;
+}
+
+/** Dernier relevé Ecotime entièrement lu : confirmations du mois qui n'y figurent pas. */
+function releveGaps() {
+  const R = DATA.releves || { list: [], lines: [] };
+  const r = R.list.filter(x => x.current && /^\d{4}-\d{2}$/.test(x.month) && x.sts.every(s => s.read)).sort((a, b) => b.month.localeCompare(a.month))[0];
+  if (!r) return null;
+  const nums = {}; R.lines.filter(l => l.key === r.key).forEach(l => { nums[digits(l.number)] = 1; });
+  const conf = {}; M.sales.filter(x => x.date.slice(0, 7) === r.month).forEach(x => { const k = digits(x.number); if (k) conf[k] = 1; });
+  return { month: r.month, missing: Object.keys(conf).filter(k => !nums[k]).length };
 }
 
 function pageCourses(el) {
@@ -592,7 +598,7 @@ function pageCourses(el) {
     '<select id="fDriver"><option value="">Tous les chauffeurs</option>' + drivers.map(d => '<option' + (d === st.driver ? " selected" : "") + ">" + esc(d) + "</option>").join("") + '<option value="-"' + (st.driver === "-" ? " selected" : "") + '>Sans lettre de voiture</option></select>' +
     '<select id="fStatus"><option value="">Tous les statuts</option><option value="ok"' + (st.status === "ok" ? " selected" : "") + '>Archivées</option><option value="warn"' + (st.status === "warn" ? " selected" : "") + '>À vérifier</option></select>' +
     '<input type="search" id="fQ" placeholder="Rechercher : n°, ville, client, prestation…" value="' + esc(st.q) + '">' +
-    '<button type="button" id="csv">⤓ Export CSV</button><span class="count" id="cnt"></span></div><div class="grid g4" id="sum" style="margin-bottom:12px"></div><div id="tbl"></div><div id="tot"></div>';
+    '<button type="button" id="csv">⤓ Export CSV</button><span class="count" id="cnt"></span></div><div class="grid g4" id="sum" style="margin-bottom:12px"></div><div id="tbl"></div>' + fold("Totaux par mois, par chauffeur et par prestation", '<div id="tot"></div>');
   const draw = () => {
     const q = st.q.trim().toLowerCase();
     const rows = M.conf.filter(x => (!st.month || (x.date || "").slice(0, 7) === st.month) &&
@@ -630,7 +636,7 @@ function pageLetters(el) {
   el.innerHTML = '<div class="toolbar"><select id="fMonth">' + monthOptions(M.ldv, st.month) + '</select>' +
     '<select id="fDriver"><option value="">Tous les chauffeurs</option>' + drivers.map(d => '<option' + (d === st.driver ? " selected" : "") + ">" + esc(d) + "</option>").join("") + "</select>" +
     '<input type="search" id="fQ" placeholder="Rechercher : n°, ville, expéditeur, destinataire…" value="' + esc(st.q) + '">' +
-    '<button type="button" id="csv">⤓ Export CSV</button><span class="count" id="cnt"></span></div><div id="tbl"></div><div id="tot"></div>';
+    '<button type="button" id="csv">⤓ Export CSV</button><span class="count" id="cnt"></span></div><div id="tbl"></div>' + fold("Totaux par mois, par chauffeur et par prestation", '<div id="tot"></div>');
   const draw = () => {
     const q = st.q.trim().toLowerCase();
     const rows = M.ldv.filter(x => (!st.month || (x.date || "").slice(0, 7) === st.month) && (!st.driver || x.driver === st.driver) &&
@@ -699,8 +705,8 @@ function pageSubcontractors(el) {
     '<div class="grid g4" id="sSum" style="margin-bottom:16px"></div>' +
     '<div class="grid g2"><div class="card"><h2>Par sous-traitant</h2><div id="sSt"></div></div><div class="card"><h2>Par sous-traitant et par prestation</h2><div id="sMx"></div></div></div>' +
     '<div class="card" style="margin-top:16px"><h2>Relevé ↔ confirmations reçues</h2><div id="sChk"></div></div>' +
-    '<div class="card" style="margin-top:16px"><h2>Ordres du relevé</h2><div class="toolbar" style="margin:0 0 8px"><select id="fSt"></select></div><div id="sLines"></div></div>' +
-    '<div class="card" style="margin-top:16px"><h2>Tous les relevés ' + folder + '</h2><div id="sAll"></div></div>';
+    fold("Ordres du relevé (détail ligne par ligne)", '<div class="toolbar" style="margin:0 0 8px"><select id="fSt"></select></div><div id="sLines"></div>') +
+    fold("Tous les relevés", '<div id="sAll"></div>', false, folder);
   const table = (head, rows, foot) => '<div class="table-wrap" style="border:0"><table><thead><tr>' + head.map(h => '<th class="' + (h.num ? "num" : "") + '">' + esc(h.l) + "</th>").join("") + "</tr></thead><tbody>" +
     (rows.length ? rows.join("") : '<tr><td colspan="' + head.length + '" class="muted">Aucune ligne.</td></tr>') + "</tbody>" + (foot ? "<tfoot>" + foot + "</tfoot>" : "") + "</table></div>";
   const td = (v, num) => '<td class="' + (num ? "num" : "") + '">' + v + "</td>";
@@ -809,7 +815,8 @@ function pageInvoices(el) {
     tile("À échoir (TTC)", EUR2.format(sum(due, "ttc")), "<em class='muted' style='font-weight:400'>" + due.length + " facture(s) pas encore à échéance</em>") +
     tile("Échéance passée (TTC)", EUR2.format(sum(overdue, "ttc")), "<em class='muted' style='font-weight:400'>" + overdue.length + " facture(s) · paiement à vérifier en banque</em>") + "</div>" +
     '<div class="card"><h2>Toutes les factures ' + folder + '</h2><div id="iAll"></div></div>' +
-    '<div class="grid g2" style="margin-top:16px"><div class="card"><h2 id="iTitle"></h2><div id="iDet"></div></div><div class="card"><h2>Facturé HT par prestation et par mois</h2><div id="iMx"></div></div></div>';
+    '<div class="card" style="margin-top:16px"><h2 id="iTitle"></h2><div id="iDet"></div></div>' +
+    fold("Facturé HT par prestation et par mois", '<div id="iMx"></div>');
   const table = (head, rows, foot) => '<div class="table-wrap" style="border:0"><table><thead><tr>' + head.map(h => '<th class="' + (h.num ? "num" : "") + '">' + esc(h.l) + "</th>").join("") + "</tr></thead><tbody>" +
     (rows.length ? rows.join("") : '<tr><td colspan="' + head.length + '" class="muted">Aucune ligne.</td></tr>') + "</tbody>" + (foot ? "<tfoot>" + foot + "</tfoot>" : "") + "</table></div>";
   const td = (v, num) => '<td class="' + (num ? "num" : "") + '">' + v + "</td>";
@@ -876,7 +883,7 @@ function pageAdmin(el) {
     tile("Dernière demande d'Ecotime", asks[0] ? fmtDate(asks[0].date || asks[0].received) : "aucune", asks[0] ? "<em class='muted' style='font-weight:400'>" + esc(short(asks[0].requested || asks[0].summary, 60)) + "</em>" : "") + "</div>" +
     '<div class="grid g2"><div class="card"><h2>État du dossier sous-traitant</h2><div id="aState"></div><p class="muted small" style="margin:8px 0 0">Ecotime demande un Kbis de moins de 3 mois et une attestation URSSAF de moins de 6 mois : Soriya calcule l\'échéance quand le document n\'en imprime pas.</p></div>' +
     '<div class="card"><h2>Demandes d\'Ecotime</h2><div id="aAsk"></div></div></div>' +
-    '<div class="card" style="margin-top:16px"><h2>Tous les documents ' + folder + '</h2><div id="aAll"></div></div>';
+    fold("Tous les documents", '<div id="aAll"></div>', false, folder);
   const table = (head, rows) => '<div class="table-wrap" style="border:0"><table><thead><tr>' + head.map(h => "<th>" + esc(h) + "</th>").join("") + "</tr></thead><tbody>" +
     (rows.length ? rows.join("") : '<tr><td colspan="' + head.length + '" class="muted">Aucun document.</td></tr>') + "</tbody></table></div>";
   const pill = s => '<span class="pill ' + s.cls + '">' + esc(s.txt) + "</span>";
@@ -912,8 +919,9 @@ function pageExpenses(el, sub) {
   el.innerHTML = '<div class="toolbar"><div class="seg">' + tabs.map(t => '<button type="button" data-t="' + (t === "Carburant" ? "carburant" : "autres") + '" aria-pressed="' + (t === tab) + '">' + (t === "Carburant" ? "⛽ " : "") + t + "</button>").join("") + "</div>" +
     '<select id="fMonth"><option value="">Tous les mois</option>' + months.map(m => '<option value="' + m + '"' + (m === st.month ? " selected" : "") + ">" + monthLabel(m) + "</option>").join("") + "</select>" +
     '<select id="fDrv"><option value="">Tous les chauffeurs</option>' + drivers.map(d => '<option' + (d === st.driver ? " selected" : "") + ">" + esc(d) + "</option>").join("") + "</select></div>" +
-    (list.length ? '<div class="grid g4" id="eSum" style="margin-bottom:16px"></div><div class="grid g2"><div class="card"><h2>Par mois</h2><div id="eMonth"></div></div><div class="card"><h2>Par chauffeur</h2><div id="eDrv"></div></div></div>' +
-      '<div class="card" style="margin-top:16px"><h2>Tickets ' + folder + '</h2><div id="eList"></div></div>' :
+    (list.length ? '<div class="grid g4" id="eSum" style="margin-bottom:16px"></div>' +
+      '<div class="card"><h2>Tickets ' + folder + '</h2><div id="eList"></div></div>' +
+      fold("Totaux par mois et par chauffeur", '<div class="grid g2"><div><h3 class="small muted">Par mois</h3><div id="eMonth"></div></div><div><h3 class="small muted">Par chauffeur</h3><div id="eDrv"></div></div></div>') :
       '<div class="card"><h2>' + esc(tab) + " " + folder + '</h2><p class="muted">' + (D.error ? esc(D.error) : "Aucun ticket pour l'instant. Envoyez la photo ou la capture d'écran du ticket de caisse au WhatsApp de Soriya (06 52 13 53 08), comme une lettre de voiture : Soriya le reconnaît, le lit (station, litres, prix, montant) et le range ici.") + "</p></div>");
   el.querySelectorAll(".seg button").forEach(b => b.onclick = () => { location.hash = "#/depenses/" + b.dataset.t; });
   document.getElementById("fMonth").onchange = e => { st.month = e.target.value; pageExpenses(el, sub); };
