@@ -346,13 +346,17 @@ function derive(d) {
   ldv.forEach(x => { x.conf = confByNum[digits(x.number)] || null; });
   // Relevés Ecotime (versions en vigueur) : montant payé par n° d'ordre. Une course annulée est payée à demi-tarif
   // (GV zone 1 : 30 € au lieu de 60 €, Fourgon zone 1 : 20,50 € au lieu de 41 €…).
-  const R = d.releves || { list: [], lines: [] }, curKeys = {}, relMonths = {}, paid = {};
+  // Tarifs d'annulation constatés sur les relevés et les factures (« Annulations Courses GV Z1 » à 30 €…).
+  const CANCEL = { GV: [30, 35.5, 42.5], FG: [20.5], BKIDF: [12] };
+  const R = d.releves || { list: [], lines: [] }, curKeys = {}, relMonths = {}, paid = {}, cancelLines = [];
   R.list.forEach(r => { if (r.current) { curKeys[r.key] = 1; if (r.sts.every(s => s.read)) relMonths[r.month] = 1; } });
   R.lines.forEach(l => { const k = digits(l.number); if (!curKeys[l.key] || !k) return;
-    const p = (paid[k] = paid[k] || { main: 0, total: 0 }); p.total += l.amount; if (/^(GV|GVP|FG|BKIDF)$/i.test(l.service)) p.main += l.amount; });
+    const p = (paid[k] = paid[k] || { total: 0, cancel: false }); p.total += l.amount;
+    if ((CANCEL[String(l.service).toUpperCase()] || []).indexOf(l.amount) >= 0) { p.cancel = true; cancelLines.push(l); } });
   conf.forEach(x => { const p = paid[digits(x.number)];
-    x.paid = p ? p.total : null; x.releveRead = !!relMonths[(x.date || "").slice(0, 7)];
-    x.cancelled = !!(p && p.main > 0 && x.amount > 0 && p.main / x.amount > 0.4 && p.main / x.amount < 0.6); });
+    x.paid = p ? p.total : null; x.releveRead = !!relMonths[(x.date || "").slice(0, 7)]; x.cancelled = !!(p && p.cancel); });
+  ldv.forEach(x => { const p = paid[digits(x.number)]; x.paid = p ? p.total : null; x.cancelled = !!(p && p.cancel); });
+  cancelLines.forEach(l => { l.conf = confByNum[digits(l.number)] || null; l.ldv = ldvByNum[digits(l.number)] || null; });
   const sales = conf.filter(x => x.status.indexOf("Archivé") === 0 && x.amount > 0 && /^\d{4}-\d{2}-\d{2}/.test(x.date));
   const now = new Date(), thisMonth = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
   const prevD = new Date(now.getFullYear(), now.getMonth() - 1, 1), prevMonth = prevD.getFullYear() + "-" + String(prevD.getMonth() + 1).padStart(2, "0");
@@ -372,7 +376,7 @@ function derive(d) {
     conf, ldv, sales, byMonth, mtd, ytd, now, thisMonth, prevMonth, day, dim, closed,
     caMtd, caYtd: sum(ytd), caPrevSame: sum(prevSame), projection: day ? caMtd / day * dim : 0,
     avg3: avg(closed.slice(-3)), avgPrev3: avg(closed.slice(-6, -3)),
-    toCheck, noLdv, orphanLdv: ldv.filter(x => !x.conf && statusKind(x.status) === "ok"),
+    toCheck, noLdv, cancelLines, relMonths, orphanLdv: ldv.filter(x => !x.conf && statusKind(x.status) === "ok"),
   };
 }
 
@@ -807,7 +811,7 @@ function pageMatch(el) {
     const F = DATA.factures || { list: [], lines: [] }, invMonth = {}; F.list.forEach(f => { invMonth[f.key] = f.month; });
     const annLines = F.lines.filter(l => /annul/i.test(l.product) && (!st.month || invMonth[l.key] === st.month));
     const annQty = annLines.reduce((t, l) => t + l.qty, 0), annAmt = annLines.reduce((t, l) => t + l.total, 0);
-    const annRel = conf.filter(x => x.cancelled);
+    const annRel = M.cancelLines.filter(l => !st.month || l.month === st.month);
     const orph = M.orphanLdv.filter(inM);
     document.getElementById("mSum").innerHTML = tile("Courses facturées", String(conf.length), "<em class='muted' style='font-weight:400'>" + Math.round((conf.length - miss.length) / (conf.length || 1) * 100) + " % avec lettre de voiture</em>", "hero") +
       tile("Sans lettre", String(miss.length), "<em class='muted' style='font-weight:400'>" + n("ann") + " annulée(s) · " + n("real") + " réalisée(s) · " + n("abs") + " absente(s)</em>") +
@@ -820,18 +824,25 @@ function pageMatch(el) {
       { key: "sit", label: "Situation (relevé Ecotime)", val: x => x.sit.txt, html: x => '<span class="pill ' + x.sit.cls + '">' + esc(x.sit.txt) + "</span>" },
     ], { state: (st.t1 = st.t1 || {}), sort: "date", onRow: openDoc,
       foot: (rs, c) => c.key === "date" ? "Total" : c.key === "number" ? rs.length + " course(s)" : c.key === "amount" ? EUR2.format(rs.reduce((t, x) => t + x.amount, 0)) : "" });
-    // Annulations : facture vs relevé vs confirmations sans lettre.
+    // Annulations : facture vs relevé (ordres payés au tarif d'annulation) vs confirmations et lettres reçues.
     const gap = annQty - annRel.length;
-    document.getElementById("tAnn").innerHTML = '<div class="minis"><div><span>Sur la facture</span><b>' + annQty + "</b></div><div><span>Repérées au relevé</span><b>" + annRel.length + "</b></div><div><span>Écart</span><b>" + (gap > 0 ? "+" : "") + gap + "</b></div></div>" +
+    document.getElementById("tAnn").innerHTML = '<div class="minis"><div><span>Sur la facture</span><b>' + annQty + "</b></div><div><span>Au relevé (½ tarif)</span><b>" + annRel.length + "</b></div><div><span>Écart</span><b>" + (gap > 0 ? "+" : "") + gap + "</b></div></div>" +
+      (annRel.length ? '<div class="table-wrap" style="border:0;margin-bottom:12px"><table><thead><tr><th>Ordre annulé</th><th class="num">Payé</th><th>Confirmation</th><th>Lettre</th></tr></thead><tbody>' +
+        annRel.slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).map(l => "<tr><td>" + fmtDate(l.date) + " · n° " + esc(l.number) + '<div class="sub">' + esc(l.driver) + " · " + esc(l.service) + '</div></td><td class="num">' + EUR2.format(l.amount) + "</td><td>" +
+          (l.conf ? (Math.abs(l.conf.amount - l.amount) < 0.01 ? '<span class="pill ok">✔ ' + EUR2.format(l.conf.amount) + "</span>" : '<span class="pill warn">confirmée ' + EUR2.format(l.conf.amount) + "</span>") : '<span class="pill bad">non reçue</span>') +
+          "</td><td>" + (l.ldv ? "✔" : "—") + "</td></tr>").join("") + "</tbody></table></div>" : "") +
       (annLines.length ? '<div class="table-wrap" style="border:0"><table><thead><tr><th>Ligne de facture</th><th class="num">Qté</th><th class="num">Prix u.</th><th class="num">Total HT</th></tr></thead><tbody>' +
         annLines.map(l => "<tr><td>" + esc(l.product) + '<div class="sub">' + esc(l.number) + '</div></td><td class="num">' + l.qty + '</td><td class="num">' + EUR2.format(l.price) + '</td><td class="num">' + EUR2.format(l.total) + "</td></tr>").join("") + "</tbody></table></div>" :
         '<p class="muted small">Aucune annulation sur la facture de cette période (ou facture pas encore reçue).</p>') +
-      '<p class="muted small" style="margin:8px 0 0">' + (gap === 0 ? "✔ Les annulations facturées correspondent aux courses annulées du relevé." :
-        gap > 0 ? "Plus d'annulations facturées que de courses annulées retrouvées : certaines annulations n'ont pas de confirmation reçue." :
-        "Moins d'annulations facturées que de courses annulées au relevé : vérifiez la facture.") + "</p>";
+      '<p class="muted small" style="margin:8px 0 0">' + (gap === 0 ? "✔ Les annulations facturées correspondent aux ordres payés au tarif d'annulation sur le relevé." :
+        gap > 0 ? "Plus d'annulations facturées que d'ordres annulés au relevé : vérifiez la facture (ou relevé pas encore entièrement lu)." :
+        "Moins d'annulations facturées que d'ordres annulés au relevé : une annulation n'a peut-être pas été facturée.") + "</p>";
     dataTable(document.getElementById("t2"), orph, [
       { key: "date", label: "Date", html: x => fmtDate(x.date) }, { key: "number", label: "N°", nw: true },
       { key: "route", label: "Trajet", val: x => city(x.from) + " → " + city(x.to) }, { key: "driver", label: "Chauffeur" },
+      { key: "sit", label: "Relevé Ecotime", val: x => x.cancelled ? "Annulée" : x.paid > 0 ? "Payée" : "Absente",
+        html: x => x.cancelled ? '<span class="pill ok">Annulée · ' + EUR2.format(x.paid) + "</span>" : x.paid > 0 ? '<span class="pill warn">Payée ' + EUR2.format(x.paid) + " · confirmation non reçue</span>" :
+          M.relMonths[(x.date || "").slice(0, 7)] ? '<span class="pill bad">Absente du relevé</span>' : '<span class="pill">relevé pas encore reçu</span>' },
     ], { state: (st.t2 = st.t2 || {}), sort: "date", onRow: openDoc });
   };
   document.getElementById("fMonth").onchange = e => { st.month = e.target.value; draw(); };
