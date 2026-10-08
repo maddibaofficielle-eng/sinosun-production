@@ -135,6 +135,13 @@ function soriyaWhatsAppRun() {
     } catch (e) {
       report.errors.push('Reprise des documents non lus : ' + e.message);
     }
+    // Tickets de caisse (carburant…) : relus et rangés dans « Dépenses » avant le retrait des documents sans numéro.
+    try {
+      const tickets = soriyaDepensesNouvelles_(started, report);
+      if (tickets) Logger.log('%s ticket(s) de caisse rangé(s) dans Dépenses.', tickets);
+    } catch (e) {
+      report.errors.push('Tickets de caisse : ' + e.message);
+    }
     // Lettres de voiture lues sans numéro : retirées (ne comptent pas).
     try {
       const sansNumero = soriyaSupprimerLdvSansNumero_();

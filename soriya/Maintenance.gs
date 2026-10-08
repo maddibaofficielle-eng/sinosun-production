@@ -576,6 +576,7 @@ function soriyaSupprimerLdvSansNumero_() {
   for (let r = rows.length - 1; r >= 0; r--) { // de bas en haut : les suppressions ne décalent pas les lignes restantes
     if (String(rows[r][col('N° lettre de voiture')]).trim()) continue;
     const status = String(rows[r][col('Statut')]);
+    if (soriyaIsTicket_(status)) continue; // ticket de caisse : rangé dans « Dépenses » par soriyaDepensesNouvelles_
     if (!/^(Archivé|À vérifier)/.test(status) || /^Archivé (— lecture IA impossible|\(sans lecture IA\))/.test(status)) continue;
     const id = (/\/d\/([\w-]+)/.exec(String(rows[r][col('Lien Drive')])) || [])[1];
     if (id) {

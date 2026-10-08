@@ -61,6 +61,12 @@ function soriyaWebData(k) {
         return soriyaWebFacturesFrom_(all(f.factures), all(f.lines));
       } catch (e) { return { folderUrl: '', list: [], lines: [], error: e.message }; }
     })(),
+    depenses: (function () {
+      try {
+        const sh = soriyaDepensesSheet_(soriyaJournalSpreadsheet_(soriyaRootFolder_('lettre_voiture'), 'lettre_voiture'));
+        return soriyaWebDepensesFrom_(sh.getLastRow() ? sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues() : []);
+      } catch (e) { return { folderUrl: '', list: [], error: e.message }; }
+    })(),
     admin: (function () {
       try {
         const sh = soriyaAdminSheet_(soriyaJournalSpreadsheet_(soriyaRootFolder_('confirmation'), 'confirmation'));
@@ -179,6 +185,7 @@ function soriyaWebDocs_(typeKey) {
     // Lettre de voiture lue sans numéro : ne compte pas (retirée du journal au prochain passage WhatsApp).
     // Relevé « Statistique sous-traitant » rangé dans le journal des confirmations : affiché dans « Sous-traitants ».
     if (d.type === 'conf') return !/^(Relevé sous-traitant|Facture |Document administratif)/.test(d.status);
+    if (/^Dépense/.test(d.status) || soriyaWebIsTicket_(d.status)) return false; // ticket de caisse : onglet « Dépenses »
     return String(d.number).trim() || /lecture IA impossible|sans lecture IA|Mis de côté/.test(d.status);
   });
 }
@@ -239,4 +246,28 @@ function soriyaWebAdminFrom_(rows) {
         name: str(r[c('Nom dans Drive')]), url: str(r[c('Lien Drive')]), remarks: str(r[c('Remarques')]) };
     }),
   };
+}
+
+/** Tickets de caisse pour l'interface (onglet « Dépenses » du Journal Lettres de voiture). */
+function soriyaWebDepensesFrom_(rows) {
+  const h = (rows[0] || []).map(String), c = function (t) { return h.indexOf(t); };
+  const str = function (x) { return x === null || x === undefined ? '' : String(x); };
+  const num = function (x) { return Number(x) || 0; };
+  return {
+    folderUrl: rows.slice(1).map(function (r) { return str(r[c('Dossier')]); }).filter(String).pop() || '',
+    list: rows.slice(1).filter(function (r) { return r[c('Lien Drive')]; }).map(function (r) {
+      return { key: str(r[c('Clé')]), sender: str(r[c('Expéditeur')]).replace(/^'/, ''), driver: str(r[c('Chauffeur')]),
+        category: str(r[c('Catégorie')]), date: str(r[c('Date')]), time: str(r[c('Heure')]), brand: str(r[c('Enseigne')]),
+        address: str(r[c('Adresse')]), city: str(r[c('Ville')]), fuel: str(r[c('Carburant')]), liters: num(r[c('Litres')]),
+        pricePerL: num(r[c('Prix au litre')]), ttc: num(r[c('Montant TTC')]), vat: num(r[c('TVA')]), ht: num(r[c('Montant HT')]),
+        payment: str(r[c('Paiement')]), plate: str(r[c('Immatriculation')]), km: str(r[c('Kilométrage')]),
+        name: str(r[c('Nom dans Drive')]), url: str(r[c('Lien Drive')]), remarks: str(r[c('Remarques')]) };
+    }),
+  };
+}
+
+/** Ticket de caisse pas encore rangé (même règle que soriyaIsTicket_ côté Soriya). */
+function soriyaWebIsTicket_(statut) {
+  return /^À vérifier/.test(statut) && !/^À vérifier — pas un ticket/.test(statut) &&
+    /ticket de caisse|ticket de carburant|re[çc]u de paiement|station[- ]service|carburant|gazole|gasoil|diesel|péage|facturette/i.test(statut);
 }

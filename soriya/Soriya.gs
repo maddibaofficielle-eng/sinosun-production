@@ -49,6 +49,8 @@ const SORIYA_DOC_TYPES = {
     typeFlag: 'est_lettre_de_voiture',
     hints: [
       'transporteur = la société de transport qui a effectué le transport (et le chauffeur si indiqué).',
+      'Si le document est un ticket de caisse (carburant, péage, parking…), mets est_lettre_de_voiture à false et ' +
+        'commence remarques par « Ticket de caisse » (ex. « Ticket de caisse carburant TotalEnergies, 85,40 € »).',
       "Pour une capture d'écran, ignore l'interface autour du document (barre d'état, boutons, conversation) " +
         "et ne lis que la lettre de voiture. Si la capture ne montre aucune lettre de voiture, mets " +
         'est_lettre_de_voiture à false.',

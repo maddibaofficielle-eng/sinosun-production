@@ -324,6 +324,7 @@ const PAGES = [
   { id: "sous-traitants", ico: "▤", label: "Sous-traitants", render: pageSubcontractors },
   { id: "factures", ico: "▣", label: "Factures", render: pageInvoices },
   { id: "administratif", ico: "▧", label: "Administratif", render: pageAdmin },
+  { id: "depenses", ico: "⛽", label: "Dépenses", render: pageExpenses },
   { id: "clients", ico: "◎", label: "Clients & prospection", render: pageClients },
   { id: "activite", ico: "⚙", label: "Activité Soriya", render: pageActivity },
 ];
@@ -892,6 +893,72 @@ function pageAdmin(el) {
     "<tr><td>" + fmtDate(x.date || x.received) + '<div class="sub">reçu le ' + fmtDate(x.received) + "</div></td><td><b>" + esc(x.type) + "</b>" + (x.ref ? '<div class="sub">' + esc(x.ref) + "</div>" : "") +
     "</td><td>" + esc(x.issuer) + "</td><td>" + esc(x.summary) + (x.requested ? '<div class="sub">Demandé : ' + esc(x.requested) + "</div>" : "") + "</td><td>" +
     (x.type === "Demande de documents" ? "" : pill(state(x))) + "</td><td>" + link(x) + "</td></tr>"));
+}
+
+/* ---------- Dépenses (tickets de caisse reçus sur WhatsApp) ---------- */
+function pageExpenses(el, sub) {
+  const D = DATA.depenses || { list: [] };
+  // Même ticket envoyé deux fois (photo + capture) : un seul par date, heure et montant.
+  const seen = {}, all = D.list.filter(x => { const k = x.date + "|" + x.time + "|" + x.ttc; if (x.ttc && seen[k]) return false; seen[k] = 1; return true; });
+  const cats = Array.from(new Set(all.map(x => x.category).filter(c => c && c !== "Carburant"))).sort();
+  const tabs = ["Carburant"].concat(cats.length ? ["Autres dépenses"] : []);
+  const tab = sub === "autres" && cats.length ? "Autres dépenses" : "Carburant";
+  const st = view.exp = view.exp || { month: "", driver: "" };
+  const list = all.filter(x => tab === "Carburant" ? x.category === "Carburant" : x.category !== "Carburant");
+  const months = Array.from(new Set(list.map(x => x.date.slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m)))).sort().reverse();
+  const drivers = Array.from(new Set(list.map(x => x.driver || x.sender))).sort();
+  if (st.month && months.indexOf(st.month) < 0) st.month = "";
+  const folder = D.folderUrl ? '<a class="more" href="' + esc(D.folderUrl) + '">Dossier des tickets ↗</a>' : "";
+  el.innerHTML = '<div class="toolbar"><div class="seg">' + tabs.map(t => '<button type="button" data-t="' + (t === "Carburant" ? "carburant" : "autres") + '" aria-pressed="' + (t === tab) + '">' + (t === "Carburant" ? "⛽ " : "") + t + "</button>").join("") + "</div>" +
+    '<select id="fMonth"><option value="">Tous les mois</option>' + months.map(m => '<option value="' + m + '"' + (m === st.month ? " selected" : "") + ">" + monthLabel(m) + "</option>").join("") + "</select>" +
+    '<select id="fDrv"><option value="">Tous les chauffeurs</option>' + drivers.map(d => '<option' + (d === st.driver ? " selected" : "") + ">" + esc(d) + "</option>").join("") + "</select></div>" +
+    (list.length ? '<div class="grid g4" id="eSum" style="margin-bottom:16px"></div><div class="grid g2"><div class="card"><h2>Par mois</h2><div id="eMonth"></div></div><div class="card"><h2>Par chauffeur</h2><div id="eDrv"></div></div></div>' +
+      '<div class="card" style="margin-top:16px"><h2>Tickets ' + folder + '</h2><div id="eList"></div></div>' :
+      '<div class="card"><h2>' + esc(tab) + " " + folder + '</h2><p class="muted">' + (D.error ? esc(D.error) : "Aucun ticket pour l'instant. Envoyez la photo ou la capture d'écran du ticket de caisse au WhatsApp de Soriya (06 52 13 53 08), comme une lettre de voiture : Soriya le reconnaît, le lit (station, litres, prix, montant) et le range ici.") + "</p></div>");
+  el.querySelectorAll(".seg button").forEach(b => b.onclick = () => { location.hash = "#/depenses/" + b.dataset.t; });
+  document.getElementById("fMonth").onchange = e => { st.month = e.target.value; pageExpenses(el, sub); };
+  document.getElementById("fDrv").onchange = e => { st.driver = e.target.value; pageExpenses(el, sub); };
+  if (!list.length) return;
+  const fuel = tab === "Carburant";
+  const sel = list.filter(x => (!st.month || x.date.slice(0, 7) === st.month) && (!st.driver || (x.driver || x.sender) === st.driver));
+  const sum = (a, k) => a.reduce((t, x) => t + x[k], 0);
+  const ht = x => x.ht || x.ttc / 1.2; // HT imprimé, sinon TTC / 1,2 (TVA 20 %)
+  const sumHT = a => a.reduce((t, x) => t + ht(x), 0);
+  const ttc = sum(sel, "ttc"), liters = sum(sel, "liters"), withL = sel.filter(x => x.liters);
+  const salesIn = M.sales.filter(x => !st.month || x.date.slice(0, 7) === st.month), caHT = salesIn.reduce((t, x) => t + x.amount, 0);
+  document.getElementById("eSum").innerHTML = tile((fuel ? "Carburant" : "Dépenses") + " TTC", EUR2.format(ttc), "<em class='muted' style='font-weight:400'>" + sel.length + " ticket(s) · " + EUR2.format(sumHT(sel)) + " HT</em>", "hero") +
+    (fuel ? tile("Litres", liters.toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " L", "<em class='muted' style='font-weight:400'>prix moyen " + (liters ? EUR2.format(sum(withL, "ttc") / sum(withL, "liters")) : "—") + " / L</em>") : tile("Catégories", String(new Set(sel.map(x => x.category)).size))) +
+    tile("Part du CA HT", caHT ? (sumHT(sel) / caHT * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %" : "—", "<em class='muted' style='font-weight:400'>CA HT des courses : " + EUR.format(caHT) + "</em>") +
+    tile("Par course facturée", salesIn.length ? EUR2.format(sumHT(sel) / salesIn.length) : "—", "<em class='muted' style='font-weight:400'>HT · " + salesIn.length + " course(s)</em>");
+  const table = (head, rows, foot) => '<div class="table-wrap" style="border:0"><table><thead><tr>' + head.map(h => '<th class="' + (h.num ? "num" : "") + '">' + esc(h.l) + "</th>").join("") + "</tr></thead><tbody>" + rows.join("") + "</tbody>" + (foot ? "<tfoot>" + foot + "</tfoot>" : "") + "</table></div>";
+  const td = (v, n) => '<td class="' + (n ? "num" : "") + '">' + v + "</td>";
+  const L = v => v ? v.toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " L" : "—";
+  // Par mois (tous les mois, filtre chauffeur appliqué).
+  const byDrvOnly = list.filter(x => !st.driver || (x.driver || x.sender) === st.driver);
+  const mrows = months.map(m => { const a = byDrvOnly.filter(x => x.date.slice(0, 7) === m), ca = M.sales.filter(x => x.date.slice(0, 7) === m).reduce((t, x) => t + x.amount, 0);
+    return '<tr data-m="' + m + '" style="cursor:pointer" class="' + (m === st.month ? "on" : "") + '">' + td(monthLabel(m)) + td(a.length, 1) + (fuel ? td(L(sum(a, "liters")), 1) : "") + td(EUR2.format(sum(a, "ttc")), 1) + td(EUR2.format(sumHT(a)), 1) + td(ca ? (sumHT(a) / ca * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %" : "—", 1) + "</tr>"; });
+  document.getElementById("eMonth").innerHTML = table([{ l: "Mois" }, { l: "Tickets", num: 1 }].concat(fuel ? [{ l: "Litres", num: 1 }] : [], [{ l: "TTC", num: 1 }, { l: "HT", num: 1 }, { l: "% du CA", num: 1 }]), mrows,
+    "<tr><td>Total</td>" + td(byDrvOnly.length, 1) + (fuel ? td(L(sum(byDrvOnly, "liters")), 1) : "") + td(EUR2.format(sum(byDrvOnly, "ttc")), 1) + td(EUR2.format(sumHT(byDrvOnly)), 1) + "<td></td></tr>");
+  el.querySelectorAll("#eMonth tr[data-m]").forEach(tr => tr.onclick = () => { st.month = st.month === tr.dataset.m ? "" : tr.dataset.m; pageExpenses(el, sub); });
+  // Par chauffeur (période choisie).
+  const inMonth = list.filter(x => !st.month || x.date.slice(0, 7) === st.month);
+  const g = {}; inMonth.forEach(x => { const k = x.driver || x.sender || "—"; (g[k] = g[k] || []).push(x); });
+  document.getElementById("eDrv").innerHTML = table([{ l: "Chauffeur / expéditeur" }, { l: "Tickets", num: 1 }].concat(fuel ? [{ l: "Litres", num: 1 }, { l: "€ / L", num: 1 }] : [], [{ l: "TTC", num: 1 }]),
+    Object.keys(g).sort((a, b) => sum(g[b], "ttc") - sum(g[a], "ttc")).map(k => { const a = g[k], wl = a.filter(x => x.liters);
+      return '<tr data-d="' + esc(k) + '" style="cursor:pointer" class="' + (k === st.driver ? "on" : "") + '">' + td(esc(k)) + td(a.length, 1) + (fuel ? td(L(sum(a, "liters")), 1) + td(wl.length ? EUR2.format(sum(wl, "ttc") / sum(wl, "liters")) : "—", 1) : "") + td(EUR2.format(sum(a, "ttc")), 1) + "</tr>"; }),
+    "<tr><td>Total</td>" + td(inMonth.length, 1) + (fuel ? td(L(sum(inMonth, "liters")), 1) + "<td></td>" : "") + td(EUR2.format(sum(inMonth, "ttc")), 1) + "</tr>");
+  el.querySelectorAll("#eDrv tr[data-d]").forEach(tr => tr.onclick = () => { st.driver = st.driver === tr.dataset.d ? "" : tr.dataset.d; pageExpenses(el, sub); });
+  // Liste des tickets.
+  dataTable(document.getElementById("eList"), sel, [
+    { key: "date", label: "Date", html: x => fmtDate(x.date) + (x.time ? '<div class="sub">' + esc(x.time) + "</div>" : "") },
+    { key: "brand", label: "Station / commerce", html: x => esc(x.brand || "—") + '<div class="sub">' + esc(x.city || x.address) + "</div>" },
+  ].concat(fuel ? [{ key: "fuel", label: "Carburant" }, { key: "liters", label: "Litres", num: true, html: x => L(x.liters) }, { key: "pricePerL", label: "€ / L", num: true, html: x => x.pricePerL ? EUR2.format(x.pricePerL) : "—" }] : [{ key: "category", label: "Catégorie" }], [
+    { key: "ttc", label: "TTC", num: true, html: x => EUR2.format(x.ttc) },
+    { key: "driver", label: "Chauffeur", val: x => x.driver || x.sender },
+    { key: "payment", label: "Paiement", sm: true },
+    { key: "name", label: "Ticket", html: x => '<a href="' + esc(x.url) + '">PDF ↗</a>' },
+  ]), { state: (st.t = st.t || {}), sort: "date",
+    foot: (rs, c) => c.key === "date" ? "Total" : c.key === "brand" ? rs.length + " ticket(s)" : c.key === "liters" ? L(sum(rs, "liters")) : c.key === "ttc" ? EUR2.format(sum(rs, "ttc")) : "" });
 }
 
 function pageDrivers(el) {
