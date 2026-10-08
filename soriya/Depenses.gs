@@ -43,6 +43,19 @@ function soriyaDepensesNouvelles_(started, report) {
   if (n < 1) return 0;
   const col = function (title) { return j.headers.indexOf(title); };
   const rows = j.main.getRange(2, 1, n, j.headers.length).getValues();
+  // « +33… » écrit sans apostrophe : Sheets l'a pris pour une formule (#ERROR!) → on remet l'expéditeur du journal.
+  const dep = j.ss.getSheetByName(SORIYA_DEPENSES.SHEET);
+  if (dep && dep.getLastRow() > 1) {
+    const senderOf = {};
+    rows.forEach(function (r) { senderOf[String(r[col('Clé')])] = String(r[col('Expéditeur')]); });
+    const range = dep.getRange(2, 1, dep.getLastRow() - 1, 3);
+    const vals = range.getValues(), forms = range.getFormulas();
+    vals.forEach(function (v, i) {
+      if ((forms[i][2] || /^#/.test(String(v[2]))) && senderOf[String(v[0])]) {
+        dep.getRange(i + 2, 3).setValue("'" + senderOf[String(v[0])].replace(/^'/, ''));
+      }
+    });
+  }
   const todo = [];
   rows.forEach(function (r, i) { if (soriyaIsTicket_(r[col('Statut')])) todo.push(i); });
   if (!todo.length) return 0;
@@ -83,7 +96,7 @@ function soriyaDepensesNouvelles_(started, report) {
     file.moveTo(folder);
     const plate = String(d.immatriculation || '').replace(/[\s-]/g, '').toUpperCase();
     const driver = drivers.byPlate[plate] || drivers.bySender[sender] || '';
-    sh.appendRow([key, rows[r][col('Reçu le')], sender, driver, cat, "'" + d.date, "'" + d.heure, d.enseigne, d.adresse,
+    sh.appendRow([key, rows[r][col('Reçu le')], "'" + sender.replace(/^'/, ''), driver, cat, "'" + d.date, "'" + d.heure, d.enseigne, d.adresse,
       d.ville, d.carburant, d.litres, d.prix_litre, d.montant_ttc, d.tva, d.montant_ht, d.moyen_paiement,
       d.immatriculation, d.kilometrage, "'" + d.numero_ticket, name, file.getUrl(), new Date(), d.remarques,
       soriyaSubFolder_(root, [SORIYA_DEPENSES.FOLDER]).getUrl()]);
