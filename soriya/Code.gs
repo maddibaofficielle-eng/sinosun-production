@@ -117,6 +117,13 @@ function soriyaRun() {
       props.deleteProperty('SORIYA_RESCAN_UNTIL');
       props.deleteProperty('SORIYA_RESCAN_OFFSET');
     }
+    // Mails « Une mission vous a été attribuée » : rangés dans le sous-libellé de leur mois (voir Rangement.gs).
+    try {
+      const ranges = soriyaRangerMissions_(started);
+      if (ranges) Logger.log('Gmail : %s mail(s) « mission attribuée » rangé(s) par mois.', ranges);
+    } catch (e) {
+      report.errors.push('Rangement Gmail : ' + e.message);
+    }
     // Relevés mensuels « Statistique sous-traitant détaillée » : rangés à part et lus (voir Releves.gs).
     try {
       const lus = soriyaTraiterReleves_(started, report);
