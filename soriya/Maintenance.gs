@@ -260,6 +260,12 @@ function soriyaWhatsAppMigrations_() {
     });
     pr.setProperty('SORIYA_MIG_SENDER_TEXT', 'ok');
   }
+  // Tickets du 8 octobre supprimés par erreur (lus comme lettres sans numéro) : remis dans le dossier d'entrée.
+  if (pr.getProperty('SORIYA_MIG_RESTORE_TICKETS_0810') !== 'ok') {
+    const n = soriyaRestaurerTicketsSupprimes_(new Date('2026-10-07T22:00:00Z'));
+    pr.setProperty('SORIYA_MIG_RESTORE_TICKETS_0810', 'ok');
+    Logger.log('Reprise : %s ticket(s) remis dans le dossier d\'entrée WhatsApp.', n);
+  }
   const props = PropertiesService.getScriptProperties();
   if (props.getProperty('SORIYA_MIG_LDV_SENDERS') !== 'done') {
     const n = corrigerExpediteursWhatsApp();

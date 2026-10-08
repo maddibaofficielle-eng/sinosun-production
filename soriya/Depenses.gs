@@ -143,3 +143,32 @@ function soriyaTicketSchema_() {
   };
   return { type: 'object', properties: props, required: Object.keys(props), additionalProperties: false };
 }
+
+/**
+ * Reprise du 8 octobre 2026 : des tickets reçus avant la mise en service des « Dépenses » ont été lus comme des
+ * lettres de voiture sans numéro, retirés du journal et mis à la corbeille. On les sort de la corbeille et on
+ * les remet dans le dossier d'entrée WhatsApp sous leur nom d'origine : le passage suivant les relit comme tickets.
+ * Seuls les documents reçus depuis le 8 octobre sont concernés (les lettres sans numéro plus anciennes restent
+ * supprimées, comme demandé).
+ * @return {number} fichiers remis dans le dossier d'entrée
+ */
+function soriyaRestaurerTicketsSupprimes_(since) {
+  const inbox = soriyaWhatsAppInbox_();
+  const it = DriveApp.searchFiles('trashed = true and title contains "Lettres_de_voiture"');
+  let n = 0;
+  while (it.hasNext()) {
+    const f = it.next();
+    const desc = String(f.getDescription() || '');
+    if (desc.indexOf('Archivé par Soriya depuis WhatsApp') !== 0) continue;
+    const wa = (/Nom WhatsApp : (\S.*)/.exec(desc) || [])[1];
+    const info = wa ? soriyaWhatsAppParseName_(wa) : null;
+    if (!info || !info.date || info.date < since) continue;
+    const name = /\.pdf$/i.test(wa) || f.getMimeType() !== 'application/pdf' ? wa : wa.replace(/\.[a-z0-9]{2,4}$/i, '') + '.pdf';
+    f.setTrashed(false);
+    f.setName(name);
+    f.moveTo(inbox);
+    Logger.log('Remis dans le dossier d\'entrée : %s (%s)', name, f.getName());
+    n++;
+  }
+  return n;
+}
