@@ -61,6 +61,37 @@ function soriyaWebData() {
     prospects: soriyaWebProspects_(),
     maxShareTopClient: SORIYA_WEB.MAX_SHARE_TOP_CLIENT,
     releves: soriyaWebReleves_(),
+    factures: soriyaWebFacturesFrom_(soriyaWebTab_('Factures'), soriyaWebTab_('Lignes factures')),
+  };
+}
+
+/** Onglet du Journal Soriya ([] s'il n'existe pas encore). */
+function soriyaWebTab_(tab) {
+  try { return soriyaRead_(SORIYA_WEB.CONF_JOURNAL_ID, 'UNFORMATTED_VALUE', "'" + tab + "'!A1:Z5000"); } catch (e) { return []; }
+}
+
+/** Factures émises pour l'interface (onglets « Factures » et « Lignes factures » du Journal Soriya). */
+function soriyaWebFacturesFrom_(fac, lines) {
+  const idx = function (rows) { const h = (rows[0] || []).map(String); return function (t) { return h.indexOf(t); }; };
+  const c = idx(fac), l = idx(lines);
+  const str = function (x) { return x === null || x === undefined ? '' : String(x); };
+  const num = function (x) { return Number(x) || 0; };
+  const list = fac.slice(1).filter(function (r) { return r[c('Lien Drive')] && r[c('N° facture')]; }).map(function (r) {
+    return { key: str(r[c('Clé')]), number: str(r[c('N° facture')]), subject: str(r[c('Objet')]),
+      issued: str(r[c('Émise le')]), due: str(r[c('Échéance')]), client: str(r[c('Client')]),
+      from: str(r[c('Période début')]), to: str(r[c('Période fin')]), month: str(r[c('Mois')]),
+      gross: num(r[c('Total HT avant remise')]), discount: num(r[c('Remise')]), ht: num(r[c('Total HT')]),
+      vat: num(r[c('TVA')]), ttc: num(r[c('Total TTC')]), name: str(r[c('Nom dans Drive')]), url: str(r[c('Lien Drive')]),
+      remarks: str(r[c('Remarques')]) };
+  });
+  return {
+    folderUrl: fac.slice(1).map(function (r) { return str(r[c('Dossier')]); }).filter(String).pop() || '',
+    list: list,
+    lines: lines.slice(1).map(function (r) {
+      return { key: str(r[l('Clé facture')]), number: str(r[l('N° facture')]), product: str(r[l('Produit')]),
+        qty: num(r[l('Qté')]), unit: str(r[l('Unité')]), price: num(r[l('Prix u. HT')]), vat: num(r[l('TVA %')]),
+        total: num(r[l('Total HT')]) };
+    }),
   };
 }
 
@@ -187,7 +218,7 @@ function soriyaWebDocs_(typeKey) {
   }).filter(function (d) {
     // Lettre de voiture lue sans numéro : ne compte pas (retirée du journal au prochain passage WhatsApp).
     // Relevé « Statistique sous-traitant » rangé dans le journal des confirmations : affiché dans « Sous-traitants ».
-    if (d.type === 'conf') return !/^Relevé sous-traitant/.test(d.status);
+    if (d.type === 'conf') return !/^(Relevé sous-traitant|Facture )/.test(d.status);
     return String(d.number).trim() || /lecture IA impossible|sans lecture IA|Mis de côté/.test(d.status);
   });
 }

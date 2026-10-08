@@ -26,7 +26,8 @@ const SORIYA_RELEVES_LINE_HEADERS = ['Clé relevé', 'Mois', 'N° ordre', 'Sous-
   'Date', 'Enlèvement', 'Livraison', 'Prestation', 'Qté', 'Montant HT'];
 
 /** Ligne du journal des confirmations qui est en fait un relevé sous-traitant. */
-function soriyaIsReleve_(objet, statut) {
+function soriyaIsReleve_(objet, statut, fichier) {
+  if (/^Facture/i.test(String(fichier || ''))) return false; // facture GFD envoyée en réponse (« Re: LISTING … »)
   return /(^|[\s:])LISTING\b/i.test(String(objet)) || /statistique sous-traitant/i.test(String(statut));
 }
 
@@ -70,7 +71,8 @@ function soriyaTraiterReleves_(started, report) {
   while (Date.now() - started < SORIYA_RELEVES.START_BEFORE_MS) {
     let did;
     try {
-      did = soriyaReleveNouveau_(s) || soriyaReleveDetail_(s);
+      // Totaux des nouveaux relevés, puis factures, puis détail des relevés (le plus long).
+      did = soriyaReleveNouveau_(s) || soriyaFactureNouvelle_(s.journal) || soriyaReleveDetail_(s);
     } catch (e) {
       report.errors.push('Relevés sous-traitant : ' + e.message);
       break;
@@ -91,7 +93,7 @@ function soriyaReleveNouveau_(s) {
   const known = new Set(soriyaSheetRows_(s.releves).map(function (r) { return String(r[0]); }));
   for (let r = rows.length - 1; r >= 0; r--) { // les plus récents d'abord
     const key = String(rows[r][col('Clé')]);
-    if (!key || known.has(key) || !soriyaIsReleve_(rows[r][col('Objet')], rows[r][col('Statut')])) continue;
+    if (!key || known.has(key) || !soriyaIsReleve_(rows[r][col('Objet')], rows[r][col('Statut')], rows[r][col('Fichier reçu')])) continue;
     const id = (/\/d\/([\w-]+)/.exec(String(rows[r][col('Lien Drive')])) || [])[1];
     let file = null;
     try { file = id ? DriveApp.getFileById(id) : null; } catch (e) { /* fichier supprimé */ }

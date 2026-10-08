@@ -322,6 +322,7 @@ const PAGES = [
   { id: "rapprochement", ico: "⇄", label: "Rapprochement", render: pageMatch },
   { id: "chauffeurs", ico: "☺", label: "Chauffeurs", render: pageDrivers },
   { id: "sous-traitants", ico: "▤", label: "Sous-traitants", render: pageSubcontractors },
+  { id: "factures", ico: "▣", label: "Factures", render: pageInvoices },
   { id: "clients", ico: "◎", label: "Clients & prospection", render: pageClients },
   { id: "activite", ico: "⚙", label: "Activité Soriya", render: pageActivity },
 ];
@@ -775,6 +776,71 @@ function pageSubcontractors(el) {
     document.querySelectorAll("#sSt tr[data-d]").forEach(tr => tr.classList.toggle("on", tr.dataset.d === st.driver));
   };
   document.getElementById("fMonth").onchange = e => { st.month = e.target.value; st.driver = ""; draw(); };
+  draw();
+}
+
+/* ---------- Factures émises (GFD-LOGISTIC → clients) ---------- */
+function pageInvoices(el) {
+  const F = DATA.factures || { list: [], lines: [] };
+  // Même facture reçue deux fois (renvoi) : on garde la dernière lue.
+  const byNum = {}; F.list.forEach(x => { byNum[x.number] = x; });
+  const list = Object.values(byNum).sort((a, b) => (b.month || b.issued).localeCompare(a.month || a.issued));
+  const folder = F.folderUrl ? '<a class="more" href="' + esc(F.folderUrl) + '">Dossier des factures ↗</a>' : "";
+  if (!list.length) {
+    el.innerHTML = '<div class="card"><h2>Factures ' + folder + '</h2><p class="muted">' + (F.error ? esc(F.error) :
+      "Soriya range et lit vos factures (fichiers « Facture-… » envoyés en réponse aux mails d'Ecotime) : elles apparaissent ici au fil des passages.") + "</p></div>";
+    return;
+  }
+  const st = view.inv = view.inv || { number: list[0].number };
+  if (!byNum[st.number]) st.number = list[0].number;
+  const today = new Date().toISOString().slice(0, 10);
+  const R = DATA.releves || { list: [] };
+  const relOf = m => (R.list.find(r => r.current && r.month === m) || null);
+  const cat = p => { p = String(p).toUpperCase(); return /ANNUL/.test(p) ? "Annulations" : /MANUT/.test(p) ? "Manutentions" : /ATTENTE|AENTE/.test(p) ? "Attentes" :
+    /FOURG/.test(p) ? "FOURGON" : /BREAK/.test(p) ? "BREAK" : /PROVINCE/.test(p) ? "GV Province" : /GV/.test(p) ? "GV" : "Autres"; };
+  const year = today.slice(0, 4), ytd = list.filter(x => (x.issued || "").slice(0, 4) === year);
+  const sum = (a, k) => a.reduce((t, x) => t + x[k], 0);
+  const due = list.filter(x => x.due && x.due >= today), overdue = list.filter(x => x.due && x.due < today);
+  el.innerHTML = '<div class="grid g4" style="margin-bottom:16px">' +
+    tile("Facturé HT en " + year, EUR2.format(sum(ytd, "ht")), "<em class='muted' style='font-weight:400'>" + ytd.length + " facture(s) · " + EUR2.format(sum(ytd, "ttc")) + " TTC</em>", "hero") +
+    tile("Dernière facture", list[0].number, "<em class='muted' style='font-weight:400'>" + (list[0].month ? monthLabel(list[0].month) : "") + " · " + EUR2.format(list[0].ttc) + " TTC</em>") +
+    tile("À échoir (TTC)", EUR2.format(sum(due, "ttc")), "<em class='muted' style='font-weight:400'>" + due.length + " facture(s) pas encore à échéance</em>") +
+    tile("Échéance passée (TTC)", EUR2.format(sum(overdue, "ttc")), "<em class='muted' style='font-weight:400'>" + overdue.length + " facture(s) · paiement à vérifier en banque</em>") + "</div>" +
+    '<div class="card"><h2>Toutes les factures ' + folder + '</h2><div id="iAll"></div></div>' +
+    '<div class="grid g2" style="margin-top:16px"><div class="card"><h2 id="iTitle"></h2><div id="iDet"></div></div><div class="card"><h2>Facturé HT par prestation et par mois</h2><div id="iMx"></div></div></div>';
+  const table = (head, rows, foot) => '<div class="table-wrap" style="border:0"><table><thead><tr>' + head.map(h => '<th class="' + (h.num ? "num" : "") + '">' + esc(h.l) + "</th>").join("") + "</tr></thead><tbody>" +
+    (rows.length ? rows.join("") : '<tr><td colspan="' + head.length + '" class="muted">Aucune ligne.</td></tr>') + "</tbody>" + (foot ? "<tfoot>" + foot + "</tfoot>" : "") + "</table></div>";
+  const td = (v, num) => '<td class="' + (num ? "num" : "") + '">' + v + "</td>";
+  const sign = v => (v > 0 ? "+" : "") + EUR2.format(v);
+  const draw = () => {
+    document.getElementById("iAll").innerHTML = table([{ l: "N°" }, { l: "Période" }, { l: "Émise le" }, { l: "Échéance" }, { l: "HT", num: 1 }, { l: "TVA", num: 1 }, { l: "TTC", num: 1 }, { l: "Relevé Ecotime", num: 1 }, { l: "Écart", num: 1 }],
+      list.map(x => { const r = relOf(x.month), gap = r ? x.ht - r.total : null;
+        return '<tr data-n="' + esc(x.number) + '" style="cursor:pointer" class="' + (x.number === st.number ? "on" : "") + '">' +
+          td("<b>" + esc(x.number) + '</b><div class="sub"><a href="' + esc(x.url) + '">' + esc(x.name) + " ↗</a></div>") +
+          td(x.month ? monthLabel(x.month) : "—") + td(fmtDate(x.issued)) +
+          td(fmtDate(x.due) + (x.due ? ' <span class="pill ' + (x.due < today ? "warn" : "ok") + '">' + (x.due < today ? "échue" : "à échoir") + "</span>" : "")) +
+          td(EUR2.format(x.ht), 1) + td(EUR2.format(x.vat), 1) + td(EUR2.format(x.ttc), 1) + td(r ? EUR2.format(r.total) : "—", 1) +
+          td(gap == null ? "—" : Math.abs(gap) < 0.01 ? '<span class="pill ok">concordant</span>' : '<span class="pill warn">' + sign(gap) + "</span>", 1) + "</tr>"; }),
+      "<tr><td>Total</td><td>" + list.length + " facture(s)</td><td></td><td></td>" + td(EUR2.format(sum(list, "ht")), 1) + td(EUR2.format(sum(list, "vat")), 1) + td(EUR2.format(sum(list, "ttc")), 1) + "<td></td><td></td></tr>");
+    document.querySelectorAll("#iAll tr[data-n]").forEach(tr => tr.onclick = e => { if (e.target.closest("a")) return; st.number = tr.dataset.n; draw(); });
+    // Détail de la facture choisie.
+    const x = byNum[st.number], lines = F.lines.filter(l => l.key === x.key);
+    document.getElementById("iTitle").textContent = "Détail de la facture " + x.number + (x.month ? " · " + monthLabel(x.month) : "");
+    const foot = [["Total HT avant remise", x.gross]].concat(x.discount ? [["Remise", -x.discount]] : [], [["Total HT", x.ht], ["TVA", x.vat], ["Total TTC", x.ttc]]);
+    document.getElementById("iDet").innerHTML = '<p class="muted small" style="margin:0 0 8px">' + esc(x.client) + (x.from ? " · du " + fmtDate(x.from) + " au " + fmtDate(x.to) : "") + " · échéance " + fmtDate(x.due) + "</p>" +
+      table([{ l: "Produit" }, { l: "Qté", num: 1 }, { l: "Prix u. HT", num: 1 }, { l: "Total HT", num: 1 }],
+        lines.map(l => "<tr>" + td(esc(l.product)) + td(String(l.qty).replace(".", ","), 1) + td(EUR2.format(l.price), 1) + td(EUR2.format(l.total), 1) + "</tr>"),
+        foot.map(f => "<tr><td>" + f[0] + "</td><td></td><td></td>" + td(EUR2.format(f[1]), 1) + "</tr>").join(""));
+    // Matrice prestation × mois (6 derniers mois facturés).
+    const months = Array.from(new Set(list.map(i => i.month).filter(Boolean))).sort().slice(-6);
+    const keyOf = {}; list.forEach(i => { keyOf[i.key] = i.month; });
+    const cats = ["GV", "GV Province", "FOURGON", "BREAK", "Manutentions", "Attentes", "Annulations", "Autres"];
+    const mx = {}; F.lines.forEach(l => { const m = keyOf[l.key]; if (!m || months.indexOf(m) < 0) return; const k = cat(l.product); (mx[k] = mx[k] || {}); mx[k][m] = (mx[k][m] || 0) + l.total; });
+    const present = cats.filter(k => mx[k]);
+    document.getElementById("iMx").innerHTML = present.length ? table([{ l: "Prestation" }].concat(months.map(m => ({ l: monthLabel(m), num: 1 }))),
+      present.map(k => "<tr>" + td(esc(k)) + months.map(m => td(mx[k][m] ? EUR.format(mx[k][m]) : '<span class="muted">—</span>', 1)).join("") + "</tr>"),
+      "<tr><td>Total</td>" + months.map(m => { const v = present.reduce((t, k) => t + (mx[k][m] || 0), 0); return td(v ? EUR.format(v) : '<span class="muted">—</span>', 1); }).join("") + "</tr>") : '<p class="muted">Détail des lignes en cours de lecture.</p>';
+  };
   draw();
 }
 
