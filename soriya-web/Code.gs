@@ -62,6 +62,7 @@ function soriyaWebData() {
     maxShareTopClient: SORIYA_WEB.MAX_SHARE_TOP_CLIENT,
     releves: soriyaWebReleves_(),
     factures: soriyaWebFacturesFrom_(soriyaWebTab_('Factures'), soriyaWebTab_('Lignes factures')),
+    admin: soriyaWebAdminFrom_(soriyaWebTab_('Documents administratifs')),
   };
 }
 
@@ -218,7 +219,7 @@ function soriyaWebDocs_(typeKey) {
   }).filter(function (d) {
     // Lettre de voiture lue sans numéro : ne compte pas (retirée du journal au prochain passage WhatsApp).
     // Relevé « Statistique sous-traitant » rangé dans le journal des confirmations : affiché dans « Sous-traitants ».
-    if (d.type === 'conf') return !/^(Relevé sous-traitant|Facture )/.test(d.status);
+    if (d.type === 'conf') return !/^(Relevé sous-traitant|Facture |Document administratif)/.test(d.status);
     return String(d.number).trim() || /lecture IA impossible|sans lecture IA|Mis de côté/.test(d.status);
   });
 }
@@ -254,4 +255,23 @@ function soriyaRead_(id, render, range) {
   const rows = res.values || [];
   const width = rows.length ? rows[0].length : 0;
   return rows.map(function (r) { while (r.length < width) r.push(''); return r; });
+}
+
+/** Documents administratifs pour l'interface (onglet « Documents administratifs » du Journal Soriya). */
+function soriyaWebAdminFrom_(rows) {
+  const h = (rows[0] || []).map(String), c = function (t) { return h.indexOf(t); };
+  const str = function (x) { return x === null || x === undefined ? '' : String(x); };
+  return {
+    folderUrl: rows.slice(1).map(function (r) { return str(r[c('Dossier')]); }).filter(String).pop() || '',
+    list: rows.slice(1).filter(function (r) { return r[c('Lien Drive')] && r[c('Type')]; }).map(function (r) {
+      const rc = r[c('Reçu le')]; // Date (SpreadsheetApp) ou numéro de série (API Sheets)
+      const received = rc instanceof Date ? Utilities.formatDate(rc, 'Europe/Paris', 'yyyy-MM-dd') :
+        typeof rc === 'number' ? Utilities.formatDate(new Date(Math.round((rc - 25569) * 86400000)), 'UTC', 'yyyy-MM-dd') : str(rc).slice(0, 10);
+      return { key: str(r[c('Clé')]), received: received, from: str(r[c('Expéditeur')]), subject: str(r[c('Objet')]), type: str(r[c('Type')]),
+        issuer: str(r[c('Émetteur')]), to: str(r[c('Destinataire')]), date: str(r[c('Date du document')]),
+        validUntil: str(r[c('Valable jusqu\'au')]), company: str(r[c('Société concernée')]), ref: str(r[c('Référence')]),
+        summary: str(r[c('Résumé')]), requested: str(r[c('Pièces demandées')]), deadline: str(r[c('Date limite')]),
+        name: str(r[c('Nom dans Drive')]), url: str(r[c('Lien Drive')]), remarks: str(r[c('Remarques')]) };
+    }),
+  };
 }

@@ -323,6 +323,7 @@ const PAGES = [
   { id: "chauffeurs", ico: "☺", label: "Chauffeurs", render: pageDrivers },
   { id: "sous-traitants", ico: "▤", label: "Sous-traitants", render: pageSubcontractors },
   { id: "factures", ico: "▣", label: "Factures", render: pageInvoices },
+  { id: "administratif", ico: "▧", label: "Administratif", render: pageAdmin },
   { id: "clients", ico: "◎", label: "Clients & prospection", render: pageClients },
   { id: "activite", ico: "⚙", label: "Activité Soriya", render: pageActivity },
 ];
@@ -842,6 +843,55 @@ function pageInvoices(el) {
       "<tr><td>Total</td>" + months.map(m => { const v = present.reduce((t, k) => t + (mx[k][m] || 0), 0); return td(v ? EUR.format(v) : '<span class="muted">—</span>', 1); }).join("") + "</tr>") : '<p class="muted">Détail des lignes en cours de lecture.</p>';
   };
   draw();
+}
+
+/* ---------- Documents administratifs (dossier sous-traitant) ---------- */
+function pageAdmin(el) {
+  const A = DATA.admin || { list: [] };
+  const folder = A.folderUrl ? '<a class="more" href="' + esc(A.folderUrl) + '">Dossier des documents ↗</a>' : "";
+  if (!A.list.length) {
+    el.innerHTML = '<div class="card"><h2>Documents administratifs ' + folder + '</h2><p class="muted">' + (A.error ? esc(A.error) :
+      "Soriya range et lit vos documents administratifs (Kbis, attestations, demandes d'Ecotime…) : ils apparaissent ici au fil des passages.") + "</p></div>";
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const addMonths = (d, n) => { const x = new Date(d + "T12:00:00"); x.setMonth(x.getMonth() + n); return x.toISOString().slice(0, 10); };
+  // Validité : date imprimée, sinon règle d'Ecotime (Kbis de moins de 3 mois, attestation URSSAF de moins de 6 mois).
+  const RULES = { "Extrait Kbis": 3, "Attestation de vigilance URSSAF": 6 };
+  const expiry = x => /^\d{4}-\d{2}-\d{2}$/.test(x.validUntil) ? x.validUntil : RULES[x.type] && /^\d{4}-\d{2}-\d{2}/.test(x.date) ? addMonths(x.date.slice(0, 10), RULES[x.type]) : "";
+  const days = d => Math.round((new Date(d + "T12:00:00") - new Date(today + "T12:00:00")) / 86400000);
+  const state = x => { const e = expiry(x); if (!e) return { cls: "ok", txt: "reçu" };
+    const n = days(e); return n < 0 ? { cls: "warn", txt: "expiré depuis le " + fmtDate(e) } : n <= 30 ? { cls: "warn", txt: "expire dans " + n + " j" } : { cls: "ok", txt: "valide jusqu'au " + fmtDate(e) }; };
+  const docs = A.list.filter(x => x.type !== "Demande de documents").sort((a, b) => (b.date || b.received).localeCompare(a.date || a.received));
+  const asks = A.list.filter(x => x.type === "Demande de documents").sort((a, b) => (b.date || b.received).localeCompare(a.date || a.received));
+  const TRACK = ["Extrait Kbis", "Attestation de vigilance URSSAF", "Attestation d'assurance", "Licence de transport", "Attestation de paiement"];
+  const lastOf = t => docs.find(x => x.type === t) || null;
+  const alerts = TRACK.map(lastOf).filter(x => x && state(x).cls === "warn");
+  const kbis = lastOf("Extrait Kbis");
+  el.innerHTML = '<div class="grid g4" style="margin-bottom:16px">' +
+    tile("Documents classés", String(A.list.length), "<em class='muted' style='font-weight:400'>" + docs.length + " pièce(s) · " + asks.length + " demande(s) d'Ecotime</em>", "hero") +
+    tile("Extrait Kbis", kbis ? fmtDate(kbis.date) : "aucun", kbis ? '<em class="' + (state(kbis).cls === "ok" ? "up" : "down") + '">' + state(kbis).txt + "</em>" : "") +
+    tile("Pièces à renouveler", String(alerts.length), alerts.length ? '<em class="down">' + esc(alerts.map(x => x.type).join(", ")) + "</em>" : "<em class='up'>dossier à jour</em>") +
+    tile("Dernière demande d'Ecotime", asks[0] ? fmtDate(asks[0].date || asks[0].received) : "aucune", asks[0] ? "<em class='muted' style='font-weight:400'>" + esc(short(asks[0].requested || asks[0].summary, 60)) + "</em>" : "") + "</div>" +
+    '<div class="grid g2"><div class="card"><h2>État du dossier sous-traitant</h2><div id="aState"></div><p class="muted small" style="margin:8px 0 0">Ecotime demande un Kbis de moins de 3 mois et une attestation URSSAF de moins de 6 mois : Soriya calcule l\'échéance quand le document n\'en imprime pas.</p></div>' +
+    '<div class="card"><h2>Demandes d\'Ecotime</h2><div id="aAsk"></div></div></div>' +
+    '<div class="card" style="margin-top:16px"><h2>Tous les documents ' + folder + '</h2><div id="aAll"></div></div>';
+  const table = (head, rows) => '<div class="table-wrap" style="border:0"><table><thead><tr>' + head.map(h => "<th>" + esc(h) + "</th>").join("") + "</tr></thead><tbody>" +
+    (rows.length ? rows.join("") : '<tr><td colspan="' + head.length + '" class="muted">Aucun document.</td></tr>') + "</tbody></table></div>";
+  const pill = s => '<span class="pill ' + s.cls + '">' + esc(s.txt) + "</span>";
+  const link = x => '<a href="' + esc(x.url) + '">' + esc(x.name) + " ↗</a>";
+  document.getElementById("aState").innerHTML = table(["Pièce", "Dernier document", "État"], TRACK.map(t => { const x = lastOf(t);
+    return "<tr><td>" + esc(t) + "</td><td>" + (x ? fmtDate(x.date) + '<div class="sub">' + link(x) + "</div>" : '<span class="muted">aucun reçu</span>') + "</td><td>" + (x ? pill(state(x)) : '<span class="muted">—</span>') + "</td></tr>"; }));
+  // Une demande est « traitée » si un document a été reçu après elle.
+  document.getElementById("aAsk").innerHTML = table(["Date", "Pièces demandées", "Suite"], asks.map(x => { const d = x.received || x.date;
+    const asked = y => String(x.requested + " " + x.summary).toLowerCase().indexOf(y.type.split(" ").pop().toLowerCase()) >= 0; // ex. « Kbis »
+    const answer = docs.filter(y => (y.received || "") >= d).sort((a, b) => asked(b) - asked(a) || a.received.localeCompare(b.received))[0];
+    return "<tr><td>" + fmtDate(x.date || d) + '<div class="sub">' + link(x) + "</div></td><td>" + esc(x.requested || x.summary) + (x.deadline ? '<div class="sub">à fournir avant le ' + fmtDate(x.deadline) + "</div>" : "") +
+      "</td><td>" + (answer ? pill({ cls: "ok", txt: "répondu" }) + '<div class="sub">le ' + fmtDate(answer.received) + " · " + esc(answer.type) + "</div>" : pill({ cls: "warn", txt: "sans réponse" })) + "</td></tr>"; }));
+  document.getElementById("aAll").innerHTML = table(["Date", "Type", "Émetteur", "Contenu", "Validité", "Fichier"], A.list.slice().sort((a, b) => (b.date || b.received).localeCompare(a.date || a.received)).map(x =>
+    "<tr><td>" + fmtDate(x.date || x.received) + '<div class="sub">reçu le ' + fmtDate(x.received) + "</div></td><td><b>" + esc(x.type) + "</b>" + (x.ref ? '<div class="sub">' + esc(x.ref) + "</div>" : "") +
+    "</td><td>" + esc(x.issuer) + "</td><td>" + esc(x.summary) + (x.requested ? '<div class="sub">Demandé : ' + esc(x.requested) + "</div>" : "") + "</td><td>" +
+    (x.type === "Demande de documents" ? "" : pill(state(x))) + "</td><td>" + link(x) + "</td></tr>"));
 }
 
 function pageDrivers(el) {
