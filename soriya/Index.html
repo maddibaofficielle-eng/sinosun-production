@@ -9,7 +9,7 @@
     --bg: #f4f4f1; --surface: #fcfcfb; --surface-2: #ffffff; --line: #e4e3df; --grid: #ecebe7;
     --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #7a7974;
     --accent: #2a78d6; --accent-ink: #ffffff; --accent-soft: #e7f0fb;
-    --s-conf: #2a78d6; --s-ldv: #eb6834;
+    --s-conf: #2a78d6; --s-ldv: #eb6834; --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a;
     --side: #0f2747; --side-ink: #d6e2f3; --side-act: #1c5cab;
     --ca-from: #1c5cab; --ca-to: #0d366b;
     --m1: #b7d3f6; --m2: #86b6ef; --m3: #5598e7; --m4: #2a78d6; --m5: #184f95; --m-old: #c9c8c2;
@@ -20,7 +20,7 @@
       color-scheme: dark;
       --bg: #121211; --surface: #1a1a19; --surface-2: #222220; --line: #33332f; --grid: #2a2a27;
       --ink: #ffffff; --ink-2: #c3c2b7; --ink-3: #8f8e86;
-      --accent: #3987e5; --accent-soft: #16263b; --s-conf: #3987e5; --s-ldv: #d95926;
+      --accent: #3987e5; --accent-soft: #16263b; --s-conf: #3987e5; --s-ldv: #d95926; --c1: #3987e5; --c2: #d95926; --c3: #199e70;
       --side: #0b1726; --side-ink: #c3d3ea; --side-act: #184f95;
       --ca-from: #184f95; --ca-to: #0d2a55;
       --m1: #104281; --m2: #1c5cab; --m3: #3987e5; --m4: #6da7ec; --m5: #b7d3f6; --m-old: #5c5b56;
@@ -69,6 +69,46 @@
   details.fold > .fold-body { padding: 0 16px 16px; }
   details.fold > .fold-body > .card, details.fold .totals .card { box-shadow: none; }
   .todo-list li b { font-weight: 600; }
+  /* Tableau de bord */
+  .kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px 10px; min-width: 0; position: relative; }
+  .kpi .lbl { font-size: 12px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+  .kpi .lbl i { font-style: normal; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; background: var(--accent-soft); font-size: 12px; }
+  .kpi b { display: block; font-size: 24px; line-height: 1.2; margin: 6px 0 2px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .kpi em { font-style: normal; font-size: 12px; font-weight: 600; }
+  .kpi.hero { background: linear-gradient(135deg, var(--ca-from), var(--ca-to)); color: #fff; border: 0; }
+  .kpi.hero .lbl { color: rgba(255,255,255,.8); } .kpi.hero .lbl i { background: rgba(255,255,255,.15); }
+  .kpi.hero em, .kpi.hero em.muted, .kpi.hero em.up, .kpi.hero em.down { color: rgba(255,255,255,.9) !important; }
+  .kpi svg.spark { display: block; width: 100%; height: 28px; margin-top: 4px; }
+  .feed { list-style: none; margin: 0; padding: 0; }
+  .feed li { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--grid); cursor: pointer; }
+  .feed li:last-child { border-bottom: 0; }
+  .feed .d { font-size: 12px; color: var(--ink-2); line-height: 1.25; }
+  .feed .d b { display: block; font-size: 15px; color: var(--ink); }
+  .feed .r { min-width: 0; } .feed .r div { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .feed .r span { display: block; font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .grid.al-start { align-items: start; }
+  .feed .a { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .feed .a small { display: block; font-weight: 500; font-size: 11px; }
+  .stack { display: flex; height: 14px; border-radius: 7px; overflow: hidden; gap: 2px; margin: 6px 0 12px; }
+  .stack i { display: block; height: 100%; }
+  .legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .legend li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; font-size: 13px; }
+  .legend .sw { width: 12px; height: 12px; border-radius: 3px; }
+  .legend .v { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+  .legend .p { color: var(--ink-2); font-size: 12px; min-width: 38px; text-align: right; }
+  .minis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .minis div { background: var(--bg); border-radius: 10px; padding: 8px 10px; } .minis span { font-size: 11px; color: var(--ink-2); display: block; }
+  .minis b { font-size: 16px; font-variant-numeric: tabular-nums; }
+  .docbars { display: grid; gap: 8px; }
+  .docbars .row { display: grid; grid-template-columns: 64px minmax(0, 1fr) 56px; gap: 10px; align-items: center; font-size: 12px; }
+  .docbars .track { display: flex; gap: 2px; height: 10px; } .docbars .track i { display: block; height: 100%; border-radius: 3px; }
+  .docbars .row .n { text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .status-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--grid); font-size: 13px; }
+  .status-row:last-child { border-bottom: 0; } .status-row .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--good); flex: none; }
+  .status-row .dot.bad { background: var(--bad); } .status-row span { color: var(--ink-2); margin-left: auto; font-size: 12px; text-align: right; }
+  @media (max-width: 1200px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpi b { font-size: 20px; } }
   .side-foot { margin-top: auto; font-size: 12px; color: var(--side-ink); padding: 8px; line-height: 1.5; }
   .main { min-width: 0; }
   .top { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line);
@@ -416,7 +456,6 @@ function caChart(el) {
   });
 }
 
-/** Camembert (anneau) des documents par mois : 5 derniers mois + « Mois précédents ». */
 /** Tableau triable, paginé, exportable en CSV. */
 function dataTable(host, rows, cols, opts) {
   const st = opts.state;
@@ -532,24 +571,47 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") closeDoc(); 
 function pageHome(el) {
   const vsAvg = M.avg3 ? M.projection / M.avg3 - 1 : null, growth = M.caPrevSame ? M.caMtd / M.caPrevSame - 1 : null;
   const today = new Date().toISOString().slice(0, 10);
-  // Carburant du mois (tickets WhatsApp) et factures à encaisser.
-  const fuel = ((DATA.depenses || {}).list || []).filter(x => x.category === "Carburant" && x.date.slice(0, 7) === M.thisMonth);
-  const fuelTTC = fuel.reduce((t, x) => t + x.ttc, 0), fuelHT = fuel.reduce((t, x) => t + (x.ht || x.ttc / 1.2), 0);
+  const muted = t => "<em class='muted' style='font-weight:400'>" + t + "</em>";
+  const fr1 = v => v.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+  // Carburant (tickets WhatsApp, un par date/heure/montant) et factures.
+  const seen = {}, fuelAll = ((DATA.depenses || {}).list || []).filter(x => { const k = x.date + "|" + x.time + "|" + x.ttc; if (x.category !== "Carburant" || seen[k]) return false; seen[k] = 1; return true; });
+  const fuel = fuelAll.filter(x => x.date.slice(0, 7) === M.thisMonth);
+  const fuelTTC = fuel.reduce((t, x) => t + x.ttc, 0), fuelHT = fuel.reduce((t, x) => t + (x.ht || x.ttc / 1.2), 0), liters = fuel.reduce((t, x) => t + x.liters, 0);
   const inv = {}; ((DATA.factures || {}).list || []).forEach(x => { inv[x.number] = x; });
   const invoices = Object.values(inv), toCash = invoices.filter(x => x.due && x.due >= today);
+  const matched = M.mtd.length ? (M.mtd.length - M.noLdv.length) / M.mtd.length : 0;
+  // Petites courbes des 6 derniers mois (CA et nombre de courses).
+  const last6 = Object.keys(M.byMonth).filter(m => m <= M.thisMonth).sort().slice(-6);
+  const spark = (vals, color) => { if (vals.length < 2) return ""; const max = Math.max(1, ...vals), w = 100, h = 28;
+    const pts = vals.map((v, i) => (i * w / (vals.length - 1)).toFixed(1) + "," + (h - 3 - v / max * (h - 6)).toFixed(1)).join(" ");
+    return '<svg class="spark" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true"><polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>'; };
+  const kpi = (ico, label, value, extra, cls, sp) => '<div class="kpi ' + (cls || "") + '"><div class="lbl"><i>' + ico + "</i>" + esc(label) + "</div><b>" + esc(value) + "</b>" + (extra || "") + (sp || "") + "</div>";
   el.innerHTML =
-    '<div class="grid g4">' +
-      tile("CA du mois (HT)", EUR.format(M.caMtd), trend(growth, "vs même période"), "hero") +
-      tile("Projection fin de mois", EUR.format(M.projection), trend(vsAvg, "vs moy. 3 mois")) +
-      tile("Carburant du mois (TTC)", EUR.format(fuelTTC), "<em class='muted' style='font-weight:400'>" + (M.caMtd ? (fuelHT / M.caMtd * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " % du CA · " : "") + fuel.length + " ticket(s)</em>") +
-      tile("Factures à encaisser (TTC)", EUR.format(toCash.reduce((t, x) => t + x.ttc, 0)), "<em class='muted' style='font-weight:400'>" + toCash.length + " facture(s) pas encore à échéance</em>") +
+    '<div class="kpis">' +
+      kpi("€", "CA du mois (HT)", EUR.format(M.caMtd), trend(growth, "vs même période"), "hero", spark(last6.map(m => M.byMonth[m].ca), "rgba(255,255,255,.85)")) +
+      kpi("↗", "Projection fin de mois", EUR.format(M.projection), trend(vsAvg, "vs moy. 3 mois")) +
+      kpi("🚚", "Courses ce mois", String(M.mtd.length), muted(fr1(M.mtd.length / Math.max(1, M.day)) + " / jour · panier " + EUR.format(M.mtd.length ? M.caMtd / M.mtd.length : 0)), "", spark(last6.map(m => M.byMonth[m].n), "var(--accent)")) +
+      kpi("⛽", "CA après carburant (HT)", EUR.format(M.caMtd - fuelHT), muted("carburant " + EUR.format(fuelTTC) + " TTC · " + (M.caMtd ? fr1(fuelHT / M.caMtd * 100) + " % du CA" : "—"))) +
+      kpi("▣", "Factures à encaisser", EUR.format(toCash.reduce((t, x) => t + x.ttc, 0)), muted(toCash.length + " facture(s) TTC à échoir")) +
+      kpi("✎", "Preuves de livraison", Math.round(matched * 100) + " %", M.noLdv.length ? "<em class='down'>" + M.noLdv.length + " course(s) sans lettre</em>" : "<em class='up'>toutes les courses ont leur lettre</em>") +
     "</div>" +
     '<div class="grid g3" style="margin-top:16px">' +
-      '<div class="card span2"><h2>Chiffre d\'affaires par mois <a class="more" href="#/courses" target="_self">Voir les courses →</a></h2><div class="chart" id="hChart"></div><p class="muted small" style="margin:6px 0 0">Barre claire : projection du mois en cours.</p></div>' +
+      '<div class="card span2"><h2>Chiffre d\'affaires par mois <a class="more" href="#/courses" target="_self">Voir les courses →</a></h2><div class="chart" id="hChart"></div><p class="muted small" style="margin:6px 0 0">Barre claire : projection du mois en cours. Cliquez sur un mois pour voir ses courses.</p></div>' +
       '<div class="card"><h2>À faire</h2><ul class="tips todo-list" id="hTodo"></ul></div>' +
+    "</div>" +
+    '<div class="grid g3 al-start" style="margin-top:16px">' +
+      '<div class="card"><h2>Dernières courses <a class="more" href="#/courses" target="_self">Toutes →</a></h2><ul class="feed" id="hFeed"></ul></div>' +
+      '<div class="card"><h2>Chauffeurs · ce mois <a class="more" href="#/chauffeurs" target="_self">Détail →</a></h2>' + barRows(groupCA(M.mtd, x => x.driver || "", k => k || "Sans lettre rapprochée"), M.caMtd) + "</div>" +
+      '<div class="card"><h2>Prestations · ce mois</h2><div id="hSvc"></div></div>' +
+    "</div>" +
+    '<div class="grid g3 al-start" style="margin-top:16px">' +
+      '<div class="card"><h2>Carburant <a class="more" href="#/depenses" target="_self">Tickets →</a></h2><div id="hFuel"></div></div>' +
+      '<div class="card"><h2>Documents reçus · 6 mois</h2><div id="hDocs"></div></div>' +
+      '<div class="card"><h2>Prévisions & conseils</h2><ul class="tips" id="hTips"></ul></div>' +
     "</div>";
   caChart(document.getElementById("hChart"));
-  // Seulement ce qui demande une action, du plus urgent au moins urgent (5 au maximum).
+
+  // À faire : seulement ce qui demande une action, du plus urgent au moins urgent.
   const todo = [];
   const item = (k, t, s, href) => todo.push('<li><span class="ic ' + k + '">' + ({ up: "▲", down: "▼", info: "●" })[k] + "</span><div><b>" + esc(t) + "</b><span>" + esc(s) + "</span>" + (href ? ' <a href="' + href + '" target="_self">Voir →</a>' : "") + "</div></li>");
   DATA.activities.filter(a => a.lastErrors).forEach(a => item("down", "Soriya : erreur " + a.id, a.lastError, "#/activite"));
@@ -559,10 +621,63 @@ function pageHome(el) {
   const late = invoices.filter(x => x.due && x.due < today && x.due >= addDays(today, -45));
   if (late.length) item("info", late.length + " facture(s) arrivée(s) à échéance", "Vérifiez le paiement : " + late.map(x => x.number).join(", ") + ".", "#/factures");
   if (M.noLdv.length) item("info", M.noLdv.length + " course(s) du mois sans lettre de voiture", "Demandez la lettre aux chauffeurs.", "#/rapprochement");
+  if (M.orphanLdv.length) item("info", M.orphanLdv.length + " lettre(s) sans confirmation", "Courses à vérifier avec Ecotime.", "#/rapprochement");
   if (M.toCheck.length) item("info", M.toCheck.length + " document(s) à vérifier", "Lecture incertaine par Soriya.", "#/activite");
-  document.getElementById("hTodo").innerHTML = todo.slice(0, 5).join("") || '<li class="muted">Rien à faire pour l\'instant. 👍</li>';
+  document.getElementById("hTodo").innerHTML = todo.slice(0, 6).join("") || '<li class="muted">Rien à faire pour l\'instant. 👍</li>';
+
+  // Fil des dernières courses facturées.
+  const recent = M.sales.slice().sort((a, b) => (b.date + b.received).localeCompare(a.date + a.received)).slice(0, 6);
+  const feed = document.getElementById("hFeed");
+  feed.innerHTML = recent.map((x, i) => '<li data-i="' + i + '"><div class="d"><b>' + x.date.slice(8, 10) + "</b>" + MONTHS[+x.date.slice(5, 7) - 1] + '</div><div class="r"><div>' + esc(cap(city(x.from))) + " → " + esc(cap(city(x.to))) + "</div><span>n° " + esc(x.number) + " · " + esc(x.driver || "chauffeur inconnu") + " · " + esc((vehicle(x) || "—").split(" ")[0]) + '</span></div><div class="a">' + EUR.format(x.amount) +
+    "<small class='" + (x.ldv ? "up" : "down") + "'>" + (x.ldv ? "✔ lettre" : "sans lettre") + "</small></div></li>").join("") || '<li class="muted">Aucune course.</li>';
+  feed.querySelectorAll("li[data-i]").forEach(li => li.onclick = () => openDoc(recent[+li.dataset.i]));
+
+  // Répartition par prestation (CA du mois).
+  const SVC = [["GV ILE DE FRANCE", "var(--c1)"], ["FOURGON IDF", "var(--c2)"], ["BREAK ILE DE FRANCE", "var(--c3)"]];
+  const sv = SVC.map(([k, c]) => { const a = M.mtd.filter(x => vehicle(x) === k); return { k, c, n: a.length, ca: a.reduce((t, x) => t + x.amount, 0) }; });
+  const other = M.mtd.filter(x => !vehicle(x)), svTot = M.caMtd || 1;
+  if (other.length) sv.push({ k: "Autre", c: "var(--ink-3)", n: other.length, ca: other.reduce((t, x) => t + x.amount, 0) });
+  document.getElementById("hSvc").innerHTML = '<div class="stack" role="img" aria-label="Répartition du CA par prestation">' + sv.filter(x => x.ca > 0).map(x => '<i style="width:' + (x.ca / svTot * 100) + "%;background:" + x.c + '" title="' + esc(x.k) + " : " + EUR.format(x.ca) + '"></i>').join("") + "</div>" +
+    '<ul class="legend">' + sv.map(x => '<li><span class="sw" style="background:' + x.c + '"></span><span>' + esc(x.k) + ' <span class="muted small">· ' + x.n + " course(s)</span></span><span class=\"v\">" + EUR.format(x.ca) + '</span><span class="p">' + Math.round(x.ca / svTot * 100) + " %</span></li>").join("") + "</ul>";
+
+  // Carburant : chiffres du mois + dernier plein.
+  const lastFuel = fuelAll.slice().sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time))[0];
+  const wl = fuel.filter(x => x.liters), ppl = wl.length ? wl.reduce((t, x) => t + x.ttc, 0) / wl.reduce((t, x) => t + x.liters, 0) : 0;
+  document.getElementById("hFuel").innerHTML = fuelAll.length ?
+    '<div class="minis"><div><span>Ce mois (TTC)</span><b>' + EUR.format(fuelTTC) + "</b></div><div><span>Litres</span><b>" + fr1(liters) + " L</b></div><div><span>Prix moyen</span><b>" + (ppl ? EUR2.format(ppl) : "—") + "</b></div></div>" +
+    '<div class="status-row"><span style="margin:0;color:var(--ink)">Dernier plein</span><span>' + fmtDate(lastFuel.date) + " · " + esc(lastFuel.brand || "") + " · " + EUR2.format(lastFuel.ttc) + "</span></div>" +
+    '<div class="status-row"><span style="margin:0;color:var(--ink)">Coût par course</span><span>' + (M.mtd.length ? EUR2.format(fuelHT / M.mtd.length) + " HT" : "—") + "</span></div>" :
+    '<p class="muted">Aucun ticket reçu. Envoyez les tickets de carburant au WhatsApp de Soriya.</p>';
+
+  // Documents reçus par mois (confirmations / lettres de voiture).
+  const counts = {};
+  DATA.docs.forEach(x => { const m = (x.date || "").slice(0, 7); if (/^\d{4}-\d{2}$/.test(m)) (counts[m] = counts[m] || { conf: 0, ldv: 0 })[x.type]++; });
+  const dm = Object.keys(counts).filter(m => m <= M.thisMonth).sort().slice(-6), dmax = Math.max(1, ...dm.map(m => counts[m].conf + counts[m].ldv));
+  document.getElementById("hDocs").innerHTML = '<ul class="legend" style="grid-template-columns:repeat(2,auto);display:flex;gap:16px;margin-bottom:10px"><li style="display:flex"><span class="sw" style="background:var(--s-conf)"></span>Confirmations</li><li style="display:flex"><span class="sw" style="background:var(--s-ldv)"></span>Lettres de voiture</li></ul>' +
+    '<div class="docbars">' + dm.map(m => '<div class="row" title="' + monthLabel(m) + " : " + counts[m].conf + " confirmation(s), " + counts[m].ldv + ' lettre(s)"><span>' + MONTHS[+m.slice(5) - 1] + '</span><div class="track"><i style="width:' + (counts[m].conf / dmax * 100) + '%;background:var(--s-conf)"></i><i style="width:' + (counts[m].ldv / dmax * 100) + '%;background:var(--s-ldv)"></i></div><span class="n">' + counts[m].conf + " · " + counts[m].ldv + "</span></div>").join("") + "</div>" +
+    DATA.activities.map(a => '<div class="status-row"><span class="dot' + (a.lastErrors ? " bad" : "") + '"></span><b style="font-weight:600">' + esc(a.id === "Mailing" ? "E-mail" : "WhatsApp") + "</b><span>dernier passage " + esc(a.lastRun || "—") + "</span></div>").join("");
+  document.getElementById("hTips").innerHTML = tipsHtml();
 }
 
+function tipsHtml() {
+  const t = [], add = (k, a, b) => t.push('<li><span class="ic ' + k + '">' + ({ up: "▲", down: "▼", info: "●" })[k] + "</span><div><b>" + esc(a) + "</b><span>" + esc(b) + "</span></div></li>");
+  if (M.avg3) { const v = M.projection / M.avg3 - 1;
+    if (M.day < 7) add("info", "Début de mois : projection fragile", "Au rythme actuel ≈ " + EUR.format(M.projection) + " (moyenne 3 mois : " + EUR.format(M.avg3) + "). À confirmer après le 10.");
+    else if (v >= 0.05) add("up", "Mois en hausse : " + pct(v), "Sécurisez chauffeurs et véhicules pour absorber la charge.");
+    else if (v <= -0.05) add("down", "Mois en baisse : " + pct(v), "Relancez Ecotime et contactez vos prospects dès maintenant.");
+    else add("info", "Activité stable", "Projection " + EUR.format(M.projection) + ", dans la moyenne."); }
+  if (M.avg3 && M.avgPrev3) { const v = M.avg3 / M.avgPrev3 - 1; add(v >= 0 ? "up" : "down", "Tendance de fond : " + pct(v), "3 derniers mois vs les 3 précédents."); }
+  const wd = [0, 0, 0, 0, 0, 0, 0]; let n = 0;
+  M.sales.forEach(x => { const p = x.date.slice(0, 10).split("-").map(Number), w = new Date(p[0], p[1] - 1, p[2], 12).getDay(); if (!isNaN(w)) { wd[w] += x.amount; n++; } });
+  if (n > 20) { const best = wd.indexOf(Math.max(...wd)), worst = [1, 2, 3, 4, 5].reduce((a, b) => wd[a] <= wd[b] ? a : b);
+    add("info", "Jour le plus rentable : le " + DAYS[best], "Le " + DAYS[worst] + " est le plus calme : entretien, congés, prospection."); }
+  const cl = groupCA(M.ytd, x => x.client); if (cl.length && cl[0].ca / (M.caYtd || 1) > (DATA.maxShareTopClient || 0.8))
+    add("down", Math.round(cl[0].ca / M.caYtd * 100) + " % du CA vient de " + cl[0].key, "Voir le plan d'action dans « Clients & prospection ».");
+  return t.join("");
+}
+
+
+const cap = t => String(t || "").toLowerCase().replace(/(^|[\s'(-])(\S)/g, (m, a, b) => a + b.toUpperCase());
 const addDays = (d, n) => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
 
 /** Pièces administratives expirées ou qui expirent sous 30 jours (règles d'Ecotime : Kbis 3 mois, URSSAF 6 mois). */
