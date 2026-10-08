@@ -154,10 +154,20 @@ function soriyaTicketSchema_() {
  */
 function soriyaRestaurerTicketsSupprimes_(since) {
   const inbox = soriyaWhatsAppInbox_();
-  const it = DriveApp.searchFiles('trashed = true and title contains "Lettres_de_voiture"');
+  // « title contains » ne cherche qu'en début de mot : on cherche par date en tête de nom (08-10-2026_…)
+  // et par la description posée par Soriya.
+  const queries = ['trashed = true and fullText contains "Archivé par Soriya depuis WhatsApp"'];
+  for (let d = new Date(since.getTime()); d <= new Date(); d = new Date(d.getTime() + 86400000)) {
+    queries.push('trashed = true and title contains "' + Utilities.formatDate(d, Session.getScriptTimeZone(), 'dd-MM-yyyy') + '"');
+  }
+  const seen = {};
   let n = 0;
-  while (it.hasNext()) {
+  for (let q = 0; q < queries.length; q++) {
+   const it = DriveApp.searchFiles(queries[q]);
+   while (it.hasNext()) {
     const f = it.next();
+    if (seen[f.getId()]) continue;
+    seen[f.getId()] = true;
     const desc = String(f.getDescription() || '');
     if (desc.indexOf('Archivé par Soriya depuis WhatsApp') !== 0) continue;
     const wa = (/Nom WhatsApp : (\S.*)/.exec(desc) || [])[1];
@@ -167,8 +177,9 @@ function soriyaRestaurerTicketsSupprimes_(since) {
     f.setTrashed(false);
     f.setName(name);
     f.moveTo(inbox);
-    Logger.log('Remis dans le dossier d\'entrée : %s (%s)', name, f.getName());
+    Logger.log('Remis dans le dossier d\'entrée : %s', name);
     n++;
+   }
   }
   return n;
 }
