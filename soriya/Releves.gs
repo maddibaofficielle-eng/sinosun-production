@@ -32,7 +32,7 @@ function soriyaIsReleve_(objet, statut) {
 
 /** « GFD LOGISTIC / CHEICK » → « CHEICK ». */
 function soriyaReleveDriver_(nom) {
-  const parts = String(nom || '').split('/');
+  const parts = String(nom || '').replace(/\(.*?\)/g, '').split('/');
   return parts[parts.length - 1].trim().toUpperCase();
 }
 
@@ -58,8 +58,14 @@ function soriyaRelevesSheets_() {
  * @return {number} nombre de lectures faites
  */
 function soriyaTraiterReleves_(started, report) {
-  if (!PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY')) return 0;
+  const props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('CLAUDE_API_KEY')) return 0;
   const s = soriyaRelevesSheets_();
+  // v2 : une entrée par agence et par sous-traitant → relecture des relevés déjà lus.
+  if (props.getProperty('SORIYA_RELEVES_FORMAT') !== '2') {
+    [s.releves, s.lines].forEach(function (sh) { if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1); });
+    props.setProperty('SORIYA_RELEVES_FORMAT', '2');
+  }
   let done = 0;
   while (Date.now() - started < SORIYA_RELEVES.START_BEFORE_MS) {
     let did;
@@ -86,7 +92,6 @@ function soriyaReleveNouveau_(s) {
   for (let r = rows.length - 1; r >= 0; r--) { // les plus récents d'abord
     const key = String(rows[r][col('Clé')]);
     if (!key || known.has(key) || !soriyaIsReleve_(rows[r][col('Objet')], rows[r][col('Statut')])) continue;
-    if (/^Relevé sous-traitant/.test(String(rows[r][col('Statut')]))) continue;
     const id = (/\/d\/([\w-]+)/.exec(String(rows[r][col('Lien Drive')])) || [])[1];
     let file = null;
     try { file = id ? DriveApp.getFileById(id) : null; } catch (e) { /* fichier supprimé */ }
@@ -105,16 +110,21 @@ function soriyaReleveNouveau_(s) {
     }
     const month = String(d.periode_debut || '').slice(0, 7);
     const folder = soriyaSubFolder_(soriyaRootFolder_('confirmation'), [SORIYA_RELEVES.FOLDER]);
-    const name = soriyaUniqueName_(folder,
-      (month ? month.slice(5, 7) + '-' + month.slice(0, 4) : 'sans-periode') + '_Statistique_sous-traitant.pdf');
-    file.setName(name);
-    file.moveTo(folder);
+    // Déjà rangé lors d'une lecture précédente : on garde son nom.
+    let name = file.getName();
+    if (!/_Statistique_sous-traitant(_\d+)?\.pdf$/.test(name)) {
+      name = soriyaUniqueName_(folder,
+        (month ? month.slice(5, 7) + '-' + month.slice(0, 4) : 'sans-periode') + '_Statistique_sous-traitant.pdf');
+      file.setName(name);
+      file.moveTo(folder);
+    }
     const sts = (d.sous_traitants || []).map(function (x) {
-      return { code: x.code, nom: x.nom, ordres: x.nb_ordres, total: x.total_ht, lu: x.nb_ordres > 0 ? 0 : 'aucun ordre' };
+      return { agence: x.agence, code: x.code, nom: x.nom, ordres: x.nb_ordres, total: x.total_ht,
+        lu: x.nb_ordres > 0 ? 0 : 'aucun ordre' };
     });
     s.releves.appendRow([key, rows[r][col('Reçu le')], rows[r][col('Objet')], "'" + month, "'" + d.periode_debut,
       "'" + d.periode_fin, "'" + d.date_edition, d.societe, d.nb_ordres, d.total_ht,
-      sts.map(function (x) { return soriyaReleveDriver_(x.nom) + ' : ' + x.ordres + ' ordres, ' + x.total + ' HT'; }).join(' ; '),
+      sts.map(function (x) { return soriyaReleveDriver_(x.nom) + ' (' + x.agence + ') : ' + x.ordres + ' ordres, ' + x.total + ' HT'; }).join(' ; '),
       JSON.stringify(sts), '', name, file.getUrl(), new Date(), d.remarques, folder.getUrl()]);
     soriyaReleveVersions_(s.releves);
     // Le journal des confirmations garde la ligne (évite une nouvelle lecture du mail) avec son nouveau rangement.
@@ -148,7 +158,8 @@ function soriyaReleveDetail_(s) {
     try {
       const d = soriyaClaudeJson_(DriveApp.getFileById(id).getBlob(), soriyaRelevePrompt_(), soriyaReleveLinesSchema_(),
         'Période du relevé : ' + rows[r][c('Période début')] + ' au ' + rows[r][c('Période fin')] + '.\n' +
-        'Recopie TOUTES les lignes d\'ordre du sous-traitant « ' + st.code + ' - ' + st.nom + ' », sur toutes les pages, ' +
+        'Recopie TOUTES les lignes d\'ordre du sous-traitant « ' + st.code + ' - ' + st.nom + ' » dans l\'agence « ' +
+        st.agence + ' » (et seulement cette agence), sur toutes les pages, ' +
         'dans l\'ordre du document (environ ' + st.ordres + ' ordres). N\'inclus ni les autres sous-traitants, ' +
         'ni les lignes de sous-total ou de total.', null, 16000);
       lines = d.lignes || [];
@@ -221,6 +232,7 @@ function soriyaRelevePrompt_() {
     '- Montants : nombres (point décimal), négatifs si le document les montre négatifs (ex. licence -24,00).',
     '- N° d\'ordre : seulement les chiffres du numéro principal (« 656 880(1)-F » → « 656880 »).',
     '- Lieux : ville avec code postal (ex. « 95470 FOSSES »).',
+    '- sous_traitants : une entrée par couple agence + sous-traitant, avec le sous-total imprimé pour ce couple.',
   ].join('\n');
 }
 
@@ -239,8 +251,12 @@ function soriyaReleveSchema_() {
         type: 'array',
         items: {
           type: 'object',
-          properties: { code: str, nom: str, nb_ordres: { type: 'integer' }, total_ht: num },
-          required: ['code', 'nom', 'nb_ordres', 'total_ht'],
+          properties: {
+            agence: { type: 'string', description: 'agence telle qu\'imprimée (ex. « 01 - Ecotime 95 »)' },
+            code: str, nom: { type: 'string', description: 'nom du sous-traitant sans l\'agence (ex. « GFD LOGISTIC / CHEICK »)' },
+            nb_ordres: { type: 'integer' }, total_ht: num,
+          },
+          required: ['agence', 'code', 'nom', 'nb_ordres', 'total_ht'],
           additionalProperties: false,
         },
       },

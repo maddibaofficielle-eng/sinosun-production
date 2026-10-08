@@ -75,8 +75,8 @@ function soriyaWebRelevesFrom_(rel, lines) {
       current: /^En vigueur/.test(str(r[c('Version')])), name: str(r[c('Nom dans Drive')]), url: str(r[c('Lien Drive')]),
       remarks: str(r[c('Remarques')]),
       sts: sts.map(function (x) {
-        const parts = str(x.nom).split('/');
-        return { code: str(x.code), name: str(x.nom), driver: parts[parts.length - 1].trim().toUpperCase(),
+        const parts = str(x.nom).replace(/\(.*?\)/g, '').split('/');
+        return { code: str(x.code), name: str(x.nom), agency: str(x.agence || ''), driver: parts[parts.length - 1].trim().toUpperCase(),
           orders: Number(x.ordres) || 0, total: Number(x.total) || 0, read: x.lu === 'oui' || x.lu === 'aucun ordre', lines: x.lignes || 0 };
       }),
     };

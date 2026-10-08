@@ -709,9 +709,12 @@ function pageSubcontractors(el) {
       tile("Ordres payés", String(r.orders)) + tile("CA des confirmations reçues", EUR2.format(caConf), "<em class='muted' style='font-weight:400'>" + sales.length + " confirmation(s)</em>") +
       tile("Écart relevé − confirmations", (gap > 0 ? "+" : "") + EUR2.format(gap), "<em class='" + (Math.abs(gap) < 1 ? "up" : "down") + "'>" + (Math.abs(gap) < 1 ? "concordant" : gap > 0 ? "confirmations manquantes ?" : "courses non payées ?") + "</em>");
     // Par sous-traitant (totaux imprimés sur le relevé).
+    // Un sous-traitant peut figurer dans plusieurs agences (Ecotime 95, QUICKSHIP…) : regroupé par chauffeur.
+    const byDrv = {}; r.sts.forEach(x => { const g = (byDrv[x.driver] = byDrv[x.driver] || { driver: x.driver, code: x.code, names: [], orders: 0, total: 0, read: true });
+      g.orders += x.orders; g.total += x.total; g.read = g.read && x.read; const lbl = x.name + (x.agency ? " · " + x.agency : ""); if (g.names.indexOf(lbl) < 0) g.names.push(lbl); });
     const tot = r.sts.reduce((t, x) => t + x.total, 0), ord = r.sts.reduce((t, x) => t + x.orders, 0);
     document.getElementById("sSt").innerHTML = table([{ l: "Sous-traitant" }, { l: "Ordres", num: 1 }, { l: "Total HT", num: 1 }, { l: "Moy. / ordre", num: 1 }, { l: "Part", num: 1 }],
-      r.sts.slice().sort((a, b) => b.total - a.total).map(x => '<tr data-d="' + esc(x.driver) + '" style="cursor:pointer">' + td(esc(x.driver) + '<div class="sub">' + esc(x.code) + " · " + esc(x.name) + (x.read ? "" : " · détail en cours de lecture") + "</div>") +
+      Object.values(byDrv).sort((a, b) => b.total - a.total).map(x => '<tr data-d="' + esc(x.driver) + '" style="cursor:pointer">' + td(esc(x.driver) + '<div class="sub">' + esc(x.names.join(" ; ")) + (x.read ? "" : " · détail en cours de lecture") + "</div>") +
         td(x.orders, 1) + td(EUR2.format(x.total), 1) + td(EUR2.format(x.orders ? x.total / x.orders : 0), 1) + td(Math.round(x.total / (tot || 1) * 100) + " %", 1) + "</tr>"),
       "<tr><td>Total</td>" + td(ord, 1) + td(EUR2.format(tot), 1) + td(EUR2.format(ord ? tot / ord : 0), 1) + td("100 %", 1) + "</tr>");
     document.querySelectorAll("#sSt tr[data-d]").forEach(tr => tr.onclick = () => { st.driver = st.driver === tr.dataset.d ? "" : tr.dataset.d; drawLines(); });
