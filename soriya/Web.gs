@@ -61,6 +61,12 @@ function soriyaWebData(k) {
         return soriyaWebFacturesFrom_(all(f.factures), all(f.lines));
       } catch (e) { return { folderUrl: '', list: [], lines: [], error: e.message }; }
     })(),
+    checks: (function () {
+      try {
+        const sh = soriyaProspectsSheet_().getParent().getSheetByName('Courses vérifiées');
+        return soriyaWebChecksFrom_(sh ? sh.getDataRange().getDisplayValues() : []);
+      } catch (e) { return {}; }
+    })(),
     depenses: (function () {
       try {
         const sh = soriyaDepensesSheet_(soriyaJournalSpreadsheet_(soriyaRootFolder_('lettre_voiture'), 'lettre_voiture'));
@@ -271,4 +277,31 @@ function soriyaWebDepensesFrom_(rows) {
 function soriyaWebIsTicket_(statut) {
   return /^À vérifier/.test(statut) && !/^À vérifier — pas un ticket/.test(statut) &&
     /ticket de caisse|ticket de carburant|re[çc]u de paiement|station[- ]service|carburant|gazole|gasoil|diesel|péage|facturette/i.test(statut);
+}
+
+/** Réponses « le chauffeur a-t-il réalisé la course ? » : { "659079": { v: "OUI", by: "…", at: "…" } }. */
+function soriyaWebChecksFrom_(rows) {
+  const out = {};
+  rows.slice(1).forEach(function (r) {
+    const n = String(r[0] || '').replace(/\D/g, '');
+    if (n) out[n] = { v: String(r[1] || ''), by: String(r[2] || ''), at: String(r[3] || '') };
+  });
+  return out;
+}
+
+/** « Course réalisée : OUI / NON » depuis l'interface (même onglet que l'interface à compte Google). */
+function soriyaWebSetRealisee(number, value, k) {
+  if (k !== PropertiesService.getScriptProperties().getProperty('SORIYA_WEB_KEY')) throw new Error('Accès refusé');
+  const n = String(number || '').replace(/\D/g, '');
+  if (!n || ['OUI', 'NON', ''].indexOf(value) < 0) throw new Error('Valeur invalide');
+  const ss = soriyaProspectsSheet_().getParent();
+  const sh = ss.getSheetByName('Courses vérifiées') || ss.insertSheet('Courses vérifiées');
+  if (!sh.getLastRow()) sh.appendRow(['N° course', 'Réalisée', 'Par', 'Le']);
+  const at = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
+  const vals = sh.getRange(1, 1, sh.getLastRow(), 1).getValues();
+  for (let i = 1; i < vals.length; i++) {
+    if (String(vals[i][0]).replace(/\D/g, '') === n) { sh.getRange(i + 1, 1, 1, 4).setValues([["'" + n, value, 'interface (lien)', at]]); return { v: value, at: at }; }
+  }
+  sh.appendRow(["'" + n, value, 'interface (lien)', at]);
+  return { v: value, at: at };
 }

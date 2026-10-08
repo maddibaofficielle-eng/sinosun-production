@@ -124,6 +124,13 @@ function soriyaRun() {
     } catch (e) {
       report.errors.push('Rangement Gmail : ' + e.message);
     }
+    // Lettres de voiture sans confirmation : leur numéro est cherché dans tout Gmail, une fois par jour (Verification.gs).
+    try {
+      const verifies = soriyaVerifierConfirmationsManquantes_(started);
+      if (verifies) Logger.log('Vérification Gmail : %s numéro(s) cherché(s).', verifies);
+    } catch (e) {
+      report.errors.push('Vérification Gmail : ' + e.message);
+    }
     // Relevés mensuels « Statistique sous-traitant détaillée » : rangés à part et lus (voir Releves.gs).
     try {
       const lus = soriyaTraiterReleves_(started, report);

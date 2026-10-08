@@ -69,6 +69,8 @@
   details.fold > .fold-body { padding: 0 16px 16px; }
   details.fold > .fold-body > .card, details.fold .totals .card { box-shadow: none; }
   .todo-list li b { font-weight: 600; }
+  label.chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; font-size: 13px; }
+  label.chk input { width: 18px; height: 18px; accent-color: var(--accent); }
   /* Tableau de bord */
   .kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
   .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px 10px; min-width: 0; position: relative; }
@@ -798,10 +800,19 @@ function pageMatch(el) {
     '<div class="card"><h2>Courses sans lettre de voiture : que s\'est-il passé ?</h2><div id="t1"></div></div>' +
     '<div class="grid g2" style="margin-top:16px"><div class="card"><h2>Annulations : facture ↔ relevé ↔ confirmations</h2><div id="tAnn"></div></div><div class="card"><h2>Lettres sans confirmation</h2><div id="t2"></div></div></div>';
   // Situation d'une course sans lettre de voiture, d'après le relevé Ecotime du mois.
-  const situation = x => x.cancelled ? { k: "ann", cls: "ok", txt: "Annulée · payée ½ tarif (" + EUR2.format(x.paid) + ")" }
+  const checks = DATA.checks = DATA.checks || {};
+  const situation = x => { const c = (checks[digits(x.number)] || {}).v;
+    return x.cancelled ? { k: "ann", cls: "ok", txt: "Annulée · payée ½ tarif (" + EUR2.format(x.paid) + ")" }
+    : x.paid > 0 && c === "NON" ? { k: "real", cls: "bad", txt: "Non réalisée selon le chauffeur · payée " + EUR2.format(x.paid) + " : à signaler à Ecotime" }
+    : x.paid > 0 && c === "OUI" ? { k: "real", cls: "ok", txt: "Réalisée (confirmé) · payée " + EUR2.format(x.paid) + " · lettre manquante" }
     : x.paid > 0 ? { k: "real", cls: "warn", txt: "Réalisée · payée " + EUR2.format(x.paid) + " · lettre manquante" }
     : x.releveRead ? { k: "abs", cls: "bad", txt: "Absente du relevé · à réclamer ou annulée sans frais" }
-    : { k: "wait", cls: "", txt: "Relevé du mois pas encore reçu" };
+    : { k: "wait", cls: "", txt: "Relevé du mois pas encore reçu" }; };
+  // Case « le chauffeur a-t-il réalisé la course ? » : cochée = OUI, décochée = NON (réponse enregistrée).
+  const checkbox = x => { if (x.sit.k === "ann") return '<span class="muted small">—</span>';
+    const c = checks[digits(x.number)] || {};
+    return '<label class="chk" title="' + esc(c.by ? "Répondu par " + c.by + " le " + c.at : "Pas encore vérifié") + '"><input type="checkbox" data-chk="' + esc(digits(x.number)) + '"' + (c.v === "OUI" ? " checked" : "") + "> " +
+      (c.v === "OUI" ? "Oui" : c.v === "NON" ? "Non" : '<span class="muted">à vérifier</span>') + "</label>"; };
   const draw = () => {
     const inM = x => !st.month || (x.date || "").slice(0, 7) === st.month;
     const conf = M.conf.filter(x => inM(x) && x.amount > 0 && x.status.indexOf("Archivé") === 0), miss = conf.filter(x => !x.ldv);
@@ -822,8 +833,19 @@ function pageMatch(el) {
       { key: "route", label: "Trajet", val: x => city(x.from) + " → " + city(x.to) }, { key: "driver", label: "Chauffeur", sm: true, val: x => x.driver || "—" },
       { key: "amount", label: "Confirmé HT", num: true, html: x => EUR2.format(x.amount) },
       { key: "sit", label: "Situation (relevé Ecotime)", val: x => x.sit.txt, html: x => '<span class="pill ' + x.sit.cls + '">' + esc(x.sit.txt) + "</span>" },
+      { key: "chk", label: "Course réalisée ?", val: x => (checks[digits(x.number)] || {}).v || "", html: checkbox },
     ], { state: (st.t1 = st.t1 || {}), sort: "date", onRow: openDoc,
       foot: (rs, c) => c.key === "date" ? "Total" : c.key === "number" ? rs.length + " course(s)" : c.key === "amount" ? EUR2.format(rs.reduce((t, x) => t + x.amount, 0)) : "" });
+    const t1 = document.getElementById("t1");
+    t1.querySelectorAll("label.chk").forEach(l => l.addEventListener("click", e => e.stopPropagation()));
+    t1.querySelectorAll("input[data-chk]").forEach(inp => inp.addEventListener("change", () => {
+      const n = inp.dataset.chk, v = inp.checked ? "OUI" : "NON";
+      inp.disabled = true; inp.parentNode.lastChild.textContent = " enregistrement…";
+      google.script.run.withSuccessHandler(r => { checks[n] = r; draw(); })
+        .withFailureHandler(err => { inp.disabled = false; inp.checked = !inp.checked;
+          alert("Réponse non enregistrée : " + err.message + "\n\nSi Google demande une autorisation, rechargez la page et acceptez « modifier vos feuilles de calcul »."); })
+        .soriyaWebSetRealisee(n, v, KEY);
+    }));
     // Annulations : facture vs relevé (ordres payés au tarif d'annulation) vs confirmations et lettres reçues.
     const gap = annQty - annRel.length;
     document.getElementById("tAnn").innerHTML = '<div class="minis"><div><span>Sur la facture</span><b>' + annQty + "</b></div><div><span>Au relevé (½ tarif)</span><b>" + annRel.length + "</b></div><div><span>Écart</span><b>" + (gap > 0 ? "+" : "") + gap + "</b></div></div>" +
