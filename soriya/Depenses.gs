@@ -10,14 +10,25 @@
 const SORIYA_DEPENSES = { FOLDER: 'Dépenses', SHEET: 'Dépenses' };
 const SORIYA_DEPENSES_HEADERS = ['Clé', 'Reçu le', 'Expéditeur', 'Chauffeur', 'Catégorie', 'Date', 'Heure', 'Enseigne',
   'Adresse', 'Ville', 'Carburant', 'Litres', 'Prix au litre', 'Montant TTC', 'TVA', 'Montant HT', 'Paiement',
-  'Immatriculation', 'Kilométrage', 'N° ticket', 'Nom dans Drive', 'Lien Drive', 'Traité le', 'Remarques', 'Dossier'];
-const SORIYA_DEPENSES_CATEGORIES = ['Carburant', 'Péage', 'Parking', 'Lavage', 'Entretien', 'Restauration', 'Autre'];
+  'Immatriculation', 'Kilométrage', 'N° ticket', 'Nom dans Drive', 'Lien Drive', 'Traité le', 'Remarques', 'Dossier',
+  'Type de pièce'];
+const SORIYA_DEPENSES_CATEGORIES = ['Carburant', 'Péage', 'Parking', 'Lavage', 'Entretien', 'Réparation', 'Pièces',
+  'Restauration', 'Téléphone', 'Fournitures', 'Assurance', 'Autre'];
+const SORIYA_DEPENSES_TYPES = ['Ticket de caisse', 'Facture', 'Devis', 'Autre'];
 
 /** Statut « À vérifier » d'un document WhatsApp qui est un ticket de caisse / reçu de dépense. */
 function soriyaIsTicket_(statut) {
   return /^À vérifier/.test(String(statut)) && !/^À vérifier — pas un ticket/.test(String(statut)) &&
-    /ticket de caisse|ticket de carburant|re[çc]u de paiement|station[- ]service|carburant|gazole|gasoil|diesel|péage|facturette/i
+    /ticket de caisse|ticket de carburant|re[çc]u de paiement|station[- ]service|carburant|gazole|gasoil|diesel|péage|facturette|^À vérifier — (Facture|Devis)|\b(une|cette) facture\b|\b(un|ce) devis\b/i
       .test(String(statut));
+}
+
+/** Propriétaire d'une pièce d'après le numéro WhatsApp qui l'a envoyée (SORIYA_CONFIG.WHATSAPP_OWNERS). */
+function soriyaOwnerOf_(sender) {
+  const digits = String(sender || '').replace(/\D/g, '').replace(/^33/, '0');
+  const owners = SORIYA_CONFIG.WHATSAPP_OWNERS || {};
+  for (const k in owners) if (k.replace(/\D/g, '').replace(/^33/, '0') === digits) return owners[k];
+  return '';
 }
 
 function soriyaDepensesSheet_(j) {
@@ -26,6 +37,8 @@ function soriyaDepensesSheet_(j) {
     sh = j.ss.insertSheet(SORIYA_DEPENSES.SHEET);
     sh.getRange(1, 1, 1, SORIYA_DEPENSES_HEADERS.length).setValues([SORIYA_DEPENSES_HEADERS]).setFontWeight('bold');
     sh.setFrozenRows(1);
+  } else if (sh.getLastColumn() < SORIYA_DEPENSES_HEADERS.length) {
+    sh.getRange(1, 1, 1, SORIYA_DEPENSES_HEADERS.length).setValues([SORIYA_DEPENSES_HEADERS]).setFontWeight('bold');
   }
   return sh;
 }
@@ -55,6 +68,12 @@ function soriyaDepensesNouvelles_(started, report) {
         dep.getRange(i + 2, 3).setValue("'" + senderOf[String(v[0])].replace(/^'/, ''));
       }
     });
+    // Propriétaire d'après le numéro (tableau WHATSAPP_OWNERS) : appliqué aussi aux pièces déjà rangées.
+    const who = dep.getRange(2, 3, dep.getLastRow() - 1, 2).getValues();
+    who.forEach(function (w, i) {
+      const owner = soriyaOwnerOf_(senderOf[String(vals[i][0])] || w[0]);
+      if (owner && owner !== w[1]) dep.getRange(i + 2, 4).setValue(owner);
+    });
   }
   const todo = [];
   rows.forEach(function (r, i) { if (soriyaIsTicket_(r[col('Statut')])) todo.push(i); });
@@ -76,7 +95,7 @@ function soriyaDepensesNouvelles_(started, report) {
     let d;
     try {
       d = soriyaClaudeJson_(file.getBlob(), soriyaTicketPrompt_(), soriyaTicketSchema_(),
-        'Reçu par WhatsApp de ' + sender + '. Extrais les informations de ce ticket.', null, 3000);
+        'Reçu par WhatsApp de ' + sender + '. Extrais les informations de cette pièce (ticket, facture ou devis).', null, 3000);
     } catch (e) {
       report.errors.push('Ticket ' + file.getName() + ' : ' + e.message);
       if (soriyaIsApiOutage_(e)) break;
@@ -90,18 +109,19 @@ function soriyaDepensesNouvelles_(started, report) {
     const cat = d.categorie || 'Autre';
     const folder = soriyaSubFolder_(root, [SORIYA_DEPENSES.FOLDER, cat]);
     const date = soriyaParseDate_(d.date) || (rows[r][col('Reçu le')] instanceof Date ? rows[r][col('Reçu le')] : new Date());
+    const kind = { 'Facture': 'Facture', 'Devis': 'Devis' }[d.type_piece] || 'Ticket';
     const name = soriyaUniqueName_(folder, Utilities.formatDate(date, Session.getScriptTimeZone(), 'dd-MM-yyyy') +
-      '_Ticket_' + cat + (d.enseigne ? '_' + String(d.enseigne).toUpperCase().replace(/[^A-Z0-9À-Ý]+/g, '-').replace(/^-|-$/g, '') : '') + '.pdf');
+      '_' + kind + '_' + cat + (d.enseigne ? '_' + String(d.enseigne).toUpperCase().replace(/[^A-Z0-9À-Ý]+/g, '-').replace(/^-|-$/g, '') : '') + '.pdf');
     file.setName(name);
     file.moveTo(folder);
     const plate = String(d.immatriculation || '').replace(/[\s-]/g, '').toUpperCase();
-    const driver = drivers.byPlate[plate] || drivers.bySender[sender] || '';
+    const driver = soriyaOwnerOf_(sender) || drivers.byPlate[plate] || drivers.bySender[sender] || '';
     sh.appendRow([key, rows[r][col('Reçu le')], "'" + sender.replace(/^'/, ''), driver, cat, "'" + d.date, "'" + d.heure, d.enseigne, d.adresse,
       d.ville, d.carburant, d.litres, d.prix_litre, d.montant_ttc, d.tva, d.montant_ht, d.moyen_paiement,
       d.immatriculation, d.kilometrage, "'" + d.numero_ticket, name, file.getUrl(), new Date(), d.remarques,
-      soriyaSubFolder_(root, [SORIYA_DEPENSES.FOLDER]).getUrl()]);
+      soriyaSubFolder_(root, [SORIYA_DEPENSES.FOLDER]).getUrl(), d.type_piece || 'Ticket de caisse']);
     j.main.getRange(r + 2, col('Nom dans Drive') + 1, 1, 3).setValues([[name, file.getUrl(),
-      'Dépense — ' + cat + ' — voir l\'onglet « ' + SORIYA_DEPENSES.SHEET + ' »']]);
+      'Dépense — ' + (d.type_piece || 'Ticket') + ' — ' + cat + ' — voir l\'onglet « ' + SORIYA_DEPENSES.SHEET + ' »']]);
     known.add(key);
     done++;
   }
@@ -131,9 +151,10 @@ function soriyaDriversByPlateAndSender_(rows, col) {
 
 function soriyaTicketPrompt_() {
   return [
-    'Tu es Soriya, assistante de GFD-LOGISTIC (transport). Tu lis les tickets de caisse envoyés par les chauffeurs',
-    'sur WhatsApp (photo ou capture d\'écran) : surtout des tickets de carburant de station-service, parfois péage,',
-    'parking, lavage, entretien ou repas.',
+    'Tu es Soriya, assistante de GFD-LOGISTIC (transport). Tu lis les pièces de dépense envoyées sur WhatsApp',
+    '(photo, capture d\'écran ou PDF) : surtout des tickets de carburant de station-service, mais aussi des factures',
+    'et des devis (garage, pièces, entretien, téléphone…), des tickets de péage, parking, lavage ou repas.',
+    'type_piece = Ticket de caisse, Facture ou Devis selon le document.',
     '',
     'Règles :',
     "- Recopie les valeurs telles qu'elles figurent sur le ticket ; n'invente rien.",
@@ -142,14 +163,16 @@ function soriyaTicketPrompt_() {
     '- Carburant : carburant = type (Gazole, SP95, SP98, E85, AdBlue…), litres = volume, prix_litre = prix au litre TTC.',
     '- enseigne = la marque de la station ou du commerce (TotalEnergies, Esso, Leclerc…), ville avec code postal si visible.',
     '- Ignore l\'interface autour du ticket sur une capture d\'écran.',
-    '- Si le document n\'est pas un ticket de caisse ou un reçu de dépense, mets est_ticket_de_caisse à false.',
+    '- est_ticket_de_caisse = true pour toute pièce de dépense (ticket, facture ou devis d\'un fournisseur) ; false sinon',
+    '  (lettre de voiture, bon de livraison, facture émise par GFD-LOGISTIC à un client…).',
   ].join('\n');
 }
 
 function soriyaTicketSchema_() {
   const str = { type: 'string' }, num = { type: 'number' };
   const props = {
-    est_ticket_de_caisse: { type: 'boolean' }, categorie: { type: 'string', enum: SORIYA_DEPENSES_CATEGORIES },
+    est_ticket_de_caisse: { type: 'boolean' }, type_piece: { type: 'string', enum: SORIYA_DEPENSES_TYPES },
+    categorie: { type: 'string', enum: SORIYA_DEPENSES_CATEGORIES },
     date: str, heure: str, enseigne: str, adresse: str, ville: str, carburant: str, litres: num, prix_litre: num,
     montant_ttc: num, tva: num, montant_ht: num, moyen_paiement: str, immatriculation: str, kilometrage: str,
     numero_ticket: str, remarques: str,

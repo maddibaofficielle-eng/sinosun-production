@@ -293,6 +293,7 @@ function soriyaWebDepensesFrom_(rows) {
         address: str(r[c('Adresse')]), city: str(r[c('Ville')]), fuel: str(r[c('Carburant')]), liters: num(r[c('Litres')]),
         pricePerL: num(r[c('Prix au litre')]), ttc: num(r[c('Montant TTC')]), vat: num(r[c('TVA')]), ht: num(r[c('Montant HT')]),
         payment: str(r[c('Paiement')]), plate: str(r[c('Immatriculation')]), km: str(r[c('Kilométrage')]),
+        kind: str(r[c('Type de pièce')]) || 'Ticket de caisse',
         name: str(r[c('Nom dans Drive')]), url: str(r[c('Lien Drive')]), remarks: str(r[c('Remarques')]) };
     }),
   };

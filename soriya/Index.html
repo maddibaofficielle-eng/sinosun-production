@@ -344,6 +344,15 @@ function derive(d) {
   conf.forEach(x => { const k = digits(x.number); if (k && !confByNum[k]) confByNum[k] = x; });
   conf.forEach(x => { x.ldv = ldvByNum[digits(x.number)] || null; x.client = normParty(x.party); if (!x.driver && x.ldv) x.driver = x.ldv.driver; });
   ldv.forEach(x => { x.conf = confByNum[digits(x.number)] || null; });
+  // Relevés Ecotime (versions en vigueur) : montant payé par n° d'ordre. Une course annulée est payée à demi-tarif
+  // (GV zone 1 : 30 € au lieu de 60 €, Fourgon zone 1 : 20,50 € au lieu de 41 €…).
+  const R = d.releves || { list: [], lines: [] }, curKeys = {}, relMonths = {}, paid = {};
+  R.list.forEach(r => { if (r.current) { curKeys[r.key] = 1; if (r.sts.every(s => s.read)) relMonths[r.month] = 1; } });
+  R.lines.forEach(l => { const k = digits(l.number); if (!curKeys[l.key] || !k) return;
+    const p = (paid[k] = paid[k] || { main: 0, total: 0 }); p.total += l.amount; if (/^(GV|GVP|FG|BKIDF)$/i.test(l.service)) p.main += l.amount; });
+  conf.forEach(x => { const p = paid[digits(x.number)];
+    x.paid = p ? p.total : null; x.releveRead = !!relMonths[(x.date || "").slice(0, 7)];
+    x.cancelled = !!(p && p.main > 0 && x.amount > 0 && p.main / x.amount > 0.4 && p.main / x.amount < 0.6); });
   const sales = conf.filter(x => x.status.indexOf("Archivé") === 0 && x.amount > 0 && /^\d{4}-\d{2}-\d{2}/.test(x.date));
   const now = new Date(), thisMonth = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
   const prevD = new Date(now.getFullYear(), now.getMonth() - 1, 1), prevMonth = prevD.getFullYear() + "-" + String(prevD.getMonth() + 1).padStart(2, "0");
@@ -358,7 +367,7 @@ function derive(d) {
   const avg = ms => ms.length ? ms.reduce((t, m) => t + byMonth[m].ca, 0) / ms.length : 0;
   const caMtd = sum(mtd);
   const toCheck = d.docs.filter(x => statusKind(x.status) !== "ok");
-  const noLdv = mtd.filter(x => !x.ldv);
+  const noLdv = mtd.filter(x => !x.ldv && !x.cancelled); // une course annulée n'a pas de lettre de voiture
   return {
     conf, ldv, sales, byMonth, mtd, ytd, now, thisMonth, prevMonth, day, dim, closed,
     caMtd, caYtd: sum(ytd), caPrevSame: sum(prevSame), projection: day ? caMtd / day * dim : 0,
@@ -780,18 +789,46 @@ function pageLetters(el) {
 
 function pageMatch(el) {
   const st = view.match = view.match || { month: M.thisMonth };
-  el.innerHTML = '<div class="toolbar"><select id="fMonth">' + monthOptions(M.conf, st.month) + '</select><span class="muted small">Une course est rapprochée quand la lettre de voiture porte le même numéro que la confirmation.</span></div>' +
-    '<div class="grid g3" id="mSum" style="margin-bottom:16px"></div><div class="grid g2"><div class="card"><h2>⚠ Courses sans lettre de voiture</h2><div id="t1"></div></div><div class="card"><h2>Lettres sans confirmation</h2><div id="t2"></div></div></div>';
+  el.innerHTML = '<div class="toolbar"><select id="fMonth">' + monthOptions(M.conf, st.month) + '</select><span class="muted small">Une course est rapprochée quand la lettre de voiture porte le même numéro que la confirmation. Les relevés et factures Ecotime disent si une course sans lettre a été annulée.</span></div>' +
+    '<div class="grid g4" id="mSum" style="margin-bottom:16px"></div>' +
+    '<div class="card"><h2>Courses sans lettre de voiture : que s\'est-il passé ?</h2><div id="t1"></div></div>' +
+    '<div class="grid g2" style="margin-top:16px"><div class="card"><h2>Annulations : facture ↔ relevé ↔ confirmations</h2><div id="tAnn"></div></div><div class="card"><h2>Lettres sans confirmation</h2><div id="t2"></div></div></div>';
+  // Situation d'une course sans lettre de voiture, d'après le relevé Ecotime du mois.
+  const situation = x => x.cancelled ? { k: "ann", cls: "ok", txt: "Annulée · payée ½ tarif (" + EUR2.format(x.paid) + ")" }
+    : x.paid > 0 ? { k: "real", cls: "warn", txt: "Réalisée · payée " + EUR2.format(x.paid) + " · lettre manquante" }
+    : x.releveRead ? { k: "abs", cls: "bad", txt: "Absente du relevé · à réclamer ou annulée sans frais" }
+    : { k: "wait", cls: "", txt: "Relevé du mois pas encore reçu" };
   const draw = () => {
     const inM = x => !st.month || (x.date || "").slice(0, 7) === st.month;
     const conf = M.conf.filter(x => inM(x) && x.amount > 0 && x.status.indexOf("Archivé") === 0), miss = conf.filter(x => !x.ldv);
+    miss.forEach(x => { x.sit = situation(x); });
+    const n = k => miss.filter(x => x.sit.k === k).length;
+    // Annulations facturées (lignes « Annulations Courses… » des factures GFD du mois).
+    const F = DATA.factures || { list: [], lines: [] }, invMonth = {}; F.list.forEach(f => { invMonth[f.key] = f.month; });
+    const annLines = F.lines.filter(l => /annul/i.test(l.product) && (!st.month || invMonth[l.key] === st.month));
+    const annQty = annLines.reduce((t, l) => t + l.qty, 0), annAmt = annLines.reduce((t, l) => t + l.total, 0);
+    const annRel = conf.filter(x => x.cancelled);
     const orph = M.orphanLdv.filter(inM);
-    document.getElementById("mSum").innerHTML = tile("Courses facturées", String(conf.length)) + tile("Avec lettre de voiture", Math.round((conf.length - miss.length) / (conf.length || 1) * 100) + " %", "", "hero") +
-      tile("CA sans preuve de livraison", EUR.format(miss.reduce((t, x) => t + x.amount, 0)));
+    document.getElementById("mSum").innerHTML = tile("Courses facturées", String(conf.length), "<em class='muted' style='font-weight:400'>" + Math.round((conf.length - miss.length) / (conf.length || 1) * 100) + " % avec lettre de voiture</em>", "hero") +
+      tile("Sans lettre", String(miss.length), "<em class='muted' style='font-weight:400'>" + n("ann") + " annulée(s) · " + n("real") + " réalisée(s) · " + n("abs") + " absente(s)</em>") +
+      tile("Annulations facturées", String(annQty), "<em class='muted' style='font-weight:400'>" + EUR2.format(annAmt) + " HT sur la facture</em>") +
+      tile("À régulariser", String(n("real") + n("abs")), n("real") + n("abs") ? "<em class='down'>lettres à demander / courses à réclamer</em>" : "<em class='up'>rien à régulariser</em>");
     dataTable(document.getElementById("t1"), miss, [
       { key: "date", label: "Date", html: x => fmtDate(x.date) }, { key: "number", label: "N°", nw: true },
-      { key: "route", label: "Trajet", val: x => city(x.from) + " → " + city(x.to) }, { key: "amount", label: "HT", num: true, html: x => EUR.format(x.amount) },
-    ], { state: (st.t1 = st.t1 || {}), sort: "date", onRow: openDoc });
+      { key: "route", label: "Trajet", val: x => city(x.from) + " → " + city(x.to) }, { key: "driver", label: "Chauffeur", sm: true, val: x => x.driver || "—" },
+      { key: "amount", label: "Confirmé HT", num: true, html: x => EUR2.format(x.amount) },
+      { key: "sit", label: "Situation (relevé Ecotime)", val: x => x.sit.txt, html: x => '<span class="pill ' + x.sit.cls + '">' + esc(x.sit.txt) + "</span>" },
+    ], { state: (st.t1 = st.t1 || {}), sort: "date", onRow: openDoc,
+      foot: (rs, c) => c.key === "date" ? "Total" : c.key === "number" ? rs.length + " course(s)" : c.key === "amount" ? EUR2.format(rs.reduce((t, x) => t + x.amount, 0)) : "" });
+    // Annulations : facture vs relevé vs confirmations sans lettre.
+    const gap = annQty - annRel.length;
+    document.getElementById("tAnn").innerHTML = '<div class="minis"><div><span>Sur la facture</span><b>' + annQty + "</b></div><div><span>Repérées au relevé</span><b>" + annRel.length + "</b></div><div><span>Écart</span><b>" + (gap > 0 ? "+" : "") + gap + "</b></div></div>" +
+      (annLines.length ? '<div class="table-wrap" style="border:0"><table><thead><tr><th>Ligne de facture</th><th class="num">Qté</th><th class="num">Prix u.</th><th class="num">Total HT</th></tr></thead><tbody>' +
+        annLines.map(l => "<tr><td>" + esc(l.product) + '<div class="sub">' + esc(l.number) + '</div></td><td class="num">' + l.qty + '</td><td class="num">' + EUR2.format(l.price) + '</td><td class="num">' + EUR2.format(l.total) + "</td></tr>").join("") + "</tbody></table></div>" :
+        '<p class="muted small">Aucune annulation sur la facture de cette période (ou facture pas encore reçue).</p>') +
+      '<p class="muted small" style="margin:8px 0 0">' + (gap === 0 ? "✔ Les annulations facturées correspondent aux courses annulées du relevé." :
+        gap > 0 ? "Plus d'annulations facturées que de courses annulées retrouvées : certaines annulations n'ont pas de confirmation reçue." :
+        "Moins d'annulations facturées que de courses annulées au relevé : vérifiez la facture.") + "</p>";
     dataTable(document.getElementById("t2"), orph, [
       { key: "date", label: "Date", html: x => fmtDate(x.date) }, { key: "number", label: "N°", nw: true },
       { key: "route", label: "Trajet", val: x => city(x.from) + " → " + city(x.to) }, { key: "driver", label: "Chauffeur" },
@@ -1043,28 +1080,30 @@ function pageExpenses(el, sub) {
   document.getElementById("fDrv").onchange = e => { st.driver = e.target.value; pageExpenses(el, sub); };
   if (!list.length) return;
   const fuel = tab === "Carburant";
+  // Les devis sont listés mais ne comptent pas dans les dépenses (rien n'a été payé).
   const sel = list.filter(x => (!st.month || x.date.slice(0, 7) === st.month) && (!st.driver || (x.driver || x.sender) === st.driver));
+  const paidSel = sel.filter(x => x.kind !== "Devis");
   const sum = (a, k) => a.reduce((t, x) => t + x[k], 0);
   const ht = x => x.ht || x.ttc / 1.2; // HT imprimé, sinon TTC / 1,2 (TVA 20 %)
   const sumHT = a => a.reduce((t, x) => t + ht(x), 0);
-  const ttc = sum(sel, "ttc"), liters = sum(sel, "liters"), withL = sel.filter(x => x.liters);
+  const ttc = sum(paidSel, "ttc"), liters = sum(paidSel, "liters"), withL = paidSel.filter(x => x.liters);
   const salesIn = M.sales.filter(x => !st.month || x.date.slice(0, 7) === st.month), caHT = salesIn.reduce((t, x) => t + x.amount, 0);
-  document.getElementById("eSum").innerHTML = tile((fuel ? "Carburant" : "Dépenses") + " TTC", EUR2.format(ttc), "<em class='muted' style='font-weight:400'>" + sel.length + " ticket(s) · " + EUR2.format(sumHT(sel)) + " HT</em>", "hero") +
+  document.getElementById("eSum").innerHTML = tile((fuel ? "Carburant" : "Dépenses") + " TTC", EUR2.format(ttc), "<em class='muted' style='font-weight:400'>" + paidSel.length + " pièce(s) · " + EUR2.format(sumHT(paidSel)) + " HT" + (sel.length > paidSel.length ? " · devis non comptés" : "") + "</em>", "hero") +
     (fuel ? tile("Litres", liters.toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " L", "<em class='muted' style='font-weight:400'>prix moyen " + (liters ? EUR2.format(sum(withL, "ttc") / sum(withL, "liters")) : "—") + " / L</em>") : tile("Catégories", String(new Set(sel.map(x => x.category)).size))) +
-    tile("Part du CA HT", caHT ? (sumHT(sel) / caHT * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %" : "—", "<em class='muted' style='font-weight:400'>CA HT des courses : " + EUR.format(caHT) + "</em>") +
-    tile("Par course facturée", salesIn.length ? EUR2.format(sumHT(sel) / salesIn.length) : "—", "<em class='muted' style='font-weight:400'>HT · " + salesIn.length + " course(s)</em>");
+    tile("Part du CA HT", caHT ? (sumHT(paidSel) / caHT * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %" : "—", "<em class='muted' style='font-weight:400'>CA HT des courses : " + EUR.format(caHT) + "</em>") +
+    tile("Par course facturée", salesIn.length ? EUR2.format(sumHT(paidSel) / salesIn.length) : "—", "<em class='muted' style='font-weight:400'>HT · " + salesIn.length + " course(s)</em>");
   const table = (head, rows, foot) => '<div class="table-wrap" style="border:0"><table><thead><tr>' + head.map(h => '<th class="' + (h.num ? "num" : "") + '">' + esc(h.l) + "</th>").join("") + "</tr></thead><tbody>" + rows.join("") + "</tbody>" + (foot ? "<tfoot>" + foot + "</tfoot>" : "") + "</table></div>";
   const td = (v, n) => '<td class="' + (n ? "num" : "") + '">' + v + "</td>";
   const L = v => v ? v.toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " L" : "—";
   // Par mois (tous les mois, filtre chauffeur appliqué).
-  const byDrvOnly = list.filter(x => !st.driver || (x.driver || x.sender) === st.driver);
+  const byDrvOnly = list.filter(x => x.kind !== "Devis" && (!st.driver || (x.driver || x.sender) === st.driver));
   const mrows = months.map(m => { const a = byDrvOnly.filter(x => x.date.slice(0, 7) === m), ca = M.sales.filter(x => x.date.slice(0, 7) === m).reduce((t, x) => t + x.amount, 0);
     return '<tr data-m="' + m + '" style="cursor:pointer" class="' + (m === st.month ? "on" : "") + '">' + td(monthLabel(m)) + td(a.length, 1) + (fuel ? td(L(sum(a, "liters")), 1) : "") + td(EUR2.format(sum(a, "ttc")), 1) + td(EUR2.format(sumHT(a)), 1) + td(ca ? (sumHT(a) / ca * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %" : "—", 1) + "</tr>"; });
   document.getElementById("eMonth").innerHTML = table([{ l: "Mois" }, { l: "Tickets", num: 1 }].concat(fuel ? [{ l: "Litres", num: 1 }] : [], [{ l: "TTC", num: 1 }, { l: "HT", num: 1 }, { l: "% du CA", num: 1 }]), mrows,
     "<tr><td>Total</td>" + td(byDrvOnly.length, 1) + (fuel ? td(L(sum(byDrvOnly, "liters")), 1) : "") + td(EUR2.format(sum(byDrvOnly, "ttc")), 1) + td(EUR2.format(sumHT(byDrvOnly)), 1) + "<td></td></tr>");
   el.querySelectorAll("#eMonth tr[data-m]").forEach(tr => tr.onclick = () => { st.month = st.month === tr.dataset.m ? "" : tr.dataset.m; pageExpenses(el, sub); });
   // Par chauffeur (période choisie).
-  const inMonth = list.filter(x => !st.month || x.date.slice(0, 7) === st.month);
+  const inMonth = list.filter(x => x.kind !== "Devis" && (!st.month || x.date.slice(0, 7) === st.month));
   const g = {}; inMonth.forEach(x => { const k = x.driver || x.sender || "—"; (g[k] = g[k] || []).push(x); });
   document.getElementById("eDrv").innerHTML = table([{ l: "Chauffeur / expéditeur" }, { l: "Tickets", num: 1 }].concat(fuel ? [{ l: "Litres", num: 1 }, { l: "€ / L", num: 1 }] : [], [{ l: "TTC", num: 1 }]),
     Object.keys(g).sort((a, b) => sum(g[b], "ttc") - sum(g[a], "ttc")).map(k => { const a = g[k], wl = a.filter(x => x.liters);
@@ -1075,13 +1114,14 @@ function pageExpenses(el, sub) {
   dataTable(document.getElementById("eList"), sel, [
     { key: "date", label: "Date", html: x => fmtDate(x.date) + (x.time ? '<div class="sub">' + esc(x.time) + "</div>" : "") },
     { key: "brand", label: "Station / commerce", html: x => esc(x.brand || "—") + '<div class="sub">' + esc(x.city || x.address) + "</div>" },
-  ].concat(fuel ? [{ key: "fuel", label: "Carburant" }, { key: "liters", label: "Litres", num: true, html: x => L(x.liters) }, { key: "pricePerL", label: "€ / L", num: true, html: x => x.pricePerL ? EUR2.format(x.pricePerL) : "—" }] : [{ key: "category", label: "Catégorie" }], [
+  ].concat(fuel ? [{ key: "fuel", label: "Carburant" }, { key: "liters", label: "Litres", num: true, html: x => L(x.liters) }, { key: "pricePerL", label: "€ / L", num: true, html: x => x.pricePerL ? EUR2.format(x.pricePerL) : "—" }] :
+    [{ key: "kind", label: "Pièce", html: x => x.kind === "Devis" ? '<span class="pill warn">Devis</span>' : esc(x.kind) }, { key: "category", label: "Catégorie" }], [
     { key: "ttc", label: "TTC", num: true, html: x => EUR2.format(x.ttc) },
     { key: "driver", label: "Chauffeur", val: x => x.driver || x.sender },
     { key: "payment", label: "Paiement", sm: true },
     { key: "name", label: "Ticket", html: x => '<a href="' + esc(x.url) + '">PDF ↗</a>' },
   ]), { state: (st.t = st.t || {}), sort: "date",
-    foot: (rs, c) => c.key === "date" ? "Total" : c.key === "brand" ? rs.length + " ticket(s)" : c.key === "liters" ? L(sum(rs, "liters")) : c.key === "ttc" ? EUR2.format(sum(rs, "ttc")) : "" });
+    foot: (rs, c) => c.key === "date" ? "Total" : c.key === "brand" ? rs.length + " pièce(s)" : c.key === "liters" ? L(sum(rs, "liters")) : c.key === "ttc" ? EUR2.format(sum(rs.filter(x => x.kind !== "Devis"), "ttc")) : "" });
 }
 
 function pageDrivers(el) {
