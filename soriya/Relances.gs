@@ -38,43 +38,8 @@ function soriyaRelances_() {
   const props = PropertiesService.getScriptProperties();
   if (Number(Utilities.formatDate(now, tz, 'H')) < (cfg.HOUR || 8) || props.getProperty('SORIYA_RELANCES_DAY') === today) return 0;
 
-  const digits = function (s) { return String(s || '').replace(/\D/g, ''); };
-  const iso = function (v) { return v instanceof Date ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : String(v || '').slice(0, 10); };
-  const cap = function (s) { return String(s).toLowerCase().replace(/(^|[\s'(-])(\S)/g, function (m, a, b) { return a + b.toUpperCase(); }); };
-  const city = function (s) { const m = /(\d{5})\s+([^,(]+)/.exec(String(s || '')); return m ? cap(m[2].trim()) + ' (' + m[1].slice(0, 2) + ')' : cap(String(s || '').split(',')[0]); };
-
-  // Confirmations reçues.
-  const conf = soriyaJournalSpreadsheet_(soriyaRootFolder_('confirmation'), 'confirmation');
-  const ch = conf.headers;
-  const confNums = new Set(soriyaSheetRows_(conf.main).map(function (r) { return digits(r[ch.indexOf('N° affrètement')]); }).filter(String));
-  // Courses payées (ou annulées) au relevé Ecotime : rien à réclamer.
-  const paid = new Set();
-  const rel = conf.ss.getSheetByName('Relevés sous-traitant'), lines = conf.ss.getSheetByName('Lignes relevés');
-  if (rel && lines) {
-    const cur = new Set(soriyaSheetRows_(rel).filter(function (r) { return /^En vigueur/.test(String(r[12])); }).map(function (r) { return String(r[0]); }));
-    soriyaSheetRows_(lines).forEach(function (l) { if (cur.has(String(l[0]))) paid.add(digits(l[2])); });
-  }
-  // Courses cochées « Non réalisée » sur le site.
-  const notDone = new Set();
-  try {
-    const v = soriyaProspectsSheet_().getParent().getSheetByName('Courses vérifiées');
-    if (v) soriyaSheetRows_(v).forEach(function (r) { if (String(r[1]) === 'NON') notDone.add(digits(r[0])); });
-  } catch (e) { /* onglet absent */ }
-
-  // Lettres de voiture candidates.
-  const ldv = soriyaJournalSpreadsheet_(soriyaRootFolder_('lettre_voiture'), 'lettre_voiture');
-  const lh = ldv.headers;
-  const cand = {};
-  soriyaSheetRows_(ldv.main).forEach(function (r) {
-    const n = digits(r[lh.indexOf('N° lettre de voiture')]);
-    if (n.length < 5 || cand[n] || !/^Archivé/.test(String(r[lh.indexOf('Statut')]))) return;
-    const d = iso(r[lh.indexOf('Date livraison')]) || iso(r[lh.indexOf('Date prise en charge')]);
-    const t = new Date(d + 'T18:00:00').getTime();
-    if (!d || isNaN(t) || now - t < SORIYA_RELANCES.DELAY_HOURS * 3600000 || now - t > SORIYA_RELANCES.MAX_AGE_DAYS * 86400000) return;
-    const parts = String(r[lh.indexOf('Transporteur')]).split('/');
-    cand[n] = { n: n, date: d, route: city(r[lh.indexOf('Lieu prise en charge')]) + ' → ' + city(r[lh.indexOf('Lieu livraison')]),
-      driver: parts[parts.length - 1].trim().toUpperCase(), url: String(r[lh.indexOf('Lien Drive')]) };
-  });
+  const D = soriyaRelancesData_(now);
+  const digits = D.digits, iso = D.iso, conf = D.conf, confNums = D.confNums, paid = D.paid, notDone = D.notDone, cand = D.cand;
 
   // Suivi existant.
   const sh = soriyaRelancesSheet_(conf);
@@ -113,12 +78,60 @@ function soriyaRelances_() {
   return first.length + reminder.length;
 }
 
+/**
+ * Données communes aux relances (et au test) : confirmations reçues, courses payées au relevé, cochées « Non réalisée »,
+ * et lettres de voiture (all = toutes depuis MAX_AGE_DAYS, cand = celles qui ont plus de DELAY_HOURS).
+ */
+function soriyaRelancesData_(now) {
+  const tz = Session.getScriptTimeZone();
+  const digits = function (s) { return String(s || '').replace(/\D/g, ''); };
+  const iso = function (v) { return v instanceof Date ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : String(v || '').slice(0, 10); };
+  const cap = function (s) { return String(s).toLowerCase().replace(/(^|[\s'(-])(\S)/g, function (m, a, b) { return a + b.toUpperCase(); }); };
+  const city = function (s) { const m = /(\d{5})\s+([^,(]+)/.exec(String(s || '')); return m ? cap(m[2].trim()) + ' (' + m[1].slice(0, 2) + ')' : cap(String(s || '').split(',')[0]); };
+
+  // Confirmations reçues.
+  const conf = soriyaJournalSpreadsheet_(soriyaRootFolder_('confirmation'), 'confirmation');
+  const ch = conf.headers;
+  const confNums = new Set(soriyaSheetRows_(conf.main).map(function (r) { return digits(r[ch.indexOf('N° affrètement')]); }).filter(String));
+  // Courses payées (ou annulées) au relevé Ecotime : rien à réclamer.
+  const paid = new Set();
+  const rel = conf.ss.getSheetByName('Relevés sous-traitant'), lines = conf.ss.getSheetByName('Lignes relevés');
+  if (rel && lines) {
+    const cur = new Set(soriyaSheetRows_(rel).filter(function (r) { return /^En vigueur/.test(String(r[12])); }).map(function (r) { return String(r[0]); }));
+    soriyaSheetRows_(lines).forEach(function (l) { if (cur.has(String(l[0]))) paid.add(digits(l[2])); });
+  }
+  // Courses cochées « Non réalisée » sur le site.
+  const notDone = new Set();
+  try {
+    const v = soriyaProspectsSheet_().getParent().getSheetByName('Courses vérifiées');
+    if (v) soriyaSheetRows_(v).forEach(function (r) { if (String(r[1]) === 'NON') notDone.add(digits(r[0])); });
+  } catch (e) { /* onglet absent */ }
+
+  // Lettres de voiture candidates.
+  const ldv = soriyaJournalSpreadsheet_(soriyaRootFolder_('lettre_voiture'), 'lettre_voiture');
+  const lh = ldv.headers;
+  const cand = {}, all = {};
+  soriyaSheetRows_(ldv.main).forEach(function (r) {
+    const n = digits(r[lh.indexOf('N° lettre de voiture')]);
+    if (n.length < 5 || !/^Archivé/.test(String(r[lh.indexOf('Statut')]))) return;
+    const d = iso(r[lh.indexOf('Date livraison')]) || iso(r[lh.indexOf('Date prise en charge')]);
+    const t = new Date(d + 'T18:00:00').getTime();
+    if (!d || isNaN(t) || now - t > SORIYA_RELANCES.MAX_AGE_DAYS * 86400000 || all[n]) return;
+    const parts = String(r[lh.indexOf('Transporteur')]).split('/');
+    all[n] = { n: n, date: d, route: city(r[lh.indexOf('Lieu prise en charge')]) + ' → ' + city(r[lh.indexOf('Lieu livraison')]),
+      driver: parts[parts.length - 1].trim().toUpperCase(), url: String(r[lh.indexOf('Lien Drive')]), recent: now - t < SORIYA_RELANCES.DELAY_HOURS * 3600000 };
+    if (!all[n].recent) cand[n] = all[n];
+  });
+  return { digits: digits, iso: iso, conf: conf, confNums: confNums, paid: paid, notDone: notDone, cand: cand, all: all };
+}
+
+
 /** Prépare (brouillon) ou envoie le mail de relance groupé, lettres de voiture en pièces jointes. */
-function soriyaRelanceMail_(list, isReminder, cfg) {
+function soriyaRelanceMail_(list, isReminder, cfg, prefix) {
   const fr = function (d) { return d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4); };
   const esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   const num = function (n) { return n.length === 6 ? n.slice(0, 3) + ' ' + n.slice(3) : n; };
-  const subject = (isReminder ? 'Rappel – ' : '') + 'GFD LOGISTIC – Demande de confirmations d\'affrètement (' +
+  const subject = (prefix || '') + (isReminder ? 'Rappel – ' : '') + 'GFD LOGISTIC – Demande de confirmations d\'affrètement (' +
     list.length + ' course' + (list.length > 1 ? 's' : '') + ')';
   const td = 'style="padding:6px 10px;border:1px solid #d9d9d9"';
   const table = '<table style="border-collapse:collapse;font-size:14px"><tr style="background:#f2f2f2">' +
@@ -144,4 +157,50 @@ function soriyaRelanceMail_(list, isReminder, cfg) {
   const options = { htmlBody: html, attachments: attachments, name: 'GFD LOGISTIC' };
   if (cfg.MODE === 'envoi') GmailApp.sendEmail(cfg.TO, subject, plain, options);
   else GmailApp.createDraft(cfg.TO, subject, plain, options);
+}
+
+/**
+ * Test grandeur nature, sans rien écrire dans « Relances » et sans rien adresser à Ecotime : 3 brouillons adressés à
+ * gfd.logistic (vous-même) — 1re relance, rappel du 8e jour, et rapport de test (sélection, exclusions, clôture).
+ */
+function soriyaTestRelances_() {
+  const cfg = SORIYA_CONFIG.RELANCES || {};
+  const now = new Date(), tz = Session.getScriptTimeZone();
+  const D = soriyaRelancesData_(now);
+  const me = Session.getEffectiveUser().getEmail();
+  const decide = function (c) {
+    return D.confNums.has(c.n) ? ['Pas de relance', 'confirmation reçue (une relance en cours serait close : « Confirmation reçue »)']
+      : D.paid.has(c.n) ? ['Pas de relance', 'payée ou annulée au relevé Ecotime']
+      : D.notDone.has(c.n) ? ['Pas de relance', 'cochée « Non réalisée » sur le site']
+      : c.recent ? ['Pas encore', 'livrée il y a moins de 48 h : relancée au passage de 8 h après le délai']
+      : ['À relancer', 'pas de confirmation, pas payée au relevé'];
+  };
+  const list = Object.keys(D.all).map(function (n) { const c = D.all[n]; c.decision = decide(c); return c; })
+    .sort(function (a, b) { return b.date.localeCompare(a.date); });
+  let first = list.filter(function (c) { return c.decision[0] === 'À relancer'; });
+  const demo = !first.length;
+  if (demo) first = list.slice(0, 3); // rien à relancer : exemple avec les 3 dernières lettres pour voir le rendu
+  const test = Object.assign({}, cfg, { TO: me, MODE: 'brouillon' });
+  soriyaRelanceMail_(first, false, test, '[TEST Soriya – ne pas transférer] ');
+  soriyaRelanceMail_(first, true, test, '[TEST Soriya – simulation du 8e jour] ');
+
+  const fr = function (d) { return d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4); };
+  const td = 'style="padding:5px 8px;border:1px solid #d9d9d9;font-size:13px"';
+  const rows = list.map(function (c) {
+    const color = c.decision[0] === 'À relancer' ? '#b45309' : c.decision[0] === 'Pas encore' ? '#555' : '#15803d';
+    return '<tr><td ' + td + '>' + c.n + '</td><td ' + td + '>' + fr(c.date) + '</td><td ' + td + '>' + c.route + '</td><td ' + td + '>' + c.driver +
+      '</td><td ' + td + '><b style="color:' + color + '">' + c.decision[0] + '</b><br>' + c.decision[1] + '</td></tr>';
+  }).join('');
+  const html = '<div style="font-family:Arial,sans-serif;font-size:14px">' +
+    '<h3 style="margin:0 0 8px">Test des relances Ecotime — ' + Utilities.formatDate(now, tz, 'dd/MM/yyyy HH:mm') + '</h3>' +
+    '<p>Ce test n\'a rien écrit dans l\'onglet « Relances » et n\'a rien adressé à Ecotime. Il a préparé 2 autres brouillons, adressés à vous-même :</p><ul>' +
+    '<li><b>1re relance</b> : ' + first.length + ' course(s)' + (demo ? ' — <i>aucune course n\'est à relancer aujourd\'hui : exemple avec les 3 dernières lettres de voiture</i>' : '') + ', lettres de voiture jointes ;</li>' +
+    '<li><b>Rappel</b> : le mail qui partirait 7 jours plus tard pour les courses toujours sans confirmation ;</li></ul>' +
+    '<p><b>Clôture</b> : dès qu\'une confirmation arrive (ou que la course apparaît payée au relevé, ou est cochée « Non réalisée »), ' +
+    'la relance passe à « Confirmation reçue » (ou « Payée… », « Non réalisée… ») et n\'est plus rappelée. Sans réponse une semaine après le rappel : « À traiter par téléphone ».</p>' +
+    '<p><b>Décision pour chaque lettre de voiture des ' + SORIYA_RELANCES.MAX_AGE_DAYS + ' derniers jours</b> (' + list.length + ') :</p>' +
+    '<table style="border-collapse:collapse"><tr style="background:#f2f2f2"><th ' + td + '>N°</th><th ' + td + '>Livrée le</th><th ' + td + '>Trajet</th><th ' + td + '>Chauffeur</th><th ' + td + '>Décision</th></tr>' + rows + '</table></div>';
+  GmailApp.createDraft(me, '[TEST Soriya] Rapport du test des relances Ecotime', 'Rapport de test (version HTML).', { htmlBody: html, name: 'Soriya' });
+  Logger.log('Test des relances : %s à relancer, %s lettres examinées.', demo ? 0 : first.length, list.length);
+  return list.length;
 }

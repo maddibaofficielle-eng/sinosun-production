@@ -124,6 +124,13 @@ function soriyaRun() {
     } catch (e) {
       report.errors.push('Rangement Gmail : ' + e.message);
     }
+    // Test demandé le 09/10/2026 : 3 brouillons adressés à gfd.logistic (une seule fois).
+    try {
+      const pr = PropertiesService.getScriptProperties();
+      if (pr.getProperty('SORIYA_TEST_RELANCES_V1') !== 'ok') { soriyaTestRelances_(); pr.setProperty('SORIYA_TEST_RELANCES_V1', 'ok'); }
+    } catch (e) {
+      report.errors.push('Test des relances : ' + e.message);
+    }
     // Relances Ecotime : courses sans confirmation, un mail groupé par jour (brouillon à relire), voir Relances.gs.
     try {
       const relances = soriyaRelances_();
