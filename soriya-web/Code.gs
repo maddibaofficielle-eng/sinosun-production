@@ -226,7 +226,7 @@ function soriyaWebDocs_(typeKey) {
   }).filter(function (d) {
     // Lettre de voiture lue sans numéro : ne compte pas (retirée du journal au prochain passage WhatsApp).
     // Relevé « Statistique sous-traitant » rangé dans le journal des confirmations : affiché dans « Sous-traitants ».
-    if (d.type === 'conf') return !/^(Relevé sous-traitant|Facture |Document administratif)/.test(d.status);
+    if (d.type === 'conf') return !/^(Relevé sous-traitant|Facture |Document administratif|Lettre de voiture —)/.test(d.status);
     if (/^Dépense/.test(d.status) || soriyaWebIsTicket_(d.status)) return false; // ticket de caisse : onglet « Dépenses »
     return String(d.number).trim() || /lecture IA impossible|sans lecture IA|Mis de côté/.test(d.status);
   });

@@ -90,6 +90,13 @@ function soriyaWhatsAppRun() {
     const allowed = soriyaAllowedSenders_();
     const aiEnabled = !!PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY');
 
+    // Lettres de voiture arrivées par e-mail (classées « À vérifier » côté confirmations) : lues ici.
+    try {
+      const parMail = soriyaLdvParEmail_();
+      if (parMail) Logger.log('%s lettre(s) de voiture reçue(s) par e-mail transmise(s).', parMail);
+    } catch (e) {
+      report.errors.push('Lettres de voiture par e-mail : ' + e.message);
+    }
     // Exports de discussion WhatsApp (.zip déposés dans le dossier d'entrée) : médias extraits.
     try {
       soriyaWhatsAppUnzipExports_(inbox, report);
@@ -373,6 +380,13 @@ function soriyaIsPhoto_(f) {
 
 /** WA_33769391541_1759480000_confirmation.pdf → { sender, date, originalName } */
 function soriyaWhatsAppParseName_(name) {
+  // Lettre de voiture reçue par e-mail : MAIL_<date ISO>_<expéditeur>__<nom d'origine> (voir soriyaLdvParEmail_)
+  const mail = /^MAIL_(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)_(.*?)__(.+)$/.exec(name);
+  if (mail) {
+    const d = new Date(mail[1]);
+    return { sender: 'email', group: true, senderLabel: (mail[2].replace(/_/g, ' ') || 'e-mail') + ' (e-mail)',
+      date: isNaN(d.getTime()) ? null : d, originalName: mail[3] };
+  }
   // Média extrait d'un export de groupe : WAG_<date ISO>_<auteur>__<nom d'origine>
   const g = /^WAG_(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)_(.*?)__(.+)$/.exec(name);
   if (g) {
@@ -417,4 +431,35 @@ function soriyaNormalizePhone_(phone) {
   if (digits.indexOf('00') === 0) digits = digits.slice(2);
   if (digits.length === 10 && digits.charAt(0) === '0') digits = '33' + digits.slice(1);
   return digits;
+}
+
+/**
+ * Lettres de voiture reçues par e-mail (ex. mail « LettreDeVoiture_661791 » avec les PDF en pièces jointes) :
+ * le passage Mailing les classe « À vérifier » (ce ne sont pas des confirmations). On les dépose dans le dossier
+ * d'entrée WhatsApp, nommées MAIL_<date>_<expéditeur>__<nom>.pdf, pour qu'elles soient lues comme lettres de voiture.
+ * @return {number} documents transmis
+ */
+function soriyaLdvParEmail_() {
+  const j = soriyaJournalSpreadsheet_(soriyaRootFolder_('confirmation'), 'confirmation');
+  const n = j.main.getLastRow() - 1;
+  if (n < 1) return 0;
+  const col = function (t) { return j.headers.indexOf(t); };
+  const rows = j.main.getRange(2, 1, n, j.headers.length).getValues();
+  const inbox = soriyaWhatsAppInbox_();
+  let moved = 0;
+  rows.forEach(function (r, i) {
+    const status = String(r[col('Statut')]);
+    if (!/^À vérifier/.test(status) || !/lettre de voiture/i.test(status) || /pas une lettre de voiture/i.test(status)) return;
+    const id = (/\/d\/([\w-]+)/.exec(String(r[col('Lien Drive')])) || [])[1];
+    let file;
+    try { file = DriveApp.getFileById(id); } catch (e) { return; }
+    const received = r[col('Reçu le')] instanceof Date ? r[col('Reçu le')] : new Date();
+    const from = String(r[col('Expéditeur')]).replace(/<.*>/, '').replace(/[^\wÀ-ÿ.-]+/g, ' ').trim() || 'e-mail';
+    file.setName('MAIL_' + received.toISOString() + '_' + from.replace(/\s+/g, '_') + '__' +
+      (String(r[col('Fichier reçu')]) || file.getName()));
+    file.moveTo(inbox);
+    j.main.getRange(i + 2, col('Statut') + 1).setValue('Lettre de voiture — transmise au Journal Lettres de voiture');
+    moved++;
+  });
+  return moved;
 }
