@@ -26,7 +26,7 @@ function soriyaWebData(k) {
   if (k !== PropertiesService.getScriptProperties().getProperty('SORIYA_WEB_KEY')) {
     throw new Error('Accès refusé');
   }
-  const state = JSON.parse(PropertiesService.getScriptProperties().getProperty('SORIYA_DASHBOARD_STATE') || '{}');
+  const state = soriyaLoadJson_('SORIYA_DASHBOARD_STATE');
   const docs = soriyaWebDocs_('confirmation').concat(soriyaWebDocs_('lettre_voiture'));
   return {
     generatedAt: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'),

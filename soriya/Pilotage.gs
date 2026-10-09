@@ -97,10 +97,10 @@ function soriyaUnlock_(activity) {
 function soriyaMarkStart_(activity) {
   try {
     const props = PropertiesService.getScriptProperties();
-    const state = JSON.parse(props.getProperty('SORIYA_DASHBOARD_STATE') || '{}');
+    const state = soriyaLoadJson_('SORIYA_DASHBOARD_STATE');
     state[activity] = state[activity] || {};
     state[activity].lastStart = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
-    props.setProperty('SORIYA_DASHBOARD_STATE', JSON.stringify(state).slice(0, 8500));
+    soriyaSaveState_(state);
   } catch (e) { /* sans gravité */ }
 }
 
@@ -128,22 +128,51 @@ function soriyaFinish_(activity, report, extra) {
 function soriyaRecordForDailyReport_(activity, report) {
   if (!report.archived.length && !report.duplicates && !report.errors.length) return;
   const props = PropertiesService.getScriptProperties();
-  const day = JSON.parse(props.getProperty('SORIYA_DAILY') || '{}');
+  const day = soriyaLoadJson_('SORIYA_DAILY');
   const a = day[activity] || { archived: [], duplicates: 0, errors: [] };
+  a.count = (a.count || a.archived.length) + report.archived.length;
   a.archived = a.archived.concat(report.archived.map(function (x) {
-    return { name: x.name, status: x.status, url: x.url };
-  })).slice(-200);
+    return { name: String(x.name || '').slice(0, 70), status: String(x.status || '').slice(0, 60) };
+  }));
   a.duplicates += report.duplicates;
-  a.errors = a.errors.concat(report.errors).slice(-50);
+  a.errors = a.errors.concat(report.errors.map(function (e) { return String(e).slice(0, 160); }));
   day[activity] = a;
-  props.setProperty('SORIYA_DAILY', JSON.stringify(day).slice(0, 8500));
+  // Une propriété de script est limitée à ~9 Ko : on retire les plus anciennes lignes (le total reste juste).
+  while (JSON.stringify(day).length > 8000) {
+    const big = ['Mailing', 'WhatsApp'].map(function (k) { return day[k]; }).filter(Boolean)
+      .sort(function (x, y) { return (y.archived.length + y.errors.length) - (x.archived.length + x.errors.length); })[0];
+    if (!big || (!big.archived.length && !big.errors.length)) break;
+    if (big.archived.length >= big.errors.length) big.archived.shift(); else big.errors.shift();
+  }
+  props.setProperty('SORIYA_DAILY', JSON.stringify(day));
+}
+
+/** Enregistre l'état du tableau de bord sans jamais dépasser la taille d'une propriété (textes d'erreur raccourcis). */
+function soriyaSaveState_(state) {
+  let json = JSON.stringify(state);
+  if (json.length > 8500) {
+    Object.keys(state).forEach(function (k) { if (state[k] && state[k].lastError) state[k].lastError = String(state[k].lastError).slice(0, 300); });
+    json = JSON.stringify(state);
+  }
+  if (json.length > 8500) { Logger.log('État du tableau de bord trop volumineux (%s), non enregistré.', json.length); return; }
+  PropertiesService.getScriptProperties().setProperty('SORIYA_DASHBOARD_STATE', json);
+}
+
+/** Lit un objet JSON stocké en propriété ; illisible (ancienne version tronquée…) → objet vide, sans erreur. */
+function soriyaLoadJson_(key) {
+  const raw = PropertiesService.getScriptProperties().getProperty(key);
+  if (!raw) return {};
+  try { return JSON.parse(raw); } catch (e) {
+    Logger.log('Propriété %s illisible (%s) : remise à zéro.', key, e.message);
+    return {};
+  }
 }
 
 /** Rapport du jour, envoyé une fois par jour (au lieu d'un e-mail par passage). */
 function soriyaRapportQuotidien() {
   if (soriyaWrongAccount_()) return;
   const props = PropertiesService.getScriptProperties();
-  const day = JSON.parse(props.getProperty('SORIYA_DAILY') || '{}');
+  const day = soriyaLoadJson_('SORIYA_DAILY');
   props.deleteProperty('SORIYA_DAILY');
   if (!SORIYA_CONFIG.SEND_SUMMARY_EMAIL) return;
 
@@ -157,9 +186,11 @@ function soriyaRapportQuotidien() {
       lines.push('  Rien de nouveau.', '');
       return;
     }
-    total += a.archived.length;
+    const n = a.count || a.archived.length;
+    total += n;
     problems += a.errors.length;
-    lines.push('  ' + a.archived.length + ' document(s) archivé(s), ' + a.duplicates + ' doublon(s) ignoré(s).');
+    lines.push('  ' + n + ' document(s) archivé(s), ' + a.duplicates + ' doublon(s) ignoré(s).' +
+      (n > a.archived.length ? ' (' + a.archived.length + ' derniers listés)' : ''));
     a.archived.forEach(function (x) {
       lines.push('  • ' + x.name + (x.status === 'Archivé' ? '' : ' — ' + x.status));
     });
@@ -215,7 +246,7 @@ function soriyaShare_(file) {
 
 function soriyaUpdateDashboard_(activity, report, extra) {
   const props = PropertiesService.getScriptProperties();
-  const state = JSON.parse(props.getProperty('SORIYA_DASHBOARD_STATE') || '{}');
+  const state = soriyaLoadJson_('SORIYA_DASHBOARD_STATE');
   const typeKey = activity === 'WhatsApp' ? 'lettre_voiture' : 'confirmation';
   const root = soriyaRootFolder_(typeKey);
   const journal = soriyaJournalSpreadsheet_(root, typeKey);
@@ -260,7 +291,7 @@ function soriyaUpdateDashboard_(activity, report, extra) {
     journalUrl: journal.ss.getUrl(),
     folderUrl: root.getUrl(),
   };
-  props.setProperty('SORIYA_DASHBOARD_STATE', JSON.stringify(state).slice(0, 8500));
+  soriyaSaveState_(state);
   soriyaWriteDashboard_(state);
 }
 
