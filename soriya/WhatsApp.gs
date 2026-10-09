@@ -74,6 +74,7 @@ function reprendreMisDeCoteWhatsApp() {
 }
 
 function soriyaWhatsAppRun() {
+  if (soriyaWrongAccount_()) return;
   if (!soriyaTryLock_('WhatsApp')) return; // un passage WhatsApp est déjà en cours
   const started = Date.now();
   let pending;

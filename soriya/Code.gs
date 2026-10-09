@@ -46,6 +46,7 @@ function apercuSoriya() {
 }
 
 function soriyaRun() {
+  if (soriyaWrongAccount_()) return;
   if (!soriyaTryLock_('Mailing')) return; // un passage Mailing est déjà en cours
   const started = Date.now();
   const report = { archived: [], duplicates: 0, errors: [] };
@@ -127,7 +128,7 @@ function soriyaRun() {
     // Test demandé le 09/10/2026 : 3 brouillons adressés à gfd.logistic (une seule fois).
     try {
       const pr = PropertiesService.getScriptProperties();
-      if (pr.getProperty('SORIYA_TEST_RELANCES_V1') !== 'ok') { soriyaTestRelances_(); pr.setProperty('SORIYA_TEST_RELANCES_V1', 'ok'); }
+      if (pr.getProperty('SORIYA_TEST_RELANCES_V2') !== 'ok') { soriyaTestRelances_(); pr.setProperty('SORIYA_TEST_RELANCES_V2', 'ok'); }
     } catch (e) {
       report.errors.push('Test des relances : ' + e.message);
     }

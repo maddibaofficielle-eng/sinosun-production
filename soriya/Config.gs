@@ -51,6 +51,8 @@ const SORIYA_CONFIG = {
   // Heures des passages Gmail et WhatsApp (4 par jour). Si un passage n'a pas tout traité, une suite est
   // lancée quelques minutes après (au plus SUITE_MAX fois), au lieu d'attendre le passage suivant.
   RUN_HOURS: [0, 8, 14, 20],
+  // Compte Google qui doit faire tourner Soriya (sa boîte Gmail, son Drive). Lancé avec un autre compte, Soriya s'arrête.
+  OWNER_EMAIL: 'gfd.logistic@gmail.com',
 
   // Relances Ecotime : lettres de voiture sans confirmation (voir Relances.gs).
   // MODE 'brouillon' = mails préparés dans Gmail › Brouillons, à relire et envoyer ; 'envoi' = envoyés automatiquement.

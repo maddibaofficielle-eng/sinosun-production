@@ -35,6 +35,24 @@ function soriyaEnsureTriggers_(force) {
   props.setProperty('SORIYA_TRIGGERS_VERSION', SORIYA_TRIGGERS_VERSION);
 }
 
+// ---------- Bon compte : Soriya ne tourne qu'avec OWNER_EMAIL ----------
+
+/**
+ * Lancé avec un autre compte (ex. « Exécuter » depuis l'éditeur connecté avec un autre compte), Soriya travaillerait
+ * sur la mauvaise boîte Gmail et sans droit d'écriture sur les journaux : on supprime les déclencheurs de ce compte
+ * (ils ne concernent que lui) et on s'arrête. @return {boolean} true si ce n'est pas le bon compte
+ */
+function soriyaWrongAccount_() {
+  const owner = String(SORIYA_CONFIG.OWNER_EMAIL || '').toLowerCase();
+  let me = '';
+  try { me = String(Session.getEffectiveUser().getEmail() || '').toLowerCase(); } catch (e) { /* inconnu */ }
+  if (!owner || !me || me === owner) return false;
+  ScriptApp.getProjectTriggers().forEach(function (t) { ScriptApp.deleteTrigger(t); });
+  Logger.log('Soriya doit être lancé avec le compte %s (compte actuel : %s). Rien n\'a été fait ; les déclencheurs ' +
+    'de ce compte ont été supprimés. Connectez-vous avec %s pour lancer Soriya.', owner, me, owner);
+  return true;
+}
+
 // ---------- Suites : un passage qui n'a pas tout traité est continué quelques minutes après ----------
 
 function soriyaRunSuite() { soriyaRun(); }
@@ -123,6 +141,7 @@ function soriyaRecordForDailyReport_(activity, report) {
 
 /** Rapport du jour, envoyé une fois par jour (au lieu d'un e-mail par passage). */
 function soriyaRapportQuotidien() {
+  if (soriyaWrongAccount_()) return;
   const props = PropertiesService.getScriptProperties();
   const day = JSON.parse(props.getProperty('SORIYA_DAILY') || '{}');
   props.deleteProperty('SORIYA_DAILY');
