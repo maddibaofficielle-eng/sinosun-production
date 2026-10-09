@@ -118,6 +118,27 @@ function soriyaRun() {
       props.deleteProperty('SORIYA_RESCAN_UNTIL');
       props.deleteProperty('SORIYA_RESCAN_OFFSET');
     }
+    // Mails signalés par la vérification Gmail (PDF jamais lus) : lus directement, sans relecture de toute la boîte.
+    try {
+      const extra = JSON.parse(props.getProperty('SORIYA_EXTRA_THREADS') || '[]'), left = [];
+      extra.forEach(function (id) {
+        if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS) { left.push(id); return; }
+        const t = GmailApp.getThreadById(id);
+        if (!t) return;
+        t.getMessages().forEach(function (msg) {
+          soriyaPdfs_(msg).forEach(function (att) {
+            const key = msg.getId() + ':' + att.getName();
+            if (journal.keys.has(key) || Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS) return;
+            const o = soriyaArchive_(msg, att, key, root, journal, aiEnabled);
+            if (o.duplicate) report.duplicates++; else report.archived.push(o);
+          });
+        });
+        if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS) left.push(id);
+      });
+      if (extra.length) props.setProperty('SORIYA_EXTRA_THREADS', JSON.stringify(left));
+    } catch (e) {
+      report.errors.push('Mails signalés : ' + e.message);
+    }
     // Mails « Une mission vous a été attribuée » : rangés dans le sous-libellé de leur mois (voir Rangement.gs).
     try {
       const ranges = soriyaRangerMissions_(started);

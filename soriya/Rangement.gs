@@ -10,7 +10,8 @@
 const SORIYA_RANGEMENT = {
   // Recherche Gmail des mails à ranger (seulement ceux encore dans la boîte de réception ou sous « ecotime »).
   // L'objet est vérifié dans le code (accents : « à été attribuée ») plutôt que par la recherche Gmail.
-  QUERY: 'from:info@ecotimegroup.com {in:inbox label:ecotime}',
+  // Limité aux 10 derniers jours (l'historique est déjà rangé) : économise le quota Gmail quotidien.
+  QUERY: 'from:info@ecotimegroup.com subject:mission newer_than:10d {in:inbox label:ecotime}',
   MONTHS: ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre',
     'Novembre', 'Décembre'],
 };
@@ -55,7 +56,7 @@ function soriyaRangerMissions_(started) {
       GmailApp.moveThreadsToArchive(list);
       moved += list.length;
     });
-    if (page.length < 100) break;
+    break; // une page par passage suffit (4 passages par jour)
   }
   return moved;
 }
