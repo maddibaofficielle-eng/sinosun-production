@@ -9,7 +9,7 @@
  */
 
 // Change cette valeur pour forcer la recréation des déclencheurs au prochain passage.
-const SORIYA_TRIGGERS_VERSION = '2026-10-03 · 5 min + rapport 18 h';
+const SORIYA_TRIGGERS_VERSION = '2026-10-09 · 0 h, 8 h, 14 h, 20 h + rapport 18 h';
 const SORIYA_HANDLERS = ['soriyaRun', 'soriyaWhatsAppRun', 'soriyaRapportQuotidien'];
 
 /** Recrée les déclencheurs si la configuration a changé (ou s'ils ont disparu). */
@@ -18,16 +18,41 @@ function soriyaEnsureTriggers_(force) {
   const existing = ScriptApp.getProjectTriggers()
     .filter(function (t) { return SORIYA_HANDLERS.indexOf(t.getHandlerFunction()) >= 0; });
   const periodic = existing.filter(function (t) { return t.getHandlerFunction() !== 'soriyaRapportQuotidien'; });
+  const hours = SORIYA_CONFIG.RUN_HOURS || [0, 8, 14, 20];
   if (!force && props.getProperty('SORIYA_TRIGGERS_VERSION') === SORIYA_TRIGGERS_VERSION &&
-    periodic.length >= 2) return;
+    periodic.length >= 2 * hours.length) return;
 
   existing.forEach(function (t) { ScriptApp.deleteTrigger(t); });
+  // Un déclencheur par heure et par activité (Google le lance dans le quart d'heure autour de l'heure demandée).
   ['soriyaRun', 'soriyaWhatsAppRun'].forEach(function (handler) {
-    ScriptApp.newTrigger(handler).timeBased().everyMinutes(SORIYA_CONFIG.TRIGGER_EVERY_MINUTES).create();
+    hours.forEach(function (h) {
+      ScriptApp.newTrigger(handler).timeBased().atHour(h).nearMinute(0).everyDays(1)
+        .inTimezone(Session.getScriptTimeZone()).create();
+    });
   });
   ScriptApp.newTrigger('soriyaRapportQuotidien').timeBased()
     .atHour(SORIYA_CONFIG.DAILY_REPORT_HOUR).everyDays(1).create();
   props.setProperty('SORIYA_TRIGGERS_VERSION', SORIYA_TRIGGERS_VERSION);
+}
+
+// ---------- Suites : un passage qui n'a pas tout traité est continué quelques minutes après ----------
+
+function soriyaRunSuite() { soriyaRun(); }
+function soriyaWhatsAppRunSuite() { soriyaWhatsAppRun(); }
+
+/**
+ * À la fin d'un passage : s'il reste du travail, programme une suite dans SUITE_AFTER_MINUTES (une seule à la fois,
+ * SUITE_MAX d'affilée au plus) ; sinon remet le compteur à zéro.
+ */
+function soriyaScheduleSuite_(handler, needMore) {
+  const suite = handler + 'Suite';
+  const props = PropertiesService.getScriptProperties();
+  const key = 'SORIYA_SUITES_' + handler;
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === suite) ScriptApp.deleteTrigger(t); });
+  const count = Number(props.getProperty(key) || 0);
+  if (!needMore || count >= (SORIYA_CONFIG.SUITE_MAX || 12)) { props.deleteProperty(key); return; }
+  ScriptApp.newTrigger(suite).timeBased().after((SORIYA_CONFIG.SUITE_AFTER_MINUTES || 3) * 60000).create();
+  props.setProperty(key, String(count + 1));
 }
 
 // ---------- Verrous : un passage à la fois PAR activité (Mailing et WhatsApp ne se bloquent plus) ----------

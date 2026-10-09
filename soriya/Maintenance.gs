@@ -11,7 +11,7 @@
  *    (même contenu) partent à la corbeille, il n'en reste qu'un exemplaire.
  *    Le « Journal Lettres de voiture » est vidé.
  * 3. Les deux dossiers retrouvent la même structure (année/mois en cours + « À vérifier »).
- * 4. Les deux activités repartent seules, toutes les 5 minutes (Config.gs : TRIGGER_EVERY_MINUTES).
+ * 4. Les deux activités repartent seules à 0 h, 8 h, 14 h et 20 h (Config.gs : RUN_HOURS).
  *    Pendant 6 h, Mailing relit tout l'historique Gmail (pas seulement les 30 derniers jours).
  *
  * Les fichiers mis à la corbeille restent récupérables 30 jours dans la Corbeille de Google Drive.
@@ -70,8 +70,8 @@ function reinitialiserSoriya() {
     PropertiesService.getScriptProperties().deleteProperty('SORIYA_RESCAN_OFFSET');
     PropertiesService.getScriptProperties().deleteProperty('SORIYA_DASHBOARD_STATE');
     soriyaEnsureTriggers_(true);
-    Logger.log('Relance : passages toutes les %s min (Mailing et WhatsApp en parallèle). Tableau de bord : %s',
-      SORIYA_CONFIG.TRIGGER_EVERY_MINUTES, soriyaDashboardFile_().getUrl());
+    Logger.log('Relance : passages à %s h (Mailing et WhatsApp en parallèle). Tableau de bord : %s',
+      SORIYA_CONFIG.RUN_HOURS.join(' h, '), soriyaDashboardFile_().getUrl());
   } finally {
     lock.releaseLock();
   }

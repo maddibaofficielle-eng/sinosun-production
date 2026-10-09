@@ -878,7 +878,7 @@ function pageSubcontractors(el) {
   const folder = R.folderUrl ? '<a class="more" href="' + esc(R.folderUrl) + '">Dossier des relevés ↗</a>' : "";
   if (!cur.length) {
     el.innerHTML = '<div class="card"><h2>Statistique sous-traitant détaillée ' + folder + '</h2><p class="muted">' +
-      (R.error ? esc(R.error) : "Soriya range et lit les relevés mensuels d'Ecotime (mails « LISTING … ») : les premiers résultats apparaissent ici au fil des passages (un relevé toutes les 5 minutes environ).") + "</p></div>";
+      (R.error ? esc(R.error) : "Soriya range et lit les relevés mensuels d'Ecotime (mails « LISTING … ») : les premiers résultats apparaissent ici au fil des passages (0 h, 8 h, 14 h et 20 h).") + "</p></div>";
     return;
   }
   const st = view.sub = view.sub || { month: cur[0].month };

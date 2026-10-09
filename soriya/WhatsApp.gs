@@ -17,8 +17,7 @@
 
 function installerSoriyaWhatsApp() {
   soriyaEnsureTriggers_(true);
-  Logger.log('Soriya · WhatsApp est en service : passages toutes les ' +
-    SORIYA_CONFIG.TRIGGER_EVERY_MINUTES + ' minutes.');
+  Logger.log('Soriya · WhatsApp est en service : passages à ' + SORIYA_CONFIG.RUN_HOURS.join(' h, ') + ' h.');
   soriyaWhatsAppRun();
 }
 
@@ -171,6 +170,9 @@ function soriyaWhatsAppRun() {
     soriyaUnlock_('WhatsApp');
   }
 
+  try {
+    soriyaScheduleSuite_('soriyaWhatsAppRun', !!pending || Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS - 30000);
+  } catch (e) { Logger.log('Suite : %s', e.message); }
   Logger.log('Soriya · WhatsApp : %s archivé(s), %s doublon(s), %s erreur(s), %s en attente.',
     report.archived.length, report.duplicates, report.errors.length, pending === undefined ? '?' : pending);
   soriyaFinish_('WhatsApp', report, { pending: pending });

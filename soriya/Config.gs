@@ -48,6 +48,11 @@ const SORIYA_CONFIG = {
 
   // Fréquence des passages automatiques, en minutes (1, 5, 10, 15 ou 30).
   TRIGGER_EVERY_MINUTES: 5,
+  // Heures des passages Gmail et WhatsApp (4 par jour). Si un passage n'a pas tout traité, une suite est
+  // lancée quelques minutes après (au plus SUITE_MAX fois), au lieu d'attendre le passage suivant.
+  RUN_HOURS: [0, 8, 14, 20],
+  SUITE_AFTER_MINUTES: 3,
+  SUITE_MAX: 12,
 
   // Intelligence (Claude). Si aucune clé API n'est enregistrée, Soriya archive quand même
   // les PDF, mais sans lecture ni renommage intelligent.

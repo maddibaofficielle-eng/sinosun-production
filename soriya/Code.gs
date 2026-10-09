@@ -15,8 +15,8 @@ const JOURNAL_BASE_HEADERS = [
 
 function installerSoriya() {
   soriyaEnsureTriggers_(true);
-  Logger.log('Soriya est en service : passages toutes les ' + SORIYA_CONFIG.TRIGGER_EVERY_MINUTES +
-    ' minutes, rapport quotidien à ' + SORIYA_CONFIG.DAILY_REPORT_HOUR + ' h.');
+  Logger.log('Soriya est en service : passages à ' + SORIYA_CONFIG.RUN_HOURS.join(' h, ') + ' h, rapport quotidien à ' +
+    SORIYA_CONFIG.DAILY_REPORT_HOUR + ' h.');
   soriyaRun();
 }
 
@@ -144,6 +144,9 @@ function soriyaRun() {
     soriyaUnlock_('Mailing');
   }
 
+  try {
+    soriyaScheduleSuite_('soriyaRun', Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS - 30000);
+  } catch (e) { Logger.log('Suite : %s', e.message); }
   Logger.log('Soriya · Mailing : %s archivé(s), %s doublon(s), %s erreur(s).',
     report.archived.length, report.duplicates, report.errors.length);
   soriyaFinish_('Mailing', report);
