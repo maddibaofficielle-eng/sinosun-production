@@ -865,6 +865,10 @@ function pageMatch(el) {
       { key: "sit", label: "Relevé Ecotime", val: x => x.cancelled ? "Annulée" : x.paid > 0 ? "Payée" : "Absente",
         html: x => x.cancelled ? '<span class="pill ok">Annulée · ' + EUR2.format(x.paid) + "</span>" : x.paid > 0 ? '<span class="pill warn">Payée ' + EUR2.format(x.paid) + " · confirmation non reçue</span>" :
           M.relMonths[(x.date || "").slice(0, 7)] ? '<span class="pill bad">Absente du relevé</span>' : '<span class="pill">relevé pas encore reçu</span>' },
+      { key: "rel", label: "Relance Ecotime", val: x => ((DATA.relances || {})[digits(x.number)] || {}).status || "",
+        html: x => { const r = (DATA.relances || {})[digits(x.number)]; if (!r) return '<span class="muted small">—</span>';
+          const cls = /reçue|Payée/.test(r.status) ? "ok" : /téléphone|Non réalisée/.test(r.status) ? "bad" : "warn";
+          return '<span class="pill ' + cls + '">' + esc(r.status.split(" — ")[0]) + "</span>" + (r.r1 ? '<div class="sub">1re : ' + fmtDate(r.r1) + (r.r2 ? " · rappel : " + fmtDate(r.r2) : "") + "</div>" : ""); } },
     ], { state: (st.t2 = st.t2 || {}), sort: "date", onRow: openDoc });
   };
   document.getElementById("fMonth").onchange = e => { st.month = e.target.value; draw(); };

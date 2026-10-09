@@ -64,6 +64,7 @@ function soriyaWebData() {
     releves: soriyaWebReleves_(),
     factures: soriyaWebFacturesFrom_(soriyaWebTab_('Factures'), soriyaWebTab_('Lignes factures')),
     admin: soriyaWebAdminFrom_(soriyaWebTab_('Documents administratifs')),
+    relances: soriyaWebRelancesFrom_(soriyaWebTab_('Relances')),
     checks: soriyaWebChecksFrom_((function () {
       try { return soriyaRead_(SORIYA_WEB.PROSPECTS_ID, 'FORMATTED_VALUE', "'Courses vérifiées'!A1:D5000"); } catch (e) { return []; }
     })()),
@@ -346,4 +347,15 @@ function soriyaWebSetRealisee(number, value) {
   if (line > 0) Sheets.Spreadsheets.Values.update({ values: values }, id, "'" + tab + "'!A" + line + ':D' + line, { valueInputOption: 'USER_ENTERED' });
   else Sheets.Spreadsheets.Values.append({ values: values }, id, "'" + tab + "'!A1:D1", { valueInputOption: 'USER_ENTERED', insertDataOption: 'INSERT_ROWS' });
   return { v: value, by: who, at: at };
+}
+
+/** Suivi des relances Ecotime : { "659079": { r1: "2026-10-10", r2: "", status: "1re relance — …" } }. */
+function soriyaWebRelancesFrom_(rows) {
+  const out = {};
+  rows.slice(1).forEach(function (r) {
+    const n = String(r[0] || '').replace(/\D/g, '');
+    const d = function (x) { return x instanceof Date ? Utilities.formatDate(x, 'Europe/Paris', 'yyyy-MM-dd') : String(x || '').slice(0, 10); };
+    if (n) out[n] = { r1: d(r[4]), r2: d(r[5]), status: String(r[6] || '') };
+  });
+  return out;
 }

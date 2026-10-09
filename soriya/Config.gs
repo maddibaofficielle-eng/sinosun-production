@@ -51,6 +51,17 @@ const SORIYA_CONFIG = {
   // Heures des passages Gmail et WhatsApp (4 par jour). Si un passage n'a pas tout traité, une suite est
   // lancée quelques minutes après (au plus SUITE_MAX fois), au lieu d'attendre le passage suivant.
   RUN_HOURS: [0, 8, 14, 20],
+
+  // Relances Ecotime : lettres de voiture sans confirmation (voir Relances.gs).
+  // MODE 'brouillon' = mails préparés dans Gmail › Brouillons, à relire et envoyer ; 'envoi' = envoyés automatiquement.
+  RELANCES: {
+    ENABLED: true,
+    MODE: 'brouillon',
+    TO: 'info@ecotimegroup.com',
+    HOUR: 8,
+    SIGNATURE: ['Mohamed DIABY, Gérant', 'L\'équipe GFD LOGISTIC', '1 avenue de Verdun – 93360 Neuilly-Plaisance',
+      '06 52 13 53 08 – gfd.logistic@gmail.com'],
+  },
   SUITE_AFTER_MINUTES: 3,
   SUITE_MAX: 12,
 

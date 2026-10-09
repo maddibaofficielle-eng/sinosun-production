@@ -124,6 +124,13 @@ function soriyaRun() {
     } catch (e) {
       report.errors.push('Rangement Gmail : ' + e.message);
     }
+    // Relances Ecotime : courses sans confirmation, un mail groupé par jour (brouillon à relire), voir Relances.gs.
+    try {
+      const relances = soriyaRelances_();
+      if (relances) Logger.log('Relances Ecotime : %s course(s).', relances);
+    } catch (e) {
+      report.errors.push('Relances Ecotime : ' + e.message);
+    }
     // Lettres de voiture sans confirmation : leur numéro est cherché dans tout Gmail, une fois par jour (Verification.gs).
     try {
       const verifies = soriyaVerifierConfirmationsManquantes_(started);
