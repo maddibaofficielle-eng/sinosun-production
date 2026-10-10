@@ -52,8 +52,8 @@ const SORIYA_CONFIG = {
   // lancée quelques minutes après (au plus SUITE_MAX fois), au lieu d'attendre le passage suivant.
   RUN_HOURS: [0, 8, 14, 20],
   // Jours de travail (1 = lundi … 7 = dimanche) : les chauffeurs ne travaillent pas le week-end.
-  // Le passage du samedi 0 h est gardé pour traiter ce qui est arrivé le vendredi soir.
-  ACTIVE_DAYS: [1, 2, 3, 4, 5],
+  // Du lundi 00 h au vendredi 00 h : le passage du vendredi 0 h (fin de jeudi) est le dernier de la semaine.
+  ACTIVE_DAYS: [1, 2, 3, 4],
   // Dérogations : dates (AAAA-MM-JJ) où Soriya tourne quand même, ex. ['2026-10-17'].
   // Un lancement manuel depuis l'éditeur (Exécuter) fonctionne aussi le week-end.
   DEROGATIONS: [],

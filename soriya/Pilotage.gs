@@ -62,10 +62,11 @@ function soriyaOffDuty_(e) {
   const today = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
   if ((SORIYA_CONFIG.DEROGATIONS || []).indexOf(today) >= 0) return false;
   const day = Number(Utilities.formatDate(now, tz, 'u')); // 1 = lundi … 7 = dimanche
-  if ((SORIYA_CONFIG.ACTIVE_DAYS || [1, 2, 3, 4, 5]).indexOf(day) >= 0) return false;
-  // Samedi 0 h : dernier passage pour ce qui est arrivé le vendredi soir.
-  if (day === 6 && Number(Utilities.formatDate(now, tz, 'H')) < 1) return false;
-  Logger.log('Week-end : Soriya ne tourne pas aujourd\'hui (%s). Ajoutez la date dans DEROGATIONS pour faire exception.', today);
+  const active = SORIYA_CONFIG.ACTIVE_DAYS || [1, 2, 3, 4];
+  if (active.indexOf(day) >= 0) return false;
+  // Passage de 0 h le lendemain d'un jour travaillé (vendredi 0 h) : il traite ce qui est arrivé la veille au soir.
+  if (active.indexOf(day === 1 ? 7 : day - 1) >= 0 && Number(Utilities.formatDate(now, tz, 'H')) < 1) return false;
+  Logger.log('Hors semaine de travail : Soriya ne tourne pas (%s). Ajoutez la date dans DEROGATIONS pour faire exception.', today);
   return true;
 }
 
