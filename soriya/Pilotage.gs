@@ -53,6 +53,22 @@ function soriyaWrongAccount_() {
   return true;
 }
 
+// ---------- Jours de travail : du lundi 0 h au samedi 0 h (vendredi soir compris), sauf dérogation ----------
+
+/** @param {Object=} e événement du déclencheur (absent pour un lancement manuel, toujours autorisé) */
+function soriyaOffDuty_(e) {
+  if (!e || !e.triggerUid) return false; // lancé à la main : dérogation implicite
+  const tz = Session.getScriptTimeZone(), now = new Date();
+  const today = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  if ((SORIYA_CONFIG.DEROGATIONS || []).indexOf(today) >= 0) return false;
+  const day = Number(Utilities.formatDate(now, tz, 'u')); // 1 = lundi … 7 = dimanche
+  if ((SORIYA_CONFIG.ACTIVE_DAYS || [1, 2, 3, 4, 5]).indexOf(day) >= 0) return false;
+  // Samedi 0 h : dernier passage pour ce qui est arrivé le vendredi soir.
+  if (day === 6 && Number(Utilities.formatDate(now, tz, 'H')) < 1) return false;
+  Logger.log('Week-end : Soriya ne tourne pas aujourd\'hui (%s). Ajoutez la date dans DEROGATIONS pour faire exception.', today);
+  return true;
+}
+
 // ---------- Suites : un passage qui n'a pas tout traité est continué quelques minutes après ----------
 
 function soriyaRunSuite() { soriyaRun(); }
@@ -169,8 +185,8 @@ function soriyaLoadJson_(key) {
 }
 
 /** Rapport du jour, envoyé une fois par jour (au lieu d'un e-mail par passage). */
-function soriyaRapportQuotidien() {
-  if (soriyaWrongAccount_()) return;
+function soriyaRapportQuotidien(e) {
+  if (soriyaWrongAccount_() || soriyaOffDuty_(e)) return;
   const props = PropertiesService.getScriptProperties();
   const day = soriyaLoadJson_('SORIYA_DAILY');
   props.deleteProperty('SORIYA_DAILY');

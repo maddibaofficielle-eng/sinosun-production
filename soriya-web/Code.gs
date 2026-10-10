@@ -66,7 +66,7 @@ function soriyaWebData() {
     admin: soriyaWebAdminFrom_(soriyaWebTab_('Documents administratifs')),
     relances: soriyaWebRelancesFrom_(soriyaWebTab_('Relances')),
     checks: soriyaWebChecksFrom_((function () {
-      try { return soriyaRead_(SORIYA_WEB.PROSPECTS_ID, 'FORMATTED_VALUE', "'Courses vérifiées'!A1:D5000"); } catch (e) { return []; }
+      try { return soriyaRead_(SORIYA_WEB.PROSPECTS_ID, 'FORMATTED_VALUE', "'Courses vérifiées'!A1:E5000"); } catch (e) { return []; }
     })()),
     depenses: soriyaWebDepensesFrom_((function () {
       try { return soriyaRead_(SORIYA_WEB.LDV_JOURNAL_ID, 'UNFORMATTED_VALUE', "'Dépenses'!A1:Z5000"); } catch (e) { return []; }
@@ -315,7 +315,7 @@ function soriyaWebChecksFrom_(rows) {
   const out = {};
   rows.slice(1).forEach(function (r) {
     const n = String(r[0] || '').replace(/\D/g, '');
-    if (n) out[n] = { v: String(r[1] || ''), by: String(r[2] || ''), at: String(r[3] || '') };
+    if (n && r[1]) out[n] = { v: String(r[1] || ''), by: String(r[2] || ''), at: String(r[3] || ''), motif: String(r[4] || '') };
   });
   return out;
 }
@@ -324,29 +324,30 @@ function soriyaWebChecksFrom_(rows) {
  * Enregistre « course réalisée : OUI / NON » (case cochée dans « Rapprochement »). Écrit dans l'onglet
  * « Courses vérifiées » du Sheet « Soriya - Prospects » (vous y avez l'accès en modification).
  */
-function soriyaWebSetRealisee(number, value) {
+function soriyaWebSetRealisee(number, value, motif) {
   const id = SORIYA_WEB.PROSPECTS_ID, tab = 'Courses vérifiées';
   const n = String(number || '').replace(/\D/g, '');
   if (!n || ['OUI', 'NON', ''].indexOf(value) < 0) throw new Error('Valeur invalide');
   let rows;
   try {
-    rows = Sheets.Spreadsheets.Values.get(id, "'" + tab + "'!A1:D5000").values || [];
+    rows = Sheets.Spreadsheets.Values.get(id, "'" + tab + "'!A1:E5000").values || [];
   } catch (e) {
     Sheets.Spreadsheets.batchUpdate({ requests: [{ addSheet: { properties: { title: tab } } }] }, id);
     rows = [];
   }
   if (!rows.length) {
-    rows = [['N° course', 'Réalisée', 'Par', 'Le']];
-    Sheets.Spreadsheets.Values.update({ values: rows }, id, "'" + tab + "'!A1:D1", { valueInputOption: 'RAW' });
+    rows = [['N° course', 'Réalisée', 'Par', 'Le', 'Motif']];
+    Sheets.Spreadsheets.Values.update({ values: rows }, id, "'" + tab + "'!A1:E1", { valueInputOption: 'RAW' });
   }
   const who = Session.getActiveUser().getEmail() || '';
   const at = Utilities.formatDate(new Date(), SORIYA_WEB.TZ, 'dd/MM/yyyy HH:mm');
   let line = -1;
   for (let i = 1; i < rows.length; i++) if (String(rows[i][0]).replace(/\D/g, '') === n) { line = i + 1; break; }
-  const values = [["'" + n, value, who, at]];
-  if (line > 0) Sheets.Spreadsheets.Values.update({ values: values }, id, "'" + tab + "'!A" + line + ':D' + line, { valueInputOption: 'USER_ENTERED' });
-  else Sheets.Spreadsheets.Values.append({ values: values }, id, "'" + tab + "'!A1:D1", { valueInputOption: 'USER_ENTERED', insertDataOption: 'INSERT_ROWS' });
-  return { v: value, by: who, at: at };
+  motif = value === 'NON' ? String(motif || '').slice(0, 200) : '';
+  const values = [["'" + n, value, who, at, motif]];
+  if (line > 0) Sheets.Spreadsheets.Values.update({ values: values }, id, "'" + tab + "'!A" + line + ':E' + line, { valueInputOption: 'USER_ENTERED' });
+  else Sheets.Spreadsheets.Values.append({ values: values }, id, "'" + tab + "'!A1:E1", { valueInputOption: 'USER_ENTERED', insertDataOption: 'INSERT_ROWS' });
+  return { v: value, by: who, at: at, motif: motif };
 }
 
 /** Suivi des relances Ecotime : { "659079": { r1: "2026-10-10", r2: "", status: "1re relance — …" } }. */

@@ -71,6 +71,7 @@
   .todo-list li b { font-weight: 600; }
   label.chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; font-size: 13px; }
   label.chk input { width: 18px; height: 18px; accent-color: var(--accent); }
+  .ans { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; } .ans select { font-size: 12px; padding: 4px 6px; max-width: 170px; }
   /* Tableau de bord */
   .kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
   .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px 10px; min-width: 0; position: relative; }
@@ -359,6 +360,33 @@ function derive(d) {
     x.paid = p ? p.total : null; x.releveRead = !!relMonths[(x.date || "").slice(0, 7)]; x.cancelled = !!(p && p.cancel); });
   ldv.forEach(x => { const p = paid[digits(x.number)]; x.paid = p ? p.total : null; x.cancelled = !!(p && p.cancel); });
   cancelLines.forEach(l => { l.conf = confByNum[digits(l.number)] || null; l.ldv = ldvByNum[digits(l.number)] || null; });
+
+  // ---- Cohérence du CA (x.amountConf = montant de la confirmation, x.amount = montant retenu, x.adj = pourquoi) ----
+  const checks = d.checks || {};
+  // Montant d'origine gardé à part : derive() peut être relancé (après une réponse) sans cumuler les ajustements.
+  conf.forEach(x => { if (x.amountOrig === undefined) x.amountOrig = x.amount; x.amount = x.amountOrig; x.amountConf = x.amount; x.adj = ""; x.dupOf = null; x.replacedBy = null; });
+  // 1. Confirmation renvoyée sous le même n° : seule la plus récente compte.
+  const lastByNum = {};
+  conf.forEach(x => { const k = digits(x.number); if (!k || x.status.indexOf("Archivé") !== 0 || !x.amount) return;
+    const o = lastByNum[k]; if (!o || String(x.received) > String(o.received)) lastByNum[k] = x; });
+  conf.forEach(x => { const k = digits(x.number), last = lastByNum[k];
+    if (k && last && last !== x && x.amount) { x.adj = "Confirmation renvoyée : la version reçue le " + fmtDate(String(last.received).slice(0, 10)) + " fait foi"; x.dupOf = last; x.amount = 0; } });
+  // 2. Même trajet, même jour : celle qui n'a ni lettre de voiture ni paiement au relevé, alors qu'une autre en a, a été remplacée.
+  const place = s => { const m = /(\d{5})\s+([^,(]+)/.exec(String(s || "").toUpperCase()); return m ? m[1] + " " + m[2].trim() : String(s || "").toUpperCase().slice(0, 30); };
+  const groups = {};
+  conf.forEach(x => { if (!x.amount || !/^\d{4}-\d{2}-\d{2}/.test(x.date)) return;
+    const g = x.date.slice(0, 10) + "|" + place(x.from) + "|" + place(x.to); (groups[g] = groups[g] || []).push(x); });
+  Object.keys(groups).forEach(g => { const list = groups[g]; if (list.length < 2) return;
+    const proven = list.filter(x => x.ldv || x.paid > 0); if (!proven.length) return;
+    list.forEach(x => { if (x.ldv || x.paid > 0 || (checks[digits(x.number)] || {}).v === "OUI") return;
+      x.replacedBy = proven[0]; x.amount = 0;
+      x.adj = (x.releveRead ? "Remplacée" : "Doublon probable") + " par la confirmation n° " + proven[0].number + " (même trajet, même jour)"; }); });
+  // 3. Réponse « course réalisée ? » = NON : seul ce qu'Ecotime a payé compte.
+  conf.forEach(x => { const c = checks[digits(x.number)]; if (!c || c.v !== "NON" || !x.amount) return;
+    x.adj = "Non réalisée — " + (c.motif || "motif non précisé"); x.amount = x.paid > 0 ? x.paid : 0; });
+  // 4. Annulation constatée au relevé : CA = montant payé (½ tarif).
+  conf.forEach(x => { if (x.cancelled && x.amount && x.paid > 0 && !x.adj && Math.abs(x.paid - x.amount) >= 0.01) {
+    x.adj = "Annulée : payée " + EUR2.format(x.paid) + " au lieu de " + EUR2.format(x.amount); x.amount = x.paid; } });
   const sales = conf.filter(x => x.status.indexOf("Archivé") === 0 && x.amount > 0 && /^\d{4}-\d{2}-\d{2}/.test(x.date));
   const now = new Date(), thisMonth = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
   const prevD = new Date(now.getFullYear(), now.getMonth() - 1, 1), prevMonth = prevD.getFullYear() + "-" + String(prevD.getMonth() + 1).padStart(2, "0");
@@ -566,7 +594,7 @@ function openDoc(x) {
   const other = isC ? x.ldv : x.conf;
   document.getElementById("dBody").innerHTML =
     '<p><span class="pill ' + statusKind(x.status) + '">' + esc(statusShort(x.status)) + "</span> " + (x.url ? '<a href="' + esc(x.url) + '">Ouvrir le PDF ↗</a>' : "") + "</p>" +
-    kv([["Date", fmtDate(x.date)], [isC ? "Montant HT" : "", isC && x.amount ? EUR2.format(x.amount) : ""], ["Donneur d'ordre / expéditeur", x.party],
+    kv([["Date", fmtDate(x.date)], [isC ? "Montant HT" : "", isC && (x.amountConf || x.amount) ? EUR2.format(x.amountConf || x.amount) + (x.adj ? " (confirmé) → " + EUR2.format(x.amount) + " retenu au CA" : "") : ""], ["Ajustement du CA", isC ? x.adj : ""], ["Donneur d'ordre / expéditeur", x.party],
       ["Destinataire", x.consignee], ["Chargement", x.from], ["Livraison", x.to], ["Chauffeur", x.driver], ["Transporteur", x.carrier],
       ["Marchandise", x.goods], ["Prestations", x.services], ["Attente", x.waiting], ["Réserves", x.reserves], ["Reçu le", x.received],
       ["Fichier", x.name], ["Statut complet", x.status.indexOf(" — ") > 0 ? x.status : ""], ["Remarques", x.remarks]]) +
@@ -797,55 +825,70 @@ function pageMatch(el) {
   const st = view.match = view.match || { month: M.thisMonth };
   el.innerHTML = '<div class="toolbar"><select id="fMonth">' + monthOptions(M.conf, st.month) + '</select><span class="muted small">Une course est rapprochée quand la lettre de voiture porte le même numéro que la confirmation. Les relevés et factures Ecotime disent si une course sans lettre a été annulée.</span></div>' +
     '<div class="grid g4" id="mSum" style="margin-bottom:16px"></div>' +
-    '<div class="card"><h2>Courses sans lettre de voiture : que s\'est-il passé ?</h2><div id="t1"></div></div>' +
+    '<div class="card"><h2>Courses sans lettre de voiture à traiter</h2><p class="muted small" style="margin:-4px 0 10px">Cochez « Réalisée » si le chauffeur a bien fait la course : elle sort de la liste. Sinon, choisissez le motif (annulation, modification, incident, autre).</p><div id="t1"></div></div>' +
+    fold("Déjà traitées : réalisées, non réalisées, annulées, remplacées", '<div id="t1done"></div>', false, '<span class="muted" style="font-weight:400">(<span id="t1doneN">0</span>)</span>') +
     '<div class="grid g2" style="margin-top:16px"><div class="card"><h2>Annulations : facture ↔ relevé ↔ confirmations</h2><div id="tAnn"></div></div><div class="card"><h2>Lettres sans confirmation</h2><div id="t2"></div></div></div>';
-  // Situation d'une course sans lettre de voiture, d'après le relevé Ecotime du mois.
+  // Situation d'une course sans lettre de voiture : relevé Ecotime, doublons, réponse « course réalisée ? ».
   const checks = DATA.checks = DATA.checks || {};
-  const situation = x => { const c = (checks[digits(x.number)] || {}).v;
-    return x.cancelled ? { k: "ann", cls: "ok", txt: "Annulée · payée ½ tarif (" + EUR2.format(x.paid) + ")" }
-    : x.paid > 0 && c === "NON" ? { k: "real", cls: "bad", txt: "Non réalisée selon le chauffeur · payée " + EUR2.format(x.paid) + " : à signaler à Ecotime" }
-    : x.paid > 0 && c === "OUI" ? { k: "real", cls: "ok", txt: "Réalisée (confirmé) · payée " + EUR2.format(x.paid) + " · lettre manquante" }
-    : x.paid > 0 ? { k: "real", cls: "warn", txt: "Réalisée · payée " + EUR2.format(x.paid) + " · lettre manquante" }
-    : x.releveRead ? { k: "abs", cls: "bad", txt: "Absente du relevé · à réclamer ou annulée sans frais" }
-    : { k: "wait", cls: "", txt: "Relevé du mois pas encore reçu" }; };
-  // Case « le chauffeur a-t-il réalisé la course ? » : cochée = OUI, décochée = NON (réponse enregistrée).
-  const checkbox = x => { if (x.sit.k === "ann") return '<span class="muted small">—</span>';
-    const c = checks[digits(x.number)] || {};
-    return '<label class="chk" title="' + esc(c.by ? "Répondu par " + c.by + " le " + c.at : "Pas encore vérifié") + '"><input type="checkbox" data-chk="' + esc(digits(x.number)) + '"' + (c.v === "OUI" ? " checked" : "") + "> " +
-      (c.v === "OUI" ? "Oui" : c.v === "NON" ? "Non" : '<span class="muted">à vérifier</span>') + "</label>"; };
+  const MOTIFS = ["Annulation", "Modification", "Incident", "Autre"];
+  const situation = x => { const c = checks[digits(x.number)] || {};
+    if (c.v === "OUI") return { k: "oui", done: true, cls: "ok", txt: "Réalisée (confirmé)" + (x.paid > 0 ? " · payée " + EUR2.format(x.paid) : "") };
+    if (c.v === "NON") return { k: "non", done: true, cls: "bad", txt: "Non réalisée — " + (c.motif || "motif à préciser") + (x.paid > 0 ? " · payée " + EUR2.format(x.paid) + " : à signaler à Ecotime" : "") };
+    if (x.cancelled) return { k: "ann", done: true, cls: "ok", txt: "Annulée · payée ½ tarif (" + EUR2.format(x.paid) + ")" };
+    if (x.replacedBy) return { k: "rep", done: x.releveRead, cls: x.releveRead ? "ok" : "warn", txt: (x.releveRead ? "Remplacée" : "Doublon probable") + " par n° " + x.replacedBy.number + " (même trajet, même jour)" };
+    return x.paid > 0 ? { k: "real", cls: "warn", txt: "Payée " + EUR2.format(x.paid) + " · lettre manquante" }
+      : x.releveRead ? { k: "abs", cls: "bad", txt: "Absente du relevé · à réclamer ou annulée sans frais" }
+      : { k: "wait", cls: "", txt: "Relevé du mois pas encore reçu" }; };
+  // Réponse : case « Réalisée » (OUI) ou motif de non-réalisation (NON + motif).
+  const answer = x => { const n = digits(x.number), c = checks[n] || {};
+    return '<div class="ans"><label class="chk" title="' + esc(c.by ? "Répondu par " + c.by + " le " + c.at : "") + '"><input type="checkbox" data-chk="' + esc(n) + '"' + (c.v === "OUI" ? " checked" : "") + "> Réalisée</label>" +
+      '<select data-motif="' + esc(n) + '"><option value="">' + (c.v === "NON" ? "Non : " + esc(c.motif || "?") : "Non réalisée : motif…") + "</option>" +
+      MOTIFS.map(m => '<option value="' + m + '">' + m + "</option>").join("") + (c.v ? '<option value="__reset">↺ Remettre à vérifier</option>' : "") + "</select></div>"; };
   const draw = () => {
     const inM = x => !st.month || (x.date || "").slice(0, 7) === st.month;
-    const conf = M.conf.filter(x => inM(x) && x.amount > 0 && x.status.indexOf("Archivé") === 0), miss = conf.filter(x => !x.ldv);
-    miss.forEach(x => { x.sit = situation(x); });
-    const n = k => miss.filter(x => x.sit.k === k).length;
+    const conf = M.conf.filter(x => inM(x) && x.amountConf > 0 && x.status.indexOf("Archivé") === 0 && !x.dupOf);
+    const all = conf.filter(x => !x.ldv); all.forEach(x => { x.sit = situation(x); });
+    const miss = all.filter(x => !x.sit.done), done = all.filter(x => x.sit.done);
+    const n = k => miss.filter(x => x.sit.k === k).length, nd = k => done.filter(x => x.sit.k === k).length;
     // Annulations facturées (lignes « Annulations Courses… » des factures GFD du mois).
     const F = DATA.factures || { list: [], lines: [] }, invMonth = {}; F.list.forEach(f => { invMonth[f.key] = f.month; });
     const annLines = F.lines.filter(l => /annul/i.test(l.product) && (!st.month || invMonth[l.key] === st.month));
     const annQty = annLines.reduce((t, l) => t + l.qty, 0), annAmt = annLines.reduce((t, l) => t + l.total, 0);
     const annRel = M.cancelLines.filter(l => !st.month || l.month === st.month);
     const orph = M.orphanLdv.filter(inM);
-    document.getElementById("mSum").innerHTML = tile("Courses facturées", String(conf.length), "<em class='muted' style='font-weight:400'>" + Math.round((conf.length - miss.length) / (conf.length || 1) * 100) + " % avec lettre de voiture</em>", "hero") +
-      tile("Sans lettre", String(miss.length), "<em class='muted' style='font-weight:400'>" + n("ann") + " annulée(s) · " + n("real") + " réalisée(s) · " + n("abs") + " absente(s)</em>") +
-      tile("Annulations facturées", String(annQty), "<em class='muted' style='font-weight:400'>" + EUR2.format(annAmt) + " HT sur la facture</em>") +
-      tile("À régulariser", String(n("real") + n("abs")), n("real") + n("abs") ? "<em class='down'>lettres à demander / courses à réclamer</em>" : "<em class='up'>rien à régulariser</em>");
-    dataTable(document.getElementById("t1"), miss, [
+    document.getElementById("mSum").innerHTML = tile("Courses confirmées", String(conf.length), "<em class='muted' style='font-weight:400'>" + Math.round((conf.length - all.length) / (conf.length || 1) * 100) + " % avec lettre de voiture</em>", "hero") +
+      tile("Sans lettre à traiter", String(miss.length), "<em class='muted' style='font-weight:400'>" + n("real") + " payée(s) · " + n("abs") + " absente(s) du relevé · " + n("wait") + " en attente" + (n("rep") ? " · " + n("rep") + " doublon(s) probable(s)" : "") + "</em>") +
+      tile("Déjà traitées", String(done.length), "<em class='muted' style='font-weight:400'>" + nd("oui") + " réalisée(s) · " + nd("non") + " non réalisée(s) · " + (nd("ann") + nd("rep")) + " annulée(s)/remplacée(s)</em>") +
+      tile("Annulations facturées", String(annQty), "<em class='muted' style='font-weight:400'>" + EUR2.format(annAmt) + " HT sur la facture</em>");
+    const cols = [
       { key: "date", label: "Date", html: x => fmtDate(x.date) }, { key: "number", label: "N°", nw: true },
       { key: "route", label: "Trajet", val: x => city(x.from) + " → " + city(x.to) }, { key: "driver", label: "Chauffeur", sm: true, val: x => x.driver || "—" },
-      { key: "amount", label: "Confirmé HT", num: true, html: x => EUR2.format(x.amount) },
-      { key: "sit", label: "Situation (relevé Ecotime)", val: x => x.sit.txt, html: x => '<span class="pill ' + x.sit.cls + '">' + esc(x.sit.txt) + "</span>" },
-      { key: "chk", label: "Course réalisée ?", val: x => (checks[digits(x.number)] || {}).v || "", html: checkbox },
-    ], { state: (st.t1 = st.t1 || {}), sort: "date", onRow: openDoc,
-      foot: (rs, c) => c.key === "date" ? "Total" : c.key === "number" ? rs.length + " course(s)" : c.key === "amount" ? EUR2.format(rs.reduce((t, x) => t + x.amount, 0)) : "" });
-    const t1 = document.getElementById("t1");
-    t1.querySelectorAll("label.chk").forEach(l => l.addEventListener("click", e => e.stopPropagation()));
-    t1.querySelectorAll("input[data-chk]").forEach(inp => inp.addEventListener("change", () => {
-      const n = inp.dataset.chk, v = inp.checked ? "OUI" : "NON";
-      inp.disabled = true; inp.parentNode.lastChild.textContent = " enregistrement…";
-      google.script.run.withSuccessHandler(r => { checks[n] = r; draw(); })
-        .withFailureHandler(err => { inp.disabled = false; inp.checked = !inp.checked;
+      { key: "amountConf", label: "Confirmé HT", num: true, html: x => EUR2.format(x.amountConf) },
+      { key: "sit", label: "Situation", val: x => x.sit.txt, html: x => '<span class="pill ' + x.sit.cls + '">' + esc(x.sit.txt) + "</span>" },
+      { key: "chk", label: "Course réalisée ?", val: x => (checks[digits(x.number)] || {}).v || "", html: answer },
+    ];
+    dataTable(document.getElementById("t1"), miss, cols, { state: (st.t1 = st.t1 || {}), sort: "date", onRow: openDoc,
+      foot: (rs, c) => c.key === "date" ? "Total" : c.key === "number" ? rs.length + " course(s)" : c.key === "amountConf" ? EUR2.format(rs.reduce((t, x) => t + x.amountConf, 0)) : "" });
+    dataTable(document.getElementById("t1done"), done, cols.concat([{ key: "amount", label: "Retenu au CA", num: true, html: x => EUR2.format(x.amount) }]),
+      { state: (st.t1d = st.t1d || {}), sort: "date", onRow: openDoc,
+        foot: (rs, c) => c.key === "date" ? "Total" : c.key === "number" ? rs.length + " course(s)" : c.key === "amount" ? EUR2.format(rs.reduce((t, x) => t + x.amount, 0)) : "" });
+    document.getElementById("t1doneN").textContent = done.length;
+    // Enregistrement des réponses (OUI : la course sort de la liste ; NON : motif obligatoire).
+    const save = (n, v, motif, ctl) => {
+      ctl.disabled = true;
+      google.script.run.withSuccessHandler(r => { if (v) checks[n] = r; else delete checks[n]; M = derive(DATA); draw(); })
+        .withFailureHandler(err => { ctl.disabled = false;
           alert("Réponse non enregistrée : " + err.message + "\n\nSi Google demande une autorisation, rechargez la page et acceptez « modifier vos feuilles de calcul »."); })
-        .soriyaWebSetRealisee(n, v, KEY);
-    }));
+        .soriyaWebSetRealisee(n, v, motif, KEY);
+    };
+    ["t1", "t1done"].forEach(id => { const host = document.getElementById(id);
+      host.querySelectorAll(".ans").forEach(a => a.addEventListener("click", e => e.stopPropagation()));
+      host.querySelectorAll("input[data-chk]").forEach(inp => inp.addEventListener("change", () => save(inp.dataset.chk, inp.checked ? "OUI" : "", "", inp)));
+      host.querySelectorAll("select[data-motif]").forEach(sel => sel.addEventListener("change", () => {
+        let m = sel.value; if (!m) return;
+        if (m === "__reset") return save(sel.dataset.motif, "", "", sel);
+        if (m === "Autre") { const t = prompt("Motif (autre) :", ""); if (t === null) { sel.value = ""; return; } m = "Autre : " + t.trim(); }
+        save(sel.dataset.motif, "NON", m, sel); })); });
     // Annulations : facture vs relevé (ordres payés au tarif d'annulation) vs confirmations et lettres reçues.
     const gap = annQty - annRel.length;
     document.getElementById("tAnn").innerHTML = '<div class="minis"><div><span>Sur la facture</span><b>' + annQty + "</b></div><div><span>Au relevé (½ tarif)</span><b>" + annRel.length + "</b></div><div><span>Écart</span><b>" + (gap > 0 ? "+" : "") + gap + "</b></div></div>" +

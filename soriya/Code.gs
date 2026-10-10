@@ -45,8 +45,8 @@ function apercuSoriya() {
   Logger.log('%s PDF en attente. Recherche Gmail utilisée : %s', count, soriyaQuery_());
 }
 
-function soriyaRun() {
-  if (soriyaWrongAccount_()) return;
+function soriyaRun(e) {
+  if (soriyaWrongAccount_() || soriyaOffDuty_(e)) return;
   if (!soriyaTryLock_('Mailing')) return; // un passage Mailing est déjà en cours
   const started = Date.now();
   const report = { archived: [], duplicates: 0, errors: [] };

@@ -51,6 +51,12 @@ const SORIYA_CONFIG = {
   // Heures des passages Gmail et WhatsApp (4 par jour). Si un passage n'a pas tout traité, une suite est
   // lancée quelques minutes après (au plus SUITE_MAX fois), au lieu d'attendre le passage suivant.
   RUN_HOURS: [0, 8, 14, 20],
+  // Jours de travail (1 = lundi … 7 = dimanche) : les chauffeurs ne travaillent pas le week-end.
+  // Le passage du samedi 0 h est gardé pour traiter ce qui est arrivé le vendredi soir.
+  ACTIVE_DAYS: [1, 2, 3, 4, 5],
+  // Dérogations : dates (AAAA-MM-JJ) où Soriya tourne quand même, ex. ['2026-10-17'].
+  // Un lancement manuel depuis l'éditeur (Exécuter) fonctionne aussi le week-end.
+  DEROGATIONS: [],
   // Compte Google qui doit faire tourner Soriya (sa boîte Gmail, son Drive). Lancé avec un autre compte, Soriya s'arrête.
   OWNER_EMAIL: 'gfd.logistic@gmail.com',
 

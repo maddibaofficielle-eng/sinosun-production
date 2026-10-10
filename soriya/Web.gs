@@ -290,26 +290,28 @@ function soriyaWebChecksFrom_(rows) {
   const out = {};
   rows.slice(1).forEach(function (r) {
     const n = String(r[0] || '').replace(/\D/g, '');
-    if (n) out[n] = { v: String(r[1] || ''), by: String(r[2] || ''), at: String(r[3] || '') };
+    if (n && r[1]) out[n] = { v: String(r[1] || ''), by: String(r[2] || ''), at: String(r[3] || ''), motif: String(r[4] || '') };
   });
   return out;
 }
 
 /** « Course réalisée : OUI / NON » depuis l'interface (même onglet que l'interface à compte Google). */
-function soriyaWebSetRealisee(number, value, k) {
+function soriyaWebSetRealisee(number, value, motif, k) {
   if (k !== PropertiesService.getScriptProperties().getProperty('SORIYA_WEB_KEY')) throw new Error('Accès refusé');
   const n = String(number || '').replace(/\D/g, '');
   if (!n || ['OUI', 'NON', ''].indexOf(value) < 0) throw new Error('Valeur invalide');
+  motif = value === 'NON' ? String(motif || '').slice(0, 200) : '';
   const ss = soriyaProspectsSheet_().getParent();
   const sh = ss.getSheetByName('Courses vérifiées') || ss.insertSheet('Courses vérifiées');
-  if (!sh.getLastRow()) sh.appendRow(['N° course', 'Réalisée', 'Par', 'Le']);
+  if (!sh.getLastRow()) sh.appendRow(['N° course', 'Réalisée', 'Par', 'Le', 'Motif']);
   const at = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
+  const row = ["'" + n, value, 'interface (lien)', at, motif];
   const vals = sh.getRange(1, 1, sh.getLastRow(), 1).getValues();
   for (let i = 1; i < vals.length; i++) {
-    if (String(vals[i][0]).replace(/\D/g, '') === n) { sh.getRange(i + 1, 1, 1, 4).setValues([["'" + n, value, 'interface (lien)', at]]); return { v: value, at: at }; }
+    if (String(vals[i][0]).replace(/\D/g, '') === n) { sh.getRange(i + 1, 1, 1, 5).setValues([row]); return { v: value, at: at, motif: motif }; }
   }
-  sh.appendRow(["'" + n, value, 'interface (lien)', at]);
-  return { v: value, at: at };
+  sh.appendRow(row);
+  return { v: value, at: at, motif: motif };
 }
 
 /** Suivi des relances Ecotime : { "659079": { r1: "2026-10-10", r2: "", status: "1re relance — …" } }. */
