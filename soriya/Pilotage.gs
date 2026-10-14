@@ -9,15 +9,15 @@
  */
 
 // Change cette valeur pour forcer la recréation des déclencheurs au prochain passage.
-const SORIYA_TRIGGERS_VERSION = '2026-10-09 · 0 h, 8 h, 14 h, 20 h + rapport 18 h';
-const SORIYA_HANDLERS = ['soriyaRun', 'soriyaWhatsAppRun', 'soriyaRapportQuotidien'];
+const SORIYA_TRIGGERS_VERSION = '2026-10-14 · 0 h, 8 h, 14 h, 20 h + rapport 18 h + rappel LDV 19 h 30';
+const SORIYA_HANDLERS = ['soriyaRun', 'soriyaWhatsAppRun', 'soriyaRapportQuotidien', 'soriyaRappelLdv'];
 
 /** Recrée les déclencheurs si la configuration a changé (ou s'ils ont disparu). */
 function soriyaEnsureTriggers_(force) {
   const props = PropertiesService.getScriptProperties();
   const existing = ScriptApp.getProjectTriggers()
     .filter(function (t) { return SORIYA_HANDLERS.indexOf(t.getHandlerFunction()) >= 0; });
-  const periodic = existing.filter(function (t) { return t.getHandlerFunction() !== 'soriyaRapportQuotidien'; });
+  const periodic = existing.filter(function (t) { return t.getHandlerFunction() === 'soriyaRun' || t.getHandlerFunction() === 'soriyaWhatsAppRun'; });
   const hours = SORIYA_CONFIG.RUN_HOURS || [0, 8, 14, 20];
   if (!force && props.getProperty('SORIYA_TRIGGERS_VERSION') === SORIYA_TRIGGERS_VERSION &&
     periodic.length >= 2 * hours.length) return;
@@ -32,6 +32,11 @@ function soriyaEnsureTriggers_(force) {
   });
   ScriptApp.newTrigger('soriyaRapportQuotidien').timeBased()
     .atHour(SORIYA_CONFIG.DAILY_REPORT_HOUR).everyDays(1).create();
+  const rl = SORIYA_CONFIG.RAPPELS_LDV || {};
+  if (rl.ENABLED !== false) {
+    ScriptApp.newTrigger('soriyaRappelLdv').timeBased().atHour(rl.HOUR || 19).nearMinute(rl.MINUTE || 30).everyDays(1)
+      .inTimezone(Session.getScriptTimeZone()).create();
+  }
   props.setProperty('SORIYA_TRIGGERS_VERSION', SORIYA_TRIGGERS_VERSION);
 }
 
