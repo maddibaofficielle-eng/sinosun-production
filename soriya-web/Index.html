@@ -161,6 +161,25 @@
   .badge.moyen { background: var(--warn-bg); color: var(--warn); }
   .badge.faible { background: var(--grid); color: var(--ink-2); }
 
+  /* Planning / dispatch : une colonne par chauffeur */
+  .board { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; align-items: start; }
+  .lane { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; min-width: 0; }
+  .lane.todo { border-color: var(--warn); }
+  .lane h3 { display: flex; align-items: center; gap: 8px; margin: 2px 2px 10px; font-size: 15px; }
+  .lane h3 .meta { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--ink-2); }
+  .lane .empty-lane { color: var(--ink-3); font-size: 13px; padding: 8px 2px; }
+  .job { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); margin-bottom: 8px; cursor: pointer; }
+  .job:hover { border-color: var(--ink-3); }
+  .job .r1 { display: flex; gap: 8px; align-items: baseline; }
+  .job .t { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .job .n { margin-left: auto; font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+  .job .rt { margin: 3px 0 6px; font-size: 14px; }
+  .job .ft { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .job select { min-height: 32px; padding: 3px 8px; font-size: 13px; margin-left: auto; max-width: 100%; }
+  .job.off { opacity: .6; }
+  .daynav { display: inline-flex; gap: 6px; align-items: center; }
+  .daynav b { font-size: 16px; margin: 0 6px; }
+
   /* Barre d'outils + tableau */
   .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
   .toolbar input[type=search] { flex: 1 1 240px; }
@@ -347,6 +366,9 @@ function derive(d) {
   conf.forEach(x => { const k = digits(x.number); if (k && !confByNum[k]) confByNum[k] = x; });
   conf.forEach(x => { x.ldv = ldvByNum[digits(x.number)] || null; x.client = normParty(x.party); if (!x.driver && x.ldv) x.driver = x.ldv.driver; });
   ldv.forEach(x => { x.conf = confByNum[digits(x.number)] || null; });
+  // Planning : chauffeur affecté à la course (tant que la lettre de voiture, qui fait foi, n'est pas reçue).
+  const plan = d.planning || {};
+  conf.forEach(x => { x.plan = plan[digits(x.number)] || null; if (!x.ldv && !x.driver && x.plan) x.driver = x.plan.driver; });
   // Relevés Ecotime (versions en vigueur) : montant payé par n° d'ordre. Une course annulée est payée à demi-tarif
   // (GV zone 1 : 30 € au lieu de 60 €, Fourgon zone 1 : 20,50 € au lieu de 41 €…).
   // Tarifs d'annulation constatés sur les relevés et les factures (« Annulations Courses GV Z1 » à 30 €…).
@@ -414,6 +436,7 @@ function derive(d) {
 const PAGES = [
   // L'essentiel en haut ; les documents ensuite ; le reste replié sous « Plus ».
   { id: "", ico: "◧", label: "Tableau de bord", render: pageHome },
+  { id: "planning", ico: "▦", label: "Planning", render: pagePlanning },
   { id: "courses", ico: "€", label: "Courses & CA", render: pageCourses },
   { id: "depenses", ico: "⛽", label: "Dépenses", render: pageExpenses },
   { id: "factures", ico: "▣", label: "Factures", render: pageInvoices },
@@ -663,6 +686,9 @@ function pageHome(el) {
   if (rel && rel.missing) item("down", rel.missing + " course(s) absente(s) du relevé " + monthLabel(rel.month), "Courses confirmées mais non payées par Ecotime : à réclamer.", "#/sous-traitants");
   const late = invoices.filter(x => x.due && x.due < today && x.due >= addDays(today, -45));
   if (late.length) item("info", late.length + " facture(s) arrivée(s) à échéance", "Vérifiez le paiement : " + late.map(x => x.number).join(", ") + ".", "#/factures");
+  const unassigned = n => M.conf.filter(x => (x.date || "").slice(0, 10) === n && x.status.indexOf("Archivé") === 0 && !x.dupOf && x.amountConf > 0 && !x.ldv && !x.driver).length;
+  const uToday = unassigned(isoDay(new Date())), uTomorrow = unassigned(addDays(isoDay(new Date()), 1));
+  if (uToday + uTomorrow) item("down", (uToday + uTomorrow) + " course(s) à affecter à un chauffeur", (uToday ? uToday + " aujourd'hui" : "") + (uToday && uTomorrow ? ", " : "") + (uTomorrow ? uTomorrow + " demain" : "") + ".", "#/planning");
   if (M.noLdv.length) item("info", M.noLdv.length + " course(s) du mois sans lettre de voiture", "Demandez la lettre aux chauffeurs.", "#/rapprochement");
   if (M.orphanLdv.length) item("info", M.orphanLdv.length + " lettre(s) sans confirmation", "Courses à vérifier avec Ecotime.", "#/rapprochement");
   if (M.toCheck.length) item("info", M.toCheck.length + " document(s) à vérifier", "Lecture incertaine par Soriya.", "#/activite");
@@ -747,6 +773,82 @@ function releveGaps() {
   const nums = {}; R.lines.filter(l => l.key === r.key).forEach(l => { nums[digits(l.number)] = 1; });
   const conf = {}; M.sales.filter(x => x.date.slice(0, 7) === r.month).forEach(x => { const k = digits(x.number); if (k) conf[k] = 1; });
   return { month: r.month, missing: Object.keys(conf).filter(k => !nums[k]).length };
+}
+
+/* ---------- Planning / dispatch : affecter les courses confirmées aux chauffeurs ---------- */
+const isoDay = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+// Heures lues dans les remarques de la confirmation (« enlèvement prévu à 09:00 », « livraison prévue avant 12:00 »).
+const hhmm = (s, re) => { const m = re.exec(String(s || "")); return m ? m[1].padStart(2, "0") + ":" + m[2] : ""; };
+const pickupTime = x => hhmm(x.remarks, /enl[eè]vement[^\d]{0,30}(\d{1,2})\s*[:hH]\s*(\d{2})/i);
+const deliveryTime = x => hhmm(x.remarks, /livraison[^\d]{0,30}(\d{1,2})\s*[:hH]\s*(\d{2})/i);
+
+function pagePlanning(el) {
+  const today = isoDay(new Date());
+  const st = view.plan = view.plan || { day: today };
+  const plan = DATA.planning = DATA.planning || {}, checks = DATA.checks || {};
+  const dayLabel = d => { const x = new Date(d + "T12:00:00"), t = DAYS[x.getDay()]; return t[0].toUpperCase() + t.slice(1) + " " + x.getDate() + " " + MONTHS[x.getMonth()]; };
+  el.innerHTML = '<div class="toolbar"><span class="daynav"><button type="button" data-d="-1" aria-label="Jour précédent">‹</button>' +
+    '<button type="button" data-d="0">Aujourd\'hui</button><button type="button" data-d="1">Demain</button>' +
+    '<button type="button" data-d="+1" aria-label="Jour suivant">›</button><b id="pDay"></b></span>' +
+    '<input type="date" id="pDate" aria-label="Choisir un jour" style="margin-left:auto">' + "</div>" +
+    '<p class="muted small" style="margin:-4px 0 12px">Affectez chaque course confirmée par Ecotime à un chauffeur. Quand la lettre de voiture arrive, elle fait foi : la course passe « Lettre reçue ». ' +
+    "Le rappel WhatsApp de 19 h 30 n'est envoyé qu'au chauffeur affecté.</p>" +
+    '<div class="grid g4" id="pSum" style="margin-bottom:16px"></div><div class="board" id="pBoard"></div>';
+  const setDay = d => { st.day = d; draw(); };
+  el.querySelectorAll("[data-d]").forEach(b => b.onclick = () => {
+    const v = b.dataset.d; setDay(v === "0" ? today : v === "1" ? addDays(today, 1) : addDays(st.day, +v)); });
+  document.getElementById("pDate").onchange = e => { if (e.target.value) setDay(e.target.value); };
+
+  const situation = (x, drv) => { const c = checks[digits(x.number)] || {};
+    if (x.ldv) return { k: "ldv", cls: "ok", txt: "✔ Lettre reçue" };
+    if (c.v === "NON") return { k: "off", cls: "bad", txt: "Non réalisée — " + (c.motif || "?") };
+    if (x.cancelled) return { k: "off", cls: "bad", txt: "Annulée" };
+    if (x.replacedBy) return { k: "off", cls: "warn", txt: "Doublon probable" };
+    if (c.v === "OUI") return { k: "ok", cls: "ok", txt: "Réalisée" };
+    return drv ? { k: "set", cls: "info", txt: "Affectée" } : { k: "todo", cls: "warn", txt: "À affecter" }; };
+
+  function draw() {
+    const day = st.day;
+    document.getElementById("pDay").textContent = dayLabel(day) + (day === today ? " · aujourd'hui" : day === addDays(today, 1) ? " · demain" : "");
+    document.getElementById("pDate").value = day;
+    const list = M.conf.filter(x => x.status.indexOf("Archivé") === 0 && !x.dupOf && x.amountConf > 0 && (x.date || "").slice(0, 10) === day)
+      .map(x => { const p = plan[digits(x.number)] || null, drv = x.ldv ? (x.ldv.driver || (p || {}).driver || "") : (p || {}).driver || "";
+        return { x: x, p: p, drv: drv, sit: situation(x, drv), t: pickupTime(x), tl: deliveryTime(x) }; })
+      .sort((a, b) => (a.t || "99").localeCompare(b.t || "99") || digits(a.x.number).localeCompare(digits(b.x.number)));
+    const active = list.filter(j => j.sit.k !== "off"), ca = active.reduce((t, j) => t + j.x.amount, 0);
+    const todo = list.filter(j => !j.drv && j.sit.k !== "off"), got = list.filter(j => j.x.ldv);
+    const drivers = (DATA.drivers || []).slice();
+    list.forEach(j => { if (j.drv && drivers.indexOf(j.drv) < 0) drivers.push(j.drv); });
+    document.getElementById("pSum").innerHTML =
+      tile("Courses du jour", String(active.length), "<em class='muted' style='font-weight:400'>" + EUR.format(ca) + " HT confirmés</em>", "hero") +
+      tile("À affecter", String(todo.length), "<em class='" + (todo.length ? "down" : "up") + "'>" + (todo.length ? "chauffeur à choisir" : "tout est affecté ✔") + "</em>") +
+      tile("Lettres reçues", got.length + " / " + active.length, "<em class='muted' style='font-weight:400'>" + (active.length ? Math.round(got.length / active.length * 100) : 0) + " % des courses</em>") +
+      tile("Chauffeurs", String(drivers.filter(d => list.some(j => j.drv === d)).length), "<em class='muted' style='font-weight:400'>en course ce jour</em>");
+    const card = j => { const x = j.x, n = digits(x.number);
+      const sel = x.ldv ? '<span class="muted small" style="margin-left:auto">' + esc(x.ldv.driver || "") + (j.p && j.p.driver && x.ldv.driver && j.p.driver !== x.ldv.driver ? " · prévu " + esc(j.p.driver) : "") + "</span>"
+        : '<select data-n="' + esc(n) + '" aria-label="Chauffeur de la course ' + esc(x.number) + '"><option value="">— Chauffeur —</option>' +
+          (DATA.drivers || []).map(d => '<option value="' + esc(d) + '"' + (j.drv === d ? " selected" : "") + ">" + esc(d) + "</option>").join("") + "</select>";
+      return '<div class="job' + (j.sit.k === "off" ? " off" : "") + '" data-i="' + list.indexOf(j) + '">' +
+        '<div class="r1"><span class="t">' + (j.t || "—:—") + '</span><span class="small muted">' + (j.tl ? "→ avant " + j.tl : "") + '</span><span class="n">n° ' + esc(x.number) + "</span></div>" +
+        '<div class="rt">' + esc(cap(city(x.from))) + " → " + esc(cap(city(x.to))) + "</div>" +
+        '<div class="ft"><span class="pill ' + j.sit.cls + '">' + esc(j.sit.txt) + '</span><span class="small muted">' + EUR.format(x.amountConf) + "</span>" + sel + "</div></div>"; };
+    const lane = (title, jobs, cls) => '<div class="lane ' + (cls || "") + '"><h3>' + esc(title) + '<span class="meta">' + jobs.length + " course" + (jobs.length > 1 ? "s" : "") +
+      (jobs.length ? " · " + EUR.format(jobs.filter(j => j.sit.k !== "off").reduce((t, j) => t + j.x.amount, 0)) : "") + "</span></h3>" +
+      (jobs.map(card).join("") || '<div class="empty-lane">' + (cls === "todo" ? "Rien à affecter." : "Aucune course.") + "</div>") + "</div>";
+    document.getElementById("pBoard").innerHTML = !list.length
+      ? '<div class="card"><p class="muted" style="margin:0">Aucune course confirmée par Ecotime pour ce jour' + (day > today ? " pour l'instant : les confirmations arrivent en général la veille." : ".") + "</p></div>"
+      : lane("À affecter", todo, "todo") + drivers.map(d => lane(d, list.filter(j => j.drv === d))).join("") +
+        (list.some(j => !j.drv && j.sit.k === "off") ? lane("Annulées / non réalisées", list.filter(j => !j.drv && j.sit.k === "off")) : "");
+    const board = document.getElementById("pBoard");
+    board.querySelectorAll(".job").forEach(c => c.addEventListener("click", e => { if (e.target.closest("select")) return; openDoc(list[+c.dataset.i].x); }));
+    board.querySelectorAll("select[data-n]").forEach(sel => sel.addEventListener("change", () => {
+      const n = sel.dataset.n, v = sel.value; sel.disabled = true;
+      google.script.run.withSuccessHandler(r => { if (v) plan[n] = r; else delete plan[n]; M = derive(DATA); draw(); })
+        .withFailureHandler(err => { sel.disabled = false;
+          alert("Affectation non enregistrée : " + err.message + "\n\nSi Google demande une autorisation, rechargez la page et acceptez « modifier vos feuilles de calcul »."); })
+        .soriyaWebSetChauffeur(n, v, KEY); }));
+  }
+  draw();
 }
 
 function pageCourses(el) {

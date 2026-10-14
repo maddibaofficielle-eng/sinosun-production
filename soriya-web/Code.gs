@@ -15,6 +15,8 @@ const SORIYA_WEB = {
   PROSPECTS_ID: '1ulPVaowTXYg7uhmxECZXyooeJt1KcYwt6Z-OGzPQVuo',
   MAX_SHARE_TOP_CLIENT: 0.8,
   TZ: 'Europe/Paris',
+  // Chauffeurs proposés dans le planning (affectation des courses).
+  DRIVERS: ['CHEICK', 'VINCENT', 'MOHAMED'],
 };
 
 function doGet() {
@@ -68,6 +70,10 @@ function soriyaWebData() {
     checks: soriyaWebChecksFrom_((function () {
       try { return soriyaRead_(SORIYA_WEB.PROSPECTS_ID, 'FORMATTED_VALUE', "'Courses vérifiées'!A1:E5000"); } catch (e) { return []; }
     })()),
+    planning: soriyaWebPlanningFrom_((function () {
+      try { return soriyaRead_(SORIYA_WEB.PROSPECTS_ID, 'FORMATTED_VALUE', "'Planning'!A1:D5000"); } catch (e) { return []; }
+    })()),
+    drivers: SORIYA_WEB.DRIVERS,
     depenses: soriyaWebDepensesFrom_((function () {
       try { return soriyaRead_(SORIYA_WEB.LDV_JOURNAL_ID, 'UNFORMATTED_VALUE', "'Dépenses'!A1:Z5000"); } catch (e) { return []; }
     })()),
@@ -348,6 +354,43 @@ function soriyaWebSetRealisee(number, value, motif) {
   if (line > 0) Sheets.Spreadsheets.Values.update({ values: values }, id, "'" + tab + "'!A" + line + ':E' + line, { valueInputOption: 'USER_ENTERED' });
   else Sheets.Spreadsheets.Values.append({ values: values }, id, "'" + tab + "'!A1:E1", { valueInputOption: 'USER_ENTERED', insertDataOption: 'INSERT_ROWS' });
   return { v: value, by: who, at: at, motif: motif };
+}
+
+/** Planning : chauffeur affecté à chaque course { "663290": { driver: "VINCENT", by: "…", at: "…" } }. */
+function soriyaWebPlanningFrom_(rows) {
+  const out = {};
+  rows.slice(1).forEach(function (r) {
+    const n = String(r[0] || '').replace(/\D/g, '');
+    if (n && r[1]) out[n] = { driver: String(r[1]).toUpperCase(), by: String(r[2] || ''), at: String(r[3] || '') };
+  });
+  return out;
+}
+
+/** Affecte une course à un chauffeur (« » = retirer l'affectation). Onglet « Planning » du Sheet « Soriya - Prospects ». */
+function soriyaWebSetChauffeur(number, driver) {
+  const id = SORIYA_WEB.PROSPECTS_ID, tab = 'Planning';
+  const n = String(number || '').replace(/\D/g, '');
+  driver = String(driver || '').toUpperCase();
+  if (!n || (driver && SORIYA_WEB.DRIVERS.indexOf(driver) < 0)) throw new Error('Valeur invalide');
+  let rows;
+  try {
+    rows = Sheets.Spreadsheets.Values.get(id, "'" + tab + "'!A1:D5000").values || [];
+  } catch (e) {
+    Sheets.Spreadsheets.batchUpdate({ requests: [{ addSheet: { properties: { title: tab } } }] }, id);
+    rows = [];
+  }
+  if (!rows.length) {
+    rows = [['N° course', 'Chauffeur', 'Par', 'Le']];
+    Sheets.Spreadsheets.Values.update({ values: rows }, id, "'" + tab + "'!A1:D1", { valueInputOption: 'RAW' });
+  }
+  const who = Session.getActiveUser().getEmail() || '';
+  const at = Utilities.formatDate(new Date(), SORIYA_WEB.TZ, 'dd/MM/yyyy HH:mm');
+  let line = -1;
+  for (let i = 1; i < rows.length; i++) if (String(rows[i][0]).replace(/\D/g, '') === n) { line = i + 1; break; }
+  const values = [["'" + n, driver, who, at]];
+  if (line > 0) Sheets.Spreadsheets.Values.update({ values: values }, id, "'" + tab + "'!A" + line + ':D' + line, { valueInputOption: 'USER_ENTERED' });
+  else Sheets.Spreadsheets.Values.append({ values: values }, id, "'" + tab + "'!A1:D1", { valueInputOption: 'USER_ENTERED', insertDataOption: 'INSERT_ROWS' });
+  return { driver: driver, by: who, at: at };
 }
 
 /** Suivi des relances Ecotime : { "659079": { r1: "2026-10-10", r2: "", status: "1re relance — …" } }. */

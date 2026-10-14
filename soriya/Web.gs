@@ -73,6 +73,13 @@ function soriyaWebData(k) {
         return soriyaWebChecksFrom_(sh ? sh.getDataRange().getDisplayValues() : []);
       } catch (e) { return {}; }
     })(),
+    planning: (function () {
+      try {
+        const sh = soriyaProspectsSheet_().getParent().getSheetByName('Planning');
+        return soriyaWebPlanningFrom_(sh ? sh.getDataRange().getDisplayValues() : []);
+      } catch (e) { return {}; }
+    })(),
+    drivers: soriyaPlanningDrivers_(),
     depenses: (function () {
       try {
         const sh = soriyaDepensesSheet_(soriyaJournalSpreadsheet_(soriyaRootFolder_('lettre_voiture'), 'lettre_voiture'));
@@ -312,6 +319,43 @@ function soriyaWebSetRealisee(number, value, motif, k) {
   }
   sh.appendRow(row);
   return { v: value, at: at, motif: motif };
+}
+
+/** Planning : chauffeur affecté à chaque course { "663290": { driver: "VINCENT", by: "…", at: "…" } }. */
+function soriyaWebPlanningFrom_(rows) {
+  const out = {};
+  rows.slice(1).forEach(function (r) {
+    const n = String(r[0] || '').replace(/\D/g, '');
+    if (n && r[1]) out[n] = { driver: String(r[1]).toUpperCase(), by: String(r[2] || ''), at: String(r[3] || '') };
+  });
+  return out;
+}
+
+/** Chauffeurs proposés dans le planning : ceux des rappels, puis le gérant. */
+function soriyaPlanningDrivers_() {
+  const r = SORIYA_CONFIG.RAPPELS_LDV || {};
+  const list = Object.keys(r.DRIVERS || {});
+  if (r.MANAGER && r.MANAGER.NAME && list.indexOf(r.MANAGER.NAME) < 0) list.push(r.MANAGER.NAME);
+  return list;
+}
+
+/** Affecte une course à un chauffeur depuis l'interface (même onglet « Planning » que l'interface à compte Google). */
+function soriyaWebSetChauffeur(number, driver, k) {
+  if (k !== PropertiesService.getScriptProperties().getProperty('SORIYA_WEB_KEY')) throw new Error('Accès refusé');
+  const n = String(number || '').replace(/\D/g, '');
+  driver = String(driver || '').toUpperCase();
+  if (!n || (driver && soriyaPlanningDrivers_().indexOf(driver) < 0)) throw new Error('Valeur invalide');
+  const ss = soriyaProspectsSheet_().getParent();
+  const sh = ss.getSheetByName('Planning') || ss.insertSheet('Planning');
+  if (!sh.getLastRow()) sh.appendRow(['N° course', 'Chauffeur', 'Par', 'Le']);
+  const at = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
+  const row = ["'" + n, driver, 'interface (lien)', at];
+  const vals = sh.getRange(1, 1, sh.getLastRow(), 1).getValues();
+  for (let i = 1; i < vals.length; i++) {
+    if (String(vals[i][0]).replace(/\D/g, '') === n) { sh.getRange(i + 1, 1, 1, 4).setValues([row]); return { driver: driver, at: at }; }
+  }
+  sh.appendRow(row);
+  return { driver: driver, at: at };
 }
 
 /** Suivi des relances Ecotime : { "659079": { r1: "2026-10-10", r2: "", status: "1re relance — …" } }. */

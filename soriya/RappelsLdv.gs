@@ -3,11 +3,12 @@
  *
  * Du lundi au vendredi à 19 h 30, Soriya lit d'abord les lettres de voiture arrivées sur WhatsApp depuis le dernier passage, puis compare
  * les courses confirmées par Ecotime pour le jour même avec les lettres reçues. S'il en manque :
- *   - chaque chauffeur (RAPPELS_LDV.DRIVERS) reçoit sur WhatsApp la liste des courses du jour sans lettre ;
+ *   - chaque chauffeur (RAPPELS_LDV.DRIVERS) reçoit sur WhatsApp ses courses du jour sans lettre (planning du site),
+ *     plus les courses non affectées ;
  *   - le gérant (RAPPELS_LDV.MANAGER) reçoit le récapitulatif (manquantes, reçues par chauffeur, rappels envoyés),
  *     sur WhatsApp et par e-mail (copie à OWNER_EMAIL).
- * Les confirmations n'indiquent pas le chauffeur : tant que la lettre n'est pas reçue, la course n'est attribuable
- * à personne, d'où la même liste envoyée à chaque chauffeur (« si l'une de ces courses est la vôtre… »).
+ * Les confirmations n'indiquent pas le chauffeur : c'est le planning du site (onglet « Planning ») qui le donne.
+ * Une course non affectée est signalée à tous les chauffeurs (« si l'une est la vôtre… »).
  * Envoi par le scénario Make « Soriya · WhatsApp — rappels lettres de voiture » (adresse du webhook en propriété
  * de script RAPPEL_WEBHOOK, jamais dans le code publié). Historique : onglet « Rappels WhatsApp » du Journal Soriya.
  */
@@ -95,6 +96,13 @@ function soriyaRappelLdvData_(day) {
     byDriver[d] = (byDriver[d] || 0) + 1;
   });
 
+  // Planning du site : chauffeur affecté à chaque course (onglet « Planning » du Sheet « Soriya - Prospects »).
+  const planned = {};
+  try {
+    const sh = soriyaProspectsSheet_().getParent().getSheetByName('Planning');
+    if (sh) soriyaSheetRows_(sh).forEach(function (r) { const n = digits(r[0]); if (n && r[1]) planned[n] = String(r[1]).toUpperCase(); });
+  } catch (e) { /* onglet absent : courses non affectées */ }
+
   // Confirmations Ecotime pour aujourd'hui (une par numéro), hors courses déclarées non réalisées sur le site.
   const ch = data.conf.headers, seen = {}, missing = [];
   let confirmed = 0;
@@ -104,7 +112,7 @@ function soriyaRappelLdvData_(day) {
     if (n.length < 5 || seen[n] || iso(r[ch.indexOf('Date livraison')]) !== day || data.notDone.has(n)) return;
     seen[n] = true;
     confirmed++;
-    if (!ldvNums.has(n)) missing.push({ n: n, route: city(r[ch.indexOf('Lieu chargement')]) + ' → ' + city(r[ch.indexOf('Lieu livraison')]) });
+    if (!ldvNums.has(n)) missing.push({ n: n, driver: planned[n] || '', route: city(r[ch.indexOf('Lieu chargement')]) + ' → ' + city(r[ch.indexOf('Lieu livraison')]) });
   });
   return { confirmed: confirmed, missing: missing, byDriver: byDriver };
 }
@@ -118,20 +126,25 @@ function soriyaRappelLdvEnvoyer_(pending) {
   const d = soriyaRappelLdvData_(day);
   if (!d.missing.length) { Logger.log('Rappel 19 h 30 : toutes les lettres de voiture du %s sont reçues (%s course(s)).', fr, d.confirmed); return 0; }
 
-  const list = d.missing.map(function (m) { return '• n° ' + num(m.n) + ' — ' + m.route; }).join('\n');
+  const line = function (m) { return '• n° ' + num(m.n) + ' — ' + m.route; };
+  const free = d.missing.filter(function (m) { return !m.driver; });
+  // Récapitulatif : chaque course avec son chauffeur prévu (planning du site) ou « non affectée ».
+  const list = d.missing.map(function (m) { return line(m) + ' (' + (m.driver || 'non affectée') + ')'; }).join('\n');
   const sent = [], log = [];
   Object.keys(cfg.DRIVERS || {}).forEach(function (name) {
     const phone = cfg.DRIVERS[name];
+    const mine = d.missing.filter(function (m) { return m.driver === name; });
+    if (!mine.length && !free.length) return; // ses courses du jour ont toutes leur lettre
     const got = d.byDriver[name] || 0;
     const text = 'Bonjour ' + name + ',\n\n' +
       'Il est 19 h 30 et Soriya n\'a pas reçu toutes les lettres de voiture d\'aujourd\'hui (' + fr + ').\n' +
       (got ? 'Lettres déjà reçues de votre part aujourd\'hui : ' + got + '. Merci !\n' : '') +
-      '\nCourses sans lettre de voiture :\n' + list + '\n\n' +
-      'Si l\'une de ces courses est la vôtre, merci d\'envoyer dès maintenant la lettre de voiture signée (PDF ou photo) ' +
-      'sur ce WhatsApp.\n\nSoriya — GFD LOGISTIC';
+      (mine.length ? '\nVos courses sans lettre de voiture :\n' + mine.map(line).join('\n') + '\n' : '') +
+      (free.length ? '\nCourses non affectées sans lettre (si l\'une est la vôtre) :\n' + free.map(line).join('\n') + '\n' : '') +
+      '\nMerci d\'envoyer dès maintenant la lettre de voiture signée (PDF ou photo) sur ce WhatsApp.\n\nSoriya — GFD LOGISTIC';
     const ok = soriyaWhatsAppSend_(phone, text);
     if (ok) sent.push(name);
-    log.push([day, new Date(), name, phone, d.missing.length, ok ? 'Envoyé' : 'Échec', text]);
+    log.push([day, new Date(), name, phone, mine.length + free.length, ok ? 'Envoyé' : 'Échec', text]);
   });
 
   const recap = 'Soriya — lettres de voiture du ' + fr + ' (19 h 30)\n\n' +
