@@ -1,7 +1,7 @@
 /**
  * Soriya — rappel WhatsApp des lettres de voiture manquantes (chaque jour travaillé à 19 h 30).
  *
- * À 19 h 30, Soriya lit d'abord les lettres de voiture arrivées sur WhatsApp depuis le dernier passage, puis compare
+ * Du lundi au vendredi à 19 h 30, Soriya lit d'abord les lettres de voiture arrivées sur WhatsApp depuis le dernier passage, puis compare
  * les courses confirmées par Ecotime pour le jour même avec les lettres reçues. S'il en manque :
  *   - chaque chauffeur (RAPPELS_LDV.DRIVERS) reçoit sur WhatsApp la liste des courses du jour sans lettre ;
  *   - le gérant (RAPPELS_LDV.MANAGER) reçoit le récapitulatif (manquantes, reçues par chauffeur, rappels envoyés),
@@ -19,16 +19,27 @@ const SORIYA_RAPPEL_LDV = {
   MAX_TRIES: 3,           // lectures supplémentaires si des lettres sont encore en attente de lecture
 };
 
-/** Déclencheur de 19 h 30 (jours travaillés). Lancé à la main : contrôle forcé, même déjà fait aujourd'hui. */
+/** Déclencheur de 19 h 30 (RAPPELS_LDV.DAYS). Lancé à la main : contrôle forcé, même déjà fait aujourd'hui. */
 function soriyaRappelLdv(e) {
-  if (soriyaWrongAccount_() || soriyaOffDuty_(e)) return;
+  if (soriyaWrongAccount_()) return;
   const cfg = SORIYA_CONFIG.RAPPELS_LDV || {};
-  if (cfg.ENABLED === false) return;
+  if (cfg.ENABLED === false || !soriyaRappelLdvDay_(e, cfg)) return;
   const props = PropertiesService.getScriptProperties();
   if (e && e.triggerUid && props.getProperty('SORIYA_RAPPEL_LDV_DAY') === soriyaToday_()) return;
   props.setProperty('SORIYA_RAPPEL_LDV_TRY', '0');
   soriyaWhatsAppRun(); // lit les lettres de voiture arrivées depuis le dernier passage
   soriyaRappelLdvLater_();
+}
+
+/**
+ * Jour de rappel ? Ses propres jours (vendredi compris : les chauffeurs travaillent le vendredi), indépendants de
+ * l'arrêt de Soriya le vendredi 0 h. Dates de DEROGATIONS et lancement manuel : toujours.
+ */
+function soriyaRappelLdvDay_(e, cfg) {
+  if (!e || !e.triggerUid) return true;
+  const tz = Session.getScriptTimeZone(), now = new Date();
+  if ((SORIYA_CONFIG.DEROGATIONS || []).indexOf(Utilities.formatDate(now, tz, 'yyyy-MM-dd')) >= 0) return true;
+  return (cfg.DAYS || [1, 2, 3, 4, 5]).indexOf(Number(Utilities.formatDate(now, tz, 'u'))) >= 0;
 }
 
 /** Suite programmée quelques minutes après la lecture : contrôle (ou nouvelle lecture s'il reste des lettres). */

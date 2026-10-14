@@ -57,11 +57,13 @@ const SORIYA_CONFIG = {
   // Dérogations : dates (AAAA-MM-JJ) où Soriya tourne quand même, ex. ['2026-10-17'].
   // Un lancement manuel depuis l'éditeur (Exécuter) fonctionne aussi le week-end.
   DEROGATIONS: [],
-  // Rappel WhatsApp à 19 h 30 (jours travaillés) si des lettres de voiture du jour manquent.
+  // Rappel WhatsApp à 19 h 30 (du lundi au vendredi) si des lettres de voiture du jour manquent.
   RAPPELS_LDV: {
     ENABLED: true,
     HOUR: 19,
     MINUTE: 30,
+    // Jours du rappel (1 = lundi … 7 = dimanche) : vendredi compris, même si Soriya s'arrête le vendredi 0 h.
+    DAYS: [1, 2, 3, 4, 5],
     // Chauffeurs qui reçoivent le rappel (numéro WhatsApp au format international).
     DRIVERS: { VINCENT: '+33783794351', CHEICK: '+33769391541' },
     // Gérant : récapitulatif (manquantes, reçues, rappels envoyés) sur WhatsApp, et copie par e-mail à OWNER_EMAIL.
