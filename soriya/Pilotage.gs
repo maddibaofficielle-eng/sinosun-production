@@ -60,8 +60,11 @@ function soriyaWrongAccount_() {
 
 // ---------- Jours de travail : du lundi 0 h au samedi 0 h (vendredi soir compris), sauf dérogation ----------
 
-/** @param {Object=} e événement du déclencheur (absent pour un lancement manuel, toujours autorisé) */
-function soriyaOffDuty_(e) {
+/**
+ * @param {Object=} e événement du déclencheur (absent pour un lancement manuel, toujours autorisé)
+ * @param {Object=} extraHours passages en plus hors semaine, par jour : { 5: [8, 14] } = vendredi 8 h et 14 h
+ */
+function soriyaOffDuty_(e, extraHours) {
   if (!e || !e.triggerUid) return false; // lancé à la main : dérogation implicite
   const tz = Session.getScriptTimeZone(), now = new Date();
   const today = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
@@ -71,6 +74,9 @@ function soriyaOffDuty_(e) {
   if (active.indexOf(day) >= 0) return false;
   // Passage de 0 h le lendemain d'un jour travaillé (vendredi 0 h) : il traite ce qui est arrivé la veille au soir.
   if (active.indexOf(day === 1 ? 7 : day - 1) >= 0 && Number(Utilities.formatDate(now, tz, 'H')) < 1) return false;
+  const extra = (extraHours || {})[day] || [];
+  const hour = Math.round(Number(Utilities.formatDate(now, tz, 'H')) + Number(Utilities.formatDate(now, tz, 'm')) / 60) % 24;
+  if (extra.indexOf(hour) >= 0) return false; // déclencheur lancé dans le quart d'heure autour de l'heure prévue
   Logger.log('Hors semaine de travail : Soriya ne tourne pas (%s). Ajoutez la date dans DEROGATIONS pour faire exception.', today);
   return true;
 }

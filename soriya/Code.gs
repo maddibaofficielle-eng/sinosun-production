@@ -46,7 +46,7 @@ function apercuSoriya() {
 }
 
 function soriyaRun(e) {
-  if (soriyaWrongAccount_() || soriyaOffDuty_(e)) return;
+  if (soriyaWrongAccount_() || soriyaOffDuty_(e, SORIYA_CONFIG.MAIL_EXTRA_HOURS)) return;
   if (!soriyaTryLock_('Mailing')) return; // un passage Mailing est déjà en cours
   const started = Date.now();
   const report = { archived: [], duplicates: 0, errors: [] };

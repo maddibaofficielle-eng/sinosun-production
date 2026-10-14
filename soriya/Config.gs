@@ -57,6 +57,8 @@ const SORIYA_CONFIG = {
   // Dérogations : dates (AAAA-MM-JJ) où Soriya tourne quand même, ex. ['2026-10-17'].
   // Un lancement manuel depuis l'éditeur (Exécuter) fonctionne aussi le week-end.
   DEROGATIONS: [],
+  // Passages mails (confirmations Ecotime) en plus, hors semaine : vendredi 8 h et 14 h (le 19 h 30 du rappel lit aussi les mails).
+  MAIL_EXTRA_HOURS: { 5: [8, 14] },
   // Rappel WhatsApp à 19 h 30 (du lundi au vendredi) si des lettres de voiture du jour manquent.
   RAPPELS_LDV: {
     ENABLED: true,
