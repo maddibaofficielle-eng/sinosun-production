@@ -27,7 +27,13 @@ function soriyaRappelLdv(e) {
   const props = PropertiesService.getScriptProperties();
   if (e && e.triggerUid && props.getProperty('SORIYA_RAPPEL_LDV_DAY') === soriyaToday_()) return;
   props.setProperty('SORIYA_RAPPEL_LDV_TRY', '0');
-  soriyaWhatsAppRun(); // lit les lettres de voiture arrivées depuis le dernier passage
+  if (soriyaOffDuty_(e)) {
+    // Jour où Soriya est à l'arrêt (vendredi) : lecture des mails d'abord (confirmations Ecotime du jour) ;
+    // les lettres de voiture WhatsApp en attente sont lues par la suite, avant le contrôle.
+    soriyaRun();
+  } else {
+    soriyaWhatsAppRun(); // lit les lettres de voiture arrivées depuis le dernier passage
+  }
   soriyaRappelLdvLater_();
 }
 
