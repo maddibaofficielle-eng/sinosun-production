@@ -153,10 +153,12 @@ function soriyaRun(e) {
     } catch (e) {
       report.errors.push('Test des relances : ' + e.message);
     }
-    // Test demandé le 14/10/2026 : un message WhatsApp de test au gérant seulement (une seule fois).
+    // Nouveau test (14/10/2026, le 1er n'est pas arrivé : règle des 24 h de WhatsApp) : message au gérant seulement,
+    // une seule fois, au premier passage de la journée entre 8 h et 21 h (pas de message en pleine nuit).
     try {
       const pr = PropertiesService.getScriptProperties();
-      if (pr.getProperty('SORIYA_TEST_RAPPEL_WA') !== 'ok') { soriyaTestRappelWhatsApp_(); pr.setProperty('SORIYA_TEST_RAPPEL_WA', 'ok'); }
+      const hr = Number(Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'H'));
+      if (pr.getProperty('SORIYA_TEST_RAPPEL_WA_V2') !== 'ok' && hr >= 8 && hr < 21) { soriyaTestRappelWhatsApp_(); pr.setProperty('SORIYA_TEST_RAPPEL_WA_V2', 'ok'); }
     } catch (e) {
       report.errors.push('Test du rappel WhatsApp : ' + e.message);
     }
