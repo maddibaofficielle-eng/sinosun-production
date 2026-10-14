@@ -38,6 +38,15 @@ function soriyaEnsureTriggers_(force) {
       .inTimezone(Session.getScriptTimeZone()).create();
   }
   props.setProperty('SORIYA_TRIGGERS_VERSION', SORIYA_TRIGGERS_VERSION);
+  // Recréés pendant un créneau (ex. 20 h 06), les déclencheurs de ce créneau ne partiraient que demain :
+  // rattrapage des deux activités dans quelques minutes (l'activité déjà passée n'aura rien à faire).
+  const tz = Session.getScriptTimeZone(), now = new Date();
+  const h = Number(Utilities.formatDate(now, tz, 'H')), m = Number(Utilities.formatDate(now, tz, 'm'));
+  if (hours.indexOf(h) >= 0 && m < 45) {
+    ['soriyaRunSuite', 'soriyaWhatsAppRunSuite'].forEach(function (handler) {
+      ScriptApp.newTrigger(handler).timeBased().after(3 * 60000).create();
+    });
+  }
 }
 
 // ---------- Bon compte : Soriya ne tourne qu'avec OWNER_EMAIL ----------
