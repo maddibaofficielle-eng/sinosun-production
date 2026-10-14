@@ -40,6 +40,18 @@ function soriyaDriverTokens_() {
   const rows = names.map(function (n) { return [n, "'" + phoneOf(n), url + '?d=' + has[n], new Date()]; });
   if (rows.length) sh.getRange(2, 1, rows.length, SORIYA_DRIVER.ACCESS_HEADERS.length).setValues(rows);
   props.setProperty('SORIYA_DRIVER_ACCESS_WRITTEN', key);
+  // Liens envoyés au gérant (e-mail gfd + WhatsApp) à la création ou quand ils changent.
+  if (changed || props.getProperty('SORIYA_DRIVER_ACCESS_SENT') !== key) {
+    const mgr = cfg.MANAGER || {};
+    const text = 'Soriya — liens de l\'espace chauffeur\n\n' +
+      'Chaque chauffeur ouvre son lien sur son téléphone (sans compte Google) : ses courses du jour, l\'envoi des lettres de voiture ' +
+      'et la déclaration d\'incidents. Ne transmettez un lien qu\'à son chauffeur.\n\n' +
+      rows.map(function (r) { return '• ' + r[0] + ' : ' + r[2]; }).join('\n') +
+      '\n\nLes liens sont aussi sur le site (page Planning, volet « Espace chauffeur ») : https://tinyurl.com/soriya-gfd';
+    try { MailApp.sendEmail(SORIYA_CONFIG.OWNER_EMAIL, 'Soriya — liens de l\'espace chauffeur', text, { name: 'Soriya' }); } catch (e) { Logger.log('E-mail liens : %s', e.message); }
+    if (mgr.PHONE) soriyaWhatsAppSend_(mgr.PHONE, text);
+    props.setProperty('SORIYA_DRIVER_ACCESS_SENT', key);
+  }
   return tokens;
 }
 
