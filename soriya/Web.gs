@@ -401,3 +401,17 @@ function soriyaSaveInvoicePdf_(folder, html, number, month) {
   file.setDescription('Facture ' + number + ' préparée par Soriya le ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm') + '.');
   return { name: name, url: file.getUrl(), folderUrl: folder.getUrl() };
 }
+
+/** Chat Soriya depuis l'interface à clé. */
+function soriyaWebChat(question, history, context, k) {
+  if (k !== PropertiesService.getScriptProperties().getProperty('SORIYA_WEB_KEY')) throw new Error('Accès refusé');
+  return soriyaChatAnswer_(question, history, context);
+}
+
+/** Appels serveur à serveur (site à compte Google) : chat Soriya. */
+function doPost(e) {
+  let body = {};
+  try { body = JSON.parse(e.postData.contents); } catch (err) { /* corps illisible */ }
+  const out = body.action === 'chat' ? soriyaChatPost_(body) : { error: 'Action inconnue' };
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}

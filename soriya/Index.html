@@ -455,6 +455,71 @@
     .page { padding: 14px 16px 104px; }
     .tile b, .kpi b { font-size: 26px; }
   }
+
+  /* ================= Panneau de droite : animation + chat Soriya ================= */
+  .rail { display: none; }
+  .chat-fab { position: fixed; right: 24px; bottom: 24px; z-index: 36; display: flex; align-items: center; gap: 10px; padding: 8px 18px 8px 8px; border: 0;
+    background: var(--bordeaux); color: #fff; border-radius: 999px; box-shadow: 0 10px 30px rgba(140,28,47,.35); font-weight: 800; min-height: 52px; }
+  .chat-fab .lg { width: 38px; height: 38px; border-radius: 50%; background: #fff; display: block; }
+  .chat-fab .lg svg { width: 100%; height: 100%; display: block; }
+  .chat-fab::after { content: ""; position: absolute; inset: -4px; border-radius: 999px; border: 2px solid var(--bordeaux); opacity: 0; animation: ring 2.8s ease-out infinite; }
+  @keyframes ring { 0% { opacity: .6; transform: scale(.96); } 100% { opacity: 0; transform: scale(1.12); } }
+  .rail.open { display: flex; position: fixed; right: 16px; bottom: 16px; width: min(420px, calc(100vw - 32px)); height: min(640px, calc(100vh - 100px)); z-index: 45;
+    flex-direction: column; filter: drop-shadow(0 20px 50px rgba(15,27,61,.3)); }
+  .rail.open .scene { display: none; }
+  .chat { background: var(--surface-2); border: 1.5px solid var(--line); border-radius: 24px; display: flex; flex-direction: column; min-height: 0; flex: 1; overflow: hidden; }
+  .chat-hd { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--navy); color: #fff; }
+  .chat-hd .lg { width: 40px; height: 40px; border-radius: 50%; background: #fff; flex: none; } .chat-hd .lg svg { width: 100%; height: 100%; display: block; }
+  .chat-hd b { display: block; font-size: 16px; } .chat-hd small { font-size: 12px; opacity: .8; display: flex; align-items: center; gap: 6px; }
+  .chat-hd small i { width: 8px; height: 8px; border-radius: 50%; background: #5fd39b; animation: blink 2s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: .35; } }
+  .chat-hd button { margin-left: auto; background: rgba(255,255,255,.12); color: #fff; border: 0; min-height: 36px; padding: 6px 12px; }
+  .chat-msgs { flex: 1; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 88%; padding: 10px 14px; border-radius: 18px; font-size: 14px; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; animation: pop .25s ease-out; }
+  .msg.me { align-self: flex-end; background: var(--navy); color: #fff; border-bottom-right-radius: 6px; }
+  .msg.bot { align-self: flex-start; background: var(--surface); color: var(--ink); border-bottom-left-radius: 6px; }
+  .msg.err { background: var(--bad-bg); color: var(--bad); }
+  .msg ul { margin: 6px 0; padding-left: 18px; }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px); } }
+  .typing { display: inline-flex; gap: 4px; } .typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); animation: dot 1.2s infinite; }
+  .typing i:nth-child(2) { animation-delay: .15s; } .typing i:nth-child(3) { animation-delay: .3s; }
+  @keyframes dot { 0%, 60%, 100% { transform: translateY(0); opacity: .4; } 30% { transform: translateY(-5px); opacity: 1; } }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 10px; }
+  .chips button { font-size: 12.5px; min-height: 32px; padding: 5px 12px; background: var(--tint); border: 0; color: var(--navy-2); }
+  @media (prefers-color-scheme: dark) { .chips button { color: var(--accent); } }
+  .chat-in { display: flex; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--line); align-items: flex-end; }
+  .chat-in textarea { flex: 1; resize: none; min-height: 44px; max-height: 120px; padding: 11px 16px; border-radius: 22px; font: inherit; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); }
+  .chat-in button { width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: 50%; background: var(--bordeaux); border: 0; color: #fff; font-size: 18px; flex: none; }
+  /* Scène animée (camion GFD sur la route) */
+  .scene { border-radius: 24px; overflow: hidden; background: linear-gradient(180deg, #13265c 0%, #0f1f4b 70%); position: relative; height: 240px; flex: none; color: #fff; }
+  .scene svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .scene .road-dash { animation: road 1.2s linear infinite; }
+  @keyframes road { to { stroke-dashoffset: -40; } }
+  .scene .van { animation: bump .5s ease-in-out infinite alternate; transform-origin: center; }
+  @keyframes bump { to { transform: translateY(-1.5px); } }
+  .scene .wheel { animation: spin .6s linear infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .scene .city { animation: city 30s linear infinite; }
+  @keyframes city { to { transform: translateX(-200px); } }
+  .scene .cloud { animation: cloud 40s linear infinite; }
+  @keyframes cloud { from { transform: translateX(420px); } to { transform: translateX(-160px); } }
+  .scene .pin { animation: pin 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
+  @keyframes pin { 50% { transform: translateY(-6px); } }
+  .scene .stats { position: absolute; left: 18px; right: 18px; top: 16px; display: flex; justify-content: space-between; gap: 8px; }
+  .scene .stats div { font-size: 11px; opacity: .8; } .scene .stats b { display: block; font-size: 22px; font-weight: 800; opacity: 1; letter-spacing: -0.02em; }
+  @media (prefers-reduced-motion: reduce) { .scene *, .chat-fab::after, .chat-hd small i { animation: none !important; } }
+  @media (min-width: 1600px) {
+    .app { display: grid; grid-template-columns: minmax(0, 1fr) 400px; }
+    .side { grid-column: 1 / -1; }
+    .rail { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 70px; height: calc(100vh - 70px); padding: 28px 28px 24px 0; }
+    .chat-fab { display: none; }
+    #chatClose { display: none; }
+  }
+  @media (max-width: 860px) {
+    .chat-fab { bottom: 84px; right: 14px; padding: 6px; min-height: 0; } .chat-fab span { display: none; } .chat-fab .lg { width: 44px; height: 44px; }
+    .rail.open { right: 0; left: 0; bottom: 0; top: 0; width: auto; height: auto; filter: none; z-index: 60; }
+    .rail.open .chat { border-radius: 0; border: 0; }
+  }
 </style>
 </head>
 <body>
@@ -473,8 +538,40 @@
     </div>
     <div class="page" id="page"><div class="empty">Chargement des données…</div></div>
   </div>
+  <aside class="rail" id="rail" aria-label="Soriya">
+    <div class="scene" aria-hidden="true">
+      <div class="stats"><div>Aujourd'hui<b id="scToday">—</b></div><div>Lettres reçues<b id="scLdv">—</b></div><div>CA du mois<b id="scCa">—</b></div></div>
+      <svg viewBox="0 0 360 230" preserveAspectRatio="xMidYMax slice">
+        <g class="cloud" opacity=".18" fill="#fff"><ellipse cx="60" cy="92" rx="26" ry="9"/><ellipse cx="78" cy="86" rx="16" ry="9"/><ellipse cx="250" cy="72" rx="20" ry="7"/></g>
+        <g class="city" fill="#1d3576">
+          <path d="M0 175V140h18v-12h14v47M40 175v-50h22v50M70 175v-34h16v34M92 175v-62h10v-8h6v8h10v62M126 175v-40h24v40M158 175V150l20-28 20 28v25"/>
+          <path d="M214 175l14-66h4l14 66h-8l-6-26h-4l-6 26zM228 109l2-14 2 14" fill="#2a4590"/>
+          <path d="M256 175v-46h20v46M282 175v-30h26v30M314 175v-56h16v56M336 175v-38h24v38"/>
+          <path d="M360 175V140h18v-12h14v47M400 175v-50h22v50M430 175v-34h16v34M452 175v-62h10v-8h6v8h10v62M486 175v-40h24v40M518 175V150l20-28 20 28v25"/>
+        </g>
+        <rect x="0" y="175" width="360" height="55" fill="#0b1636"/>
+        <line class="road-dash" x1="0" y1="204" x2="360" y2="204" stroke="#ffffff" stroke-opacity=".5" stroke-width="3" stroke-dasharray="22 18"/>
+        <g class="pin" transform="translate(318 172)"><path d="M0 -18a9 9 0 0 1 9 9c0 7-9 16-9 16s-9-9-9-16a9 9 0 0 1 9-9z" fill="#e0566b"/><circle cx="0" cy="-9" r="3.2" fill="#fff"/></g>
+        <g class="van" transform="translate(70 142)">
+          <path d="M0 8a6 6 0 0 1 6-6h78v46H0z" fill="#ffffff"/>
+          <path d="M84 14h22l16 18v16H84z" fill="#ffffff"/><path d="M90 19h14l11 12H90z" fill="#9cb0e0"/>
+          <rect x="0" y="34" width="122" height="5" fill="#8c1c2f"/>
+          <text x="40" y="26" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="15" fill="#0f1f4b">GFD</text>
+          <g class="wheel" transform="translate(24 50)"><circle r="9" fill="#111"/><circle r="4" fill="#cfd6e8"/><rect x="-1" y="-8" width="2" height="5" fill="#cfd6e8"/></g>
+          <g class="wheel" transform="translate(100 50)"><circle r="9" fill="#111"/><circle r="4" fill="#cfd6e8"/><rect x="-1" y="-8" width="2" height="5" fill="#cfd6e8"/></g>
+        </g>
+      </svg>
+    </div>
+    <section class="chat" aria-label="Discussion avec Soriya">
+      <div class="chat-hd"><span class="lg" id="chatLogo"></span><div><b>Soriya</b><small><i></i>Assistante GFD Logistic</small></div><button type="button" id="chatClose" aria-label="Fermer">✕</button></div>
+      <div class="chat-msgs" id="chatMsgs" aria-live="polite"></div>
+      <div class="chips" id="chatChips"></div>
+      <form class="chat-in" id="chatForm"><textarea id="chatQ" rows="1" placeholder="Posez une question à Soriya…" aria-label="Votre question"></textarea><button type="submit" aria-label="Envoyer">➤</button></form>
+    </section>
+  </aside>
 </div>
 <nav class="tabbar" id="tabbar" aria-label="Navigation principale"></nav>
+<button type="button" class="chat-fab" id="chatFab" aria-label="Discuter avec Soriya"><span class="lg" id="fabLogo"></span><span>Demander à Soriya</span></button>
 <div class="drawer-bg" id="drawerBg"></div>
 <aside class="drawer" id="drawer" aria-label="Détail"><header><h3 id="dTitle"></h3><button type="button" id="dClose">✕</button></header><div class="body" id="dBody"></div></aside>
 
@@ -652,6 +749,7 @@ function route() {
   document.getElementById("tabMore").onclick = () => { const sd = document.getElementById("side"), mm = document.querySelector("#nav .more-menu");
     sd.classList.toggle("open"); if (mm) mm.open = sd.classList.contains("open"); };
   p.render(document.getElementById("page"), arg ? decodeURIComponent(arg) : "");
+  sceneStats();
 }
 window.addEventListener("hashchange", route);
 
@@ -1808,6 +1906,76 @@ function pageActivity(el) {
 document.getElementById("refresh").onclick = load;
 document.getElementById("menuBtn").onclick = () => document.getElementById("side").classList.toggle("open");
 document.getElementById("brandLogo").innerHTML = GFD_LOGO;
+/* ---------- Chat Soriya (panneau de droite ; bulle flottante sur écran étroit) ---------- */
+const CHAT = { history: [] };
+["chatLogo", "fabLogo"].forEach(id => { document.getElementById(id).innerHTML = GFD_LOGO; });
+const chatFmt = t => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(^|\n)[•\-\*] (.+)/g, "$1<li>$2</li>").replace(/(<li>[\s\S]*?<\/li>)(?!\n?<li>)/g, "<ul>$1</ul>").replace(/\n/g, "<br>").replace(/<\/li><br>/g, "</li>").replace(/<br><ul>/g, "<ul>");
+function chatAdd(role, html, cls) {
+  const box = document.getElementById("chatMsgs"), d = document.createElement("div");
+  d.className = "msg " + (role === "user" ? "me" : "bot") + (cls ? " " + cls : ""); d.innerHTML = html; box.appendChild(d); box.scrollTop = box.scrollHeight; return d;
+}
+// Résumé chiffré des données pour Soriya (ce que le site affiche).
+function chatContext() {
+  const sum = a => Math.round(a.reduce((t, x) => t + (x.amount || 0), 0) * 100) / 100;
+  const months = Object.keys(M.byMonth).sort().slice(-12);
+  const by = (list, key) => { const o = {}; list.forEach(x => { const k = key(x) || "non identifié"; (o[k] = o[k] || { ca: 0, n: 0 }); o[k].ca += x.amount; o[k].n++; });
+    Object.values(o).forEach(v => { v.ca = Math.round(v.ca * 100) / 100; }); return o; };
+  const recent = months.slice(-4), today = isoDay(new Date()), tomorrow = addDays(today, 1);
+  const plan = DATA.planning || {};
+  const dayList = d => M.conf.filter(x => x.status.indexOf("Archivé") === 0 && !x.dupOf && x.amountConf > 0 && (x.date || "").slice(0, 10) === d)
+    .map(x => ({ n: x.number, trajet: city(x.from) + " → " + city(x.to), montant: x.amountConf, chauffeur: x.ldv ? x.ldv.driver : (plan[digits(x.number)] || {}).driver || "non affecté", lettre: !!x.ldv }));
+  const F = DATA.factures || { list: [] }, R = DATA.releves || { list: [] }, D = (DATA.depenses || { list: [] }).list;
+  const fuel = {}; D.filter(x => /ticket/i.test(x.kind)).forEach(x => { const k = (x.date || "").slice(0, 7) + " " + (x.driver || "?"); fuel[k] = Math.round(((fuel[k] || 0) + x.ttc) * 100) / 100; });
+  return {
+    aujourdhui: today, page: (location.hash.replace(/^#\/?/, "") || "tableau-de-bord"),
+    ca: { mois_en_cours: M.caMtd, projection_fin_de_mois: Math.round(M.projection), annee: M.caYtd, courses_mois: M.mtd.length },
+    ca_par_mois: months.map(m => ({ mois: m, ca: Math.round(M.byMonth[m].ca * 100) / 100, courses: M.byMonth[m].n })),
+    ca_par_chauffeur_par_mois: recent.map(m => ({ mois: m, chauffeurs: by(M.sales.filter(x => x.date.slice(0, 7) === m), x => x.driver) })),
+    ca_par_client_3_mois: by(M.sales.filter(x => x.date.slice(0, 7) >= months.slice(-3)[0]), x => x.client),
+    ca_par_prestation_mois: by(M.mtd, x => String(x.services || "").split(/\s\d/)[0].trim()),
+    planning: { aujourdhui: dayList(today), demain: dayList(tomorrow) },
+    courses_sans_lettre_mois: M.noLdv.map(x => ({ n: x.number, date: x.date.slice(0, 10), trajet: city(x.from) + " → " + city(x.to), montant: x.amount })),
+    lettres_sans_confirmation: M.orphanLdv.slice(0, 40).map(x => ({ n: x.number, date: (x.date || "").slice(0, 10), chauffeur: x.driver })),
+    ajustements_ca: M.conf.filter(x => x.adj).slice(-30).map(x => ({ n: x.number, motif: x.adj })),
+    factures: F.list.map(f => ({ n: f.number, mois: f.month, ht: f.ht, ttc: f.ttc, emise: f.issued, echeance: f.due })),
+    releves_ecotime: R.list.filter(r => r.current).map(r => ({ mois: r.month, total_ht: r.total, ordres: r.orders })),
+    carburant_ttc_par_mois_et_chauffeur: fuel,
+    incidents: (DATA.incidents || []).slice(-20),
+    relances_ecotime: Object.keys(DATA.relances || {}).slice(-20).map(n => Object.assign({ n: n }, DATA.relances[n])),
+    activite_soriya: DATA.activities.map(a => ({ activite: a.id, dernier_passage: a.lastRun, erreurs: a.lastErrors })),
+  };
+}
+function chatSend(q) {
+  q = String(q || "").trim(); if (!q || CHAT.busy || !M) return;
+  CHAT.busy = true; document.getElementById("chatChips").innerHTML = "";
+  chatAdd("user", esc(q)); const wait = chatAdd("bot", '<span class="typing"><i></i><i></i><i></i></span>');
+  google.script.run.withSuccessHandler(a => { CHAT.busy = false; wait.innerHTML = chatFmt(a); CHAT.history.push({ role: "user", text: q }, { role: "assistant", text: a });
+      document.getElementById("chatMsgs").scrollTop = 1e9; })
+    .withFailureHandler(err => { CHAT.busy = false; wait.classList.add("err"); wait.textContent = err.message +
+      (/autoris|scope|permission/i.test(err.message) ? " — rechargez la page et acceptez l'autorisation demandée." : ""); })
+    .soriyaWebChat(q, CHAT.history.slice(-16), chatContext(), KEY);
+}
+function chatInit() {
+  if (CHAT.ready) return; CHAT.ready = true;
+  chatAdd("bot", "Bonjour 👋 Je suis <b>Soriya</b>. Posez-moi une question sur vos courses, votre chiffre d'affaires, le planning ou vos factures.");
+  document.getElementById("chatChips").innerHTML = ["CA de ce mois ?", "Courses sans lettre de voiture ?", "Qui a fait le plus de courses ce mois ?", "Factures à encaisser ?", "Planning de demain ?"]
+    .map(t => '<button type="button">' + esc(t) + "</button>").join("");
+  document.querySelectorAll("#chatChips button").forEach(b => b.onclick = () => chatSend(b.textContent));
+}
+document.getElementById("chatForm").onsubmit = e => { e.preventDefault(); const t = document.getElementById("chatQ"); chatSend(t.value); t.value = ""; t.style.height = ""; };
+document.getElementById("chatQ").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); document.getElementById("chatForm").requestSubmit(); } });
+document.getElementById("chatQ").addEventListener("input", e => { e.target.style.height = ""; e.target.style.height = Math.min(120, e.target.scrollHeight) + "px"; });
+document.getElementById("chatFab").onclick = () => { document.getElementById("rail").classList.add("open"); chatInit(); setTimeout(() => document.getElementById("chatQ").focus(), 50); };
+document.getElementById("chatClose").onclick = () => document.getElementById("rail").classList.remove("open");
+// Chiffres du jour sur la scène animée.
+function sceneStats() {
+  if (!M) return; const t = isoDay(new Date());
+  const day = M.conf.filter(x => x.status.indexOf("Archivé") === 0 && !x.dupOf && x.amountConf > 0 && (x.date || "").slice(0, 10) === t);
+  document.getElementById("scToday").textContent = day.length + " course" + (day.length > 1 ? "s" : "");
+  document.getElementById("scLdv").textContent = day.filter(x => x.ldv).length + " / " + day.length;
+  document.getElementById("scCa").textContent = EUR.format(M.caMtd);
+  if (window.matchMedia("(min-width: 1600px)").matches) chatInit();
+}
 // Menu « Documents & plus » : se ferme au clic ailleurs ou sur un lien.
 document.addEventListener("click", e => { const mm = document.querySelector("#nav .more-menu");
   if (mm && mm.open && !e.target.closest("#tabMore") && (!mm.contains(e.target) || e.target.closest("a"))) mm.open = false; });

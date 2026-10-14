@@ -17,6 +17,8 @@ const SORIYA_WEB = {
   TZ: 'Europe/Paris',
   // Chauffeurs proposés dans le planning (affectation des courses).
   DRIVERS: ['CHEICK', 'VINCENT', 'MOHAMED'],
+  // Application Soriya (exécutée par gfd.logistic, qui détient la clé Claude) : répond au chat.
+  SORIYA_APP_URL: 'https://script.google.com/macros/s/AKfycbw8NAz4kKY0k4aUc2VMTFNI3m_dn6LL3i1DhbCRUla1_RJUbkcQiSblA5mqUevj9qY-NA/exec',
 };
 
 function doGet() {
@@ -426,4 +428,16 @@ function soriyaWebSaveInvoicePdf(html, number, month) {
   file.setDescription('Facture ' + number + ' préparée par Soriya (' + (Session.getActiveUser().getEmail() || '') + ') le ' +
     Utilities.formatDate(new Date(), SORIYA_WEB.TZ, 'dd/MM/yyyy HH:mm') + '.');
   return { name: name, url: file.getUrl(), folderUrl: folder.getUrl() };
+}
+
+/** Chat Soriya : la question part vers l'application Soriya, avec le jeton Google de la personne connectée. */
+function soriyaWebChat(question, history, context) {
+  const res = UrlFetchApp.fetch(SORIYA_WEB.SORIYA_APP_URL, {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true, followRedirects: true,
+    payload: JSON.stringify({ action: 'chat', token: ScriptApp.getOAuthToken(), question: question, history: history, context: context }),
+  });
+  let out;
+  try { out = JSON.parse(res.getContentText()); } catch (e) { throw new Error('Soriya injoignable (' + res.getResponseCode() + ')'); }
+  if (out.error) throw new Error(out.error);
+  return out.answer;
 }
