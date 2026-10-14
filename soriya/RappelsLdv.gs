@@ -176,3 +176,21 @@ function soriyaSecret_(name) {
   }
   return v || '';
 }
+
+/** Message de test au gérant seul (aucun chauffeur), tracé dans l'onglet « Rappels WhatsApp ». */
+function soriyaTestRappelWhatsApp_() {
+  const mgr = (SORIYA_CONFIG.RAPPELS_LDV || {}).MANAGER || {};
+  if (!mgr.PHONE) return false;
+  const text = '[TEST Soriya] Bonjour ' + (mgr.NAME || '') + ',\n\nCeci est un message de test du rappel des lettres de voiture ' +
+    '(19 h 30). Si vous le lisez, l\'envoi WhatsApp fonctionne. Aucune action n\'est nécessaire.\n\nSoriya — GFD LOGISTIC';
+  const ok = soriyaWhatsAppSend_(mgr.PHONE, text);
+  const conf = soriyaJournalSpreadsheet_(soriyaRootFolder_('confirmation'), 'confirmation');
+  let sh = conf.ss.getSheetByName(SORIYA_RAPPEL_LDV.SHEET);
+  if (!sh) {
+    sh = conf.ss.insertSheet(SORIYA_RAPPEL_LDV.SHEET);
+    sh.getRange(1, 1, 1, SORIYA_RAPPEL_LDV.HEADERS.length).setValues([SORIYA_RAPPEL_LDV.HEADERS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  sh.appendRow([soriyaToday_(), new Date(), (mgr.NAME || 'Gérant') + ' (test)', "'" + mgr.PHONE, 0, ok ? 'Envoyé' : 'Échec', text]);
+  return ok;
+}

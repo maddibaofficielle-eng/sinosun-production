@@ -153,6 +153,13 @@ function soriyaRun(e) {
     } catch (e) {
       report.errors.push('Test des relances : ' + e.message);
     }
+    // Test demandé le 14/10/2026 : un message WhatsApp de test au gérant seulement (une seule fois).
+    try {
+      const pr = PropertiesService.getScriptProperties();
+      if (pr.getProperty('SORIYA_TEST_RAPPEL_WA') !== 'ok') { soriyaTestRappelWhatsApp_(); pr.setProperty('SORIYA_TEST_RAPPEL_WA', 'ok'); }
+    } catch (e) {
+      report.errors.push('Test du rappel WhatsApp : ' + e.message);
+    }
     // Relances Ecotime : courses sans confirmation, un mail groupé par jour (brouillon à relire), voir Relances.gs.
     try {
       const relances = soriyaRelances_();
