@@ -198,7 +198,7 @@ function soriyaLoadJson_(key) {
 
 /** Rapport du jour, envoyé une fois par jour (au lieu d'un e-mail par passage). */
 function soriyaRapportQuotidien(e) {
-  if (soriyaWrongAccount_() || soriyaOffDuty_(e)) return;
+  if (soriyaWrongAccount_() || soriyaOffDuty_(e, SORIYA_CONFIG.REPORT_EXTRA_HOURS)) return;
   const props = PropertiesService.getScriptProperties();
   const day = soriyaLoadJson_('SORIYA_DAILY');
   props.deleteProperty('SORIYA_DAILY');

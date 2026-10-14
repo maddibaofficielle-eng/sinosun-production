@@ -59,6 +59,8 @@ const SORIYA_CONFIG = {
   DEROGATIONS: [],
   // Passages en plus hors semaine (mails et WhatsApp) : vendredi 8 h, 14 h et 20 h (le 19 h 30 du rappel lit aussi les deux).
   EXTRA_HOURS: { 5: [8, 14, 20] },
+  // Rapport quotidien en plus hors semaine : vendredi (lancé par Google entre 18 h et 19 h, d'où 18 et 19).
+  REPORT_EXTRA_HOURS: { 5: [18, 19] },
   // Rappel WhatsApp à 19 h 30 (du lundi au vendredi) si des lettres de voiture du jour manquent.
   RAPPELS_LDV: {
     ENABLED: true,
