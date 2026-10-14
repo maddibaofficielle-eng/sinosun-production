@@ -7,6 +7,8 @@
  */
 
 function doGet(e) {
+  // Espace chauffeur : lien personnel …/exec?d=<jeton> (voir Chauffeurs.gs).
+  if (e && e.parameter && e.parameter.d) return soriyaDriverPage_(e.parameter.d);
   const key = PropertiesService.getScriptProperties().getProperty('SORIYA_WEB_KEY');
   if (!key || !e || !e.parameter || e.parameter.k !== key) {
     return HtmlService.createHtmlOutput(
@@ -80,6 +82,19 @@ function soriyaWebData(k) {
       } catch (e) { return {}; }
     })(),
     drivers: soriyaPlanningDrivers_(),
+    driverAccess: (function () {
+      try {
+        const sh = soriyaProspectsSheet_().getParent().getSheetByName('Accès chauffeurs');
+        return sh ? sh.getDataRange().getDisplayValues().slice(1).map(function (r) { return { driver: r[0], phone: r[1], url: r[2] }; }) : [];
+      } catch (e) { return []; }
+    })(),
+    incidents: (function () {
+      try {
+        const sh = soriyaProspectsSheet_().getParent().getSheetByName('Incidents');
+        return sh ? sh.getDataRange().getDisplayValues().slice(1).map(function (r) {
+          return { at: r[0], day: r[1], n: String(r[2] || '').replace(/\D/g, ''), driver: r[3], type: r[4], minutes: r[5], comment: r[6], photo: r[7] }; }) : [];
+      } catch (e) { return []; }
+    })(),
     depenses: (function () {
       try {
         const sh = soriyaDepensesSheet_(soriyaJournalSpreadsheet_(soriyaRootFolder_('lettre_voiture'), 'lettre_voiture'));
@@ -367,4 +382,22 @@ function soriyaWebRelancesFrom_(rows) {
     if (n) out[n] = { r1: d(r[4]), r2: d(r[5]), status: String(r[6] || '') };
   });
   return out;
+}
+
+/** Facture préparée sur le site : PDF enregistré dans « Factures / Préparées par Soriya » (remplace le même nom). */
+function soriyaWebSaveInvoicePdf(html, number, month, k) {
+  if (k !== PropertiesService.getScriptProperties().getProperty('SORIYA_WEB_KEY')) throw new Error('Accès refusé');
+  return soriyaSaveInvoicePdf_(soriyaSubFolder_(soriyaRootFolder_('confirmation'), [SORIYA_FACTURES.FOLDER, 'Préparées par Soriya']), html, number, month);
+}
+
+function soriyaSaveInvoicePdf_(folder, html, number, month) {
+  number = String(number || '').replace(/[^\w-]/g, '') || 'brouillon';
+  const m = /^(\d{4})-(\d{2})/.exec(String(month || ''));
+  const name = (m ? m[2] + '-' + m[1] + '_' : '') + 'Facture_' + number + '.pdf';
+  const old = folder.getFilesByName(name);
+  while (old.hasNext()) old.next().setTrashed(true);
+  const pdf = Utilities.newBlob(String(html), 'text/html', name.replace(/pdf$/, 'html')).getAs('application/pdf').setName(name);
+  const file = folder.createFile(pdf);
+  file.setDescription('Facture ' + number + ' préparée par Soriya le ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm') + '.');
+  return { name: name, url: file.getUrl(), folderUrl: folder.getUrl() };
 }

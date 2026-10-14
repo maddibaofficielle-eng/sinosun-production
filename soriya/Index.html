@@ -872,6 +872,24 @@ const PRODUCT_ORDER = ["Courses GV", "Course GV Idf", "Course GV Province", "Cou
 const productRank = p => { const i = PRODUCT_ORDER.findIndex(k => p.indexOf(k) === 0); return i < 0 ? 99 : i; };
 const isoWeekStart = d => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return isoDay(x); };
 
+// Version PDF (mise en page en tableaux : le convertisseur de Google ignore flex et grid).
+function invoicePdfHtml(c) {
+  const e = esc, n2 = v => EUR2.format(v).replace(/ | /g, " ");
+  const td = 'style="padding:5px 6px;border-bottom:1px solid #ddd"', tdr = 'style="padding:5px 6px;border-bottom:1px solid #ddd;text-align:right"';
+  return '<html><head><meta charset="utf-8"></head><body style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#111">' +
+    '<table style="width:100%"><tr><td style="vertical-align:top"><div style="font-size:18px;font-weight:bold">' + e(COMPANY.name) + "</div>" + COMPANY.lines.map(l => '<div style="font-size:11px">' + e(l) + "</div>").join("") + "</td>" +
+    '<td style="vertical-align:top;text-align:right"><div style="font-size:18px;font-weight:bold">FACTURE</div><div>Client</div><div style="font-weight:bold">' + e(CLIENT.name) + "</div></td></tr></table><br>" +
+    '<table style="width:100%;font-size:11px"><tr>' + [["N° facture", c.number], ["Émise le", fmtDate(c.issued)], ["Échéance", fmtDate(c.due)], ["Période", fmtDate(c.from) + " au " + fmtDate(c.to)]]
+      .map(x => '<td><div style="color:#666;font-size:9px">' + e(x[0].toUpperCase()) + '</div><div style="font-weight:bold">' + e(x[1]) + "</div></td>").join("") + "</tr></table><br>" +
+    '<table style="width:100%;border-collapse:collapse;font-size:11px"><tr style="font-weight:bold"><td ' + td + ">Produit</td><td " + tdr + ">Qté</td><td " + td + ">Unité</td><td " + tdr + ">Prix u. HT</td><td " + tdr + ">TVA</td><td " + tdr + ">Total HT</td></tr>" +
+    c.lines.map(l => "<tr><td " + td + ">" + e(l.product) + "</td><td " + tdr + ">" + String(Math.round(l.qty * 100) / 100).replace(".", ",") + "</td><td " + td + ">" + (l.qty > 1 ? "unités" : "unité") +
+      "</td><td " + tdr + ">" + n2(l.price) + "</td><td " + tdr + ">20 %</td><td " + tdr + ">" + n2(l.total) + "</td></tr>").join("") + "</table><br>" +
+    '<table style="width:45%;margin-left:55%;font-size:12px">' + [["Total HT avant remise", n2(c.gross)], ["Remise", "− " + n2(c.disc)], ["Total HT", n2(c.ht)], ["TVA 20 %", n2(c.vat)]]
+      .map(x => "<tr><td>" + e(x[0]) + '</td><td style="text-align:right">' + e(x[1]) + "</td></tr>").join("") +
+    '<tr><td style="border-top:2px solid #111;font-weight:bold;font-size:14px;padding-top:6px">Total TTC</td><td style="border-top:2px solid #111;font-weight:bold;font-size:14px;text-align:right;padding-top:6px">' + n2(c.ttc) + "</td></tr></table><br><br>" +
+    '<div style="color:#666;font-size:9px">Transport et manutention du ' + fmtDate(c.from) + " au " + fmtDate(c.to) + " · " + c.count + " course(s). Paiement à " + INVOICE_DUE_DAYS + " jours, échéance le " + fmtDate(c.due) + ".</div></body></html>";
+}
+
 function pagePrepareInvoice(el) {
   const today = isoDay(new Date());
   const lastMonth = (() => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return isoDay(d).slice(0, 7); })();
@@ -884,10 +902,10 @@ function pagePrepareInvoice(el) {
   const weeks = []; for (let w = isoWeekStart(today), i = 0; i < 16; i++, w = addDays(w, -7)) weeks.push(w);
   el.innerHTML = '<div class="toolbar noprint"><div class="seg" role="group" aria-label="Période"><button type="button" data-k="mois">Mensuelle</button><button type="button" data-k="semaine">Hebdomadaire</button></div>' +
     '<select id="fPer" aria-label="Période"></select><span class="count"></span>' +
-    '<button type="button" id="bCsv">Exporter CSV</button><button type="button" id="bPrint" style="background:var(--accent);color:#fff;border-color:var(--accent)">Imprimer / PDF</button></div>' +
+    '<button type="button" id="bCsv">Exporter CSV</button><button type="button" id="bDrive">Enregistrer en PDF dans le Drive</button><button type="button" id="bPrint" style="background:var(--accent);color:#fff;border-color:var(--accent)">Imprimer / PDF</button></div>' +
     '<p class="muted small noprint" style="margin:-4px 0 12px">Soriya prépare la facture à partir des courses confirmées par Ecotime sur la période, après les contrôles du CA (doublons, courses non réalisées, annulations payées ½ tarif). ' +
     "Vérifiez les points signalés, ajustez le n°, la date et la remise, puis « Imprimer / PDF ».</p>" +
-    '<div class="grid g4 noprint" id="iSum" style="margin-bottom:16px"></div><div id="iWarn" class="noprint"></div><div id="iDoc"></div>' +
+    '<div class="grid g4 noprint" id="iSum" style="margin-bottom:16px"></div><div id="iWarn" class="noprint"></div><div id="iSaved" class="noprint"></div><div id="iDoc"></div>' +
     '<div class="noprint" style="margin-top:16px">' + fold("Détail des courses facturées", '<div id="iDet"></div>', false) + "</div>";
   el.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { st.kind = b.dataset.k; st.discount = null; draw(); });
   document.getElementById("fPer").onchange = e => { st[st.kind === "mois" ? "month" : "week"] = e.target.value; st.discount = null; draw(); };
@@ -977,6 +995,7 @@ function pagePrepareInvoice(el) {
     document.getElementById("iWarn").innerHTML = warn.length ? '<div class="card" style="margin-bottom:16px"><h2>À vérifier avant d\'émettre</h2><ul class="small" style="margin:0;padding-left:18px">' + warn.join("") + "</ul></div>" : "";
     // Aperçu imprimable.
     const due = addDays(st.issued, INVOICE_DUE_DAYS);
+    Object.assign(current, { gross: gross, disc: disc, ht: ht, vat: vat, ttc: ttc, issued: st.issued, due: due, count: billed.length, provisional: srcMonths.conf.length > 0 });
     document.getElementById("iDoc").innerHTML = !billed.length ? '<div class="card"><p class="muted" style="margin:0">Aucune course confirmée sur cette période.</p></div>' :
       '<div class="inv"><div class="hd"><div><h1>' + esc(COMPANY.name) + "</h1>" + COMPANY.lines.map(l => '<div class="small">' + esc(l) + "</div>").join("") + '</div>' +
       '<div class="to"><div style="font-size:20px;font-weight:800">FACTURE</div><div class="small">Client</div><b>' + esc(CLIENT.name) + "</b></div></div>" +
@@ -999,6 +1018,14 @@ function pagePrepareInvoice(el) {
       { key: "src", label: "Source", sm: true, val: d => d.x.src }, { key: "ldv", label: "Lettre", val: d => d.x.ldv ? "oui" : "non", html: d => d.x.ldv ? "✔" : '<span class="pill warn">manquante</span>' },
     ], { state: (st.det = st.det || {}), sort: "date", onRow: d => { const t = d.x.src === "relevé" ? (d.x.conf || d.x.ldv) : d.x; if (t) openDoc(t); } });
   }
+  document.getElementById("bDrive").onclick = () => { if (!current || !current.lines.length) return;
+    if (current.provisional && !confirm("Facture provisoire (relevé Ecotime du mois pas encore arrivé). L'enregistrer quand même ?")) return;
+    const btn = document.getElementById("bDrive"); btn.disabled = true; btn.textContent = "Enregistrement…";
+    google.script.run.withSuccessHandler(r => { btn.disabled = false; btn.textContent = "Enregistrer en PDF dans le Drive";
+        document.getElementById("iSaved").innerHTML = '<div class="card" style="margin-bottom:16px">✔ <b>' + esc(r.name) + '</b> enregistrée dans le Drive. <a href="' + esc(r.url) + '">Ouvrir le PDF ↗</a> · <a href="' + esc(r.folderUrl) + '">Dossier « Préparées par Soriya » ↗</a></div>'; })
+      .withFailureHandler(err => { btn.disabled = false; btn.textContent = "Enregistrer en PDF dans le Drive";
+        alert("PDF non enregistré : " + err.message + "\n\nSi Google demande une autorisation, rechargez la page et acceptez l'accès à Google Drive."); })
+      .soriyaWebSaveInvoicePdf(invoicePdfHtml(current), current.number, current.from, KEY); };
   document.getElementById("bCsv").onclick = () => { if (!current) return;
     downloadCsv("facture-" + current.number, [["N° facture", "Produit", "Qté", "Prix u. HT", "Total HT"]].concat(current.lines.map(l => [current.number, l.product, String(l.qty).replace(".", ","), String(l.price).replace(".", ","), String(l.total).replace(".", ",")]))
       .concat([[], ["Date", "N° course", "Trajet", "Chauffeur", "Produit", "HT", "Lettre de voiture"]]).concat(current.det.map(d => [d.x.date.slice(0, 10), d.x.number, city(d.x.from) + " → " + city(d.x.to), d.x.driver || "", d.it.product, String(d.it.qty * d.it.price).replace(".", ","), d.x.ldv ? "oui" : "non"]))); };
@@ -1023,7 +1050,8 @@ function pagePlanning(el) {
     '<input type="date" id="pDate" aria-label="Choisir un jour" style="margin-left:auto">' + "</div>" +
     '<p class="muted small" style="margin:-4px 0 12px">Affectez chaque course confirmée par Ecotime à un chauffeur. Quand la lettre de voiture arrive, elle fait foi : la course passe « Lettre reçue ». ' +
     "Le rappel WhatsApp de 19 h 30 n'est envoyé qu'au chauffeur affecté.</p>" +
-    '<div class="grid g4" id="pSum" style="margin-bottom:16px"></div><div class="board" id="pBoard"></div>';
+    '<div class="grid g4" id="pSum" style="margin-bottom:16px"></div><div class="board" id="pBoard"></div>' +
+    '<div style="margin-top:16px">' + fold("Espace chauffeur : liens personnels", '<div id="pAccess"></div>', false) + "</div>";
   const setDay = d => { st.day = d; draw(); };
   el.querySelectorAll("[data-d]").forEach(b => b.onclick = () => {
     const v = b.dataset.d; setDay(v === "0" ? today : v === "1" ? addDays(today, 1) : addDays(st.day, +v)); });
@@ -1036,6 +1064,17 @@ function pagePlanning(el) {
     if (x.replacedBy) return { k: "off", cls: "warn", txt: "Doublon probable" };
     if (c.v === "OUI") return { k: "ok", cls: "ok", txt: "Réalisée" };
     return drv ? { k: "set", cls: "info", txt: "Affectée" } : { k: "todo", cls: "warn", txt: "À affecter" }; };
+
+  // Liens de l'espace chauffeur (créés par Soriya, onglet « Accès chauffeurs ») : copier ou envoyer sur WhatsApp.
+  const acc = (DATA.driverAccess || []).filter(a => a.driver && a.url);
+  document.getElementById("pAccess").innerHTML = !acc.length ? '<p class="muted small" style="margin:0">Les liens apparaissent après le prochain passage de Soriya.</p>' :
+    '<p class="muted small" style="margin:0 0 10px">Chaque chauffeur ouvre son lien sur son téléphone (sans compte Google) : il voit ses courses du jour, envoie sa lettre de voiture et déclare un incident. Ne partagez un lien qu\'avec son chauffeur.</p>' +
+    acc.map(a => '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><b style="min-width:90px">' + esc(a.driver) + "</b>" +
+      '<button type="button" data-copy="' + esc(a.url) + '">Copier le lien</button>' +
+      (a.phone ? '<a class="small" href="https://wa.me/' + esc(digits(a.phone).replace(/^0/, "33")) + "?text=" + encodeURIComponent("Bonjour " + a.driver + ", voici votre espace chauffeur GFD Logistic (vos courses du jour, envoi des lettres de voiture, incidents) : " + a.url) + '" target="_blank" rel="noopener">Envoyer par WhatsApp ↗</a>' : "") +
+      '<a class="small" href="' + esc(a.url) + '" target="_blank" rel="noopener">Ouvrir ↗</a></div>').join("");
+  document.querySelectorAll("#pAccess [data-copy]").forEach(b => b.onclick = () => { navigator.clipboard.writeText(b.dataset.copy).then(() => { b.textContent = "Copié ✔"; }, () => prompt("Lien :", b.dataset.copy)); });
+  const incBy = {}; (DATA.incidents || []).forEach(i => { if (i.n) (incBy[i.n] = incBy[i.n] || []).push(i); });
 
   function draw() {
     const day = st.day;
@@ -1061,7 +1100,9 @@ function pagePlanning(el) {
       return '<div class="job' + (j.sit.k === "off" ? " off" : "") + '" data-i="' + list.indexOf(j) + '">' +
         '<div class="r1"><span class="t">' + (j.t || "—:—") + '</span><span class="small muted">' + (j.tl ? "→ avant " + j.tl : "") + '</span><span class="n">n° ' + esc(x.number) + "</span></div>" +
         '<div class="rt">' + esc(cap(city(x.from))) + " → " + esc(cap(city(x.to))) + "</div>" +
-        '<div class="ft"><span class="pill ' + j.sit.cls + '">' + esc(j.sit.txt) + '</span><span class="small muted">' + EUR.format(x.amountConf) + "</span>" + sel + "</div></div>"; };
+        '<div class="ft"><span class="pill ' + j.sit.cls + '">' + esc(j.sit.txt) + '</span><span class="small muted">' + EUR.format(x.amountConf) + "</span>" + sel + "</div>" +
+        (incBy[n] || []).map(i => '<div class="small" style="margin-top:6px"><span class="pill warn">⚠ ' + esc(i.type) + (i.minutes ? " · " + esc(i.minutes) + " min" : "") + "</span> " + esc(i.comment) +
+          (i.photo ? ' <a href="' + esc(i.photo) + '" target="_blank" rel="noopener">photo ↗</a>' : "") + "</div>").join("") + "</div>"; };
     const lane = (title, jobs, cls) => '<div class="lane ' + (cls || "") + '"><h3>' + esc(title) + '<span class="meta">' + jobs.length + " course" + (jobs.length > 1 ? "s" : "") +
       (jobs.length ? " · " + EUR.format(jobs.filter(j => j.sit.k !== "off").reduce((t, j) => t + j.x.amount, 0)) : "") + "</span></h3>" +
       (jobs.map(card).join("") || '<div class="empty-lane">' + (cls === "todo" ? "Rien à affecter." : "Aucune course.") + "</div>") + "</div>";

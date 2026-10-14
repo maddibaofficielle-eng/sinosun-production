@@ -74,6 +74,13 @@ function soriyaWebData() {
       try { return soriyaRead_(SORIYA_WEB.PROSPECTS_ID, 'FORMATTED_VALUE', "'Planning'!A1:D5000"); } catch (e) { return []; }
     })()),
     drivers: SORIYA_WEB.DRIVERS,
+    driverAccess: (function () {
+      try { return soriyaRead_(SORIYA_WEB.PROSPECTS_ID, 'FORMATTED_VALUE', "'Accès chauffeurs'!A2:C50").map(function (r) { return { driver: r[0], phone: r[1], url: r[2] }; }); } catch (e) { return []; }
+    })(),
+    incidents: (function () {
+      try { return soriyaRead_(SORIYA_WEB.PROSPECTS_ID, 'FORMATTED_VALUE', "'Incidents'!A2:H5000").map(function (r) {
+        return { at: r[0], day: r[1], n: String(r[2] || '').replace(/\D/g, ''), driver: r[3], type: r[4], minutes: r[5], comment: r[6], photo: r[7] }; }); } catch (e) { return []; }
+    })(),
     depenses: soriyaWebDepensesFrom_((function () {
       try { return soriyaRead_(SORIYA_WEB.LDV_JOURNAL_ID, 'UNFORMATTED_VALUE', "'Dépenses'!A1:Z5000"); } catch (e) { return []; }
     })()),
@@ -402,4 +409,21 @@ function soriyaWebRelancesFrom_(rows) {
     if (n) out[n] = { r1: d(r[4]), r2: d(r[5]), status: String(r[6] || '') };
   });
   return out;
+}
+
+/** Facture préparée : PDF enregistré dans « Factures / Préparées par Soriya », à côté du Journal Soriya. */
+function soriyaWebSaveInvoicePdf(html, number, month) {
+  const root = DriveApp.getFileById(SORIYA_WEB.CONF_JOURNAL_ID).getParents().next();
+  const sub = function (parent, name) { const it = parent.getFoldersByName(name); return it.hasNext() ? it.next() : parent.createFolder(name); };
+  const folder = sub(sub(root, 'Factures'), 'Préparées par Soriya');
+  number = String(number || '').replace(/[^\w-]/g, '') || 'brouillon';
+  const m = /^(\d{4})-(\d{2})/.exec(String(month || ''));
+  const name = (m ? m[2] + '-' + m[1] + '_' : '') + 'Facture_' + number + '.pdf';
+  const old = folder.getFilesByName(name);
+  while (old.hasNext()) old.next().setTrashed(true);
+  const pdf = Utilities.newBlob(String(html), 'text/html', name.replace(/pdf$/, 'html')).getAs('application/pdf').setName(name);
+  const file = folder.createFile(pdf);
+  file.setDescription('Facture ' + number + ' préparée par Soriya (' + (Session.getActiveUser().getEmail() || '') + ') le ' +
+    Utilities.formatDate(new Date(), SORIYA_WEB.TZ, 'dd/MM/yyyy HH:mm') + '.');
+  return { name: name, url: file.getUrl(), folderUrl: folder.getUrl() };
 }

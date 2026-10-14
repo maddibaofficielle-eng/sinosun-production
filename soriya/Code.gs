@@ -162,6 +162,8 @@ function soriyaRun(e) {
     } catch (e) {
       report.errors.push('Test du rappel WhatsApp : ' + e.message);
     }
+    // Espace chauffeur : liens personnels (onglet « Accès chauffeurs » du Sheet Prospects).
+    try { soriyaDriverTokens_(); } catch (e) { report.errors.push('Accès chauffeurs : ' + e.message); }
     // Relances Ecotime : courses sans confirmation, un mail groupé par jour (brouillon à relire), voir Relances.gs.
     try {
       const relances = soriyaRelances_();
