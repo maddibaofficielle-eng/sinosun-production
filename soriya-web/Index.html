@@ -180,6 +180,32 @@
   .daynav { display: inline-flex; gap: 6px; align-items: center; }
   .daynav b { font-size: 16px; margin: 0 6px; }
 
+  /* Préparation de facture (aperçu imprimable) */
+  .inv { background: #fff; color: #111; border: 1px solid var(--line); border-radius: 14px; padding: 32px 36px; max-width: 900px; }
+  .inv h1 { font-size: 22px; margin: 0; letter-spacing: .02em; }
+  .inv .hd { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 24px; }
+  .inv .hd .to { text-align: right; }
+  .inv .meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0 0 20px; font-size: 13px; }
+  .inv .meta span { display: block; color: #666; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .inv table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .inv th { text-align: left; border-bottom: 2px solid #111; padding: 6px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .inv td { border-bottom: 1px solid #e3e3e3; padding: 6px 8px; }
+  .inv .num, .inv th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .inv .tot { margin: 16px 0 0 auto; width: min(320px, 100%); font-size: 14px; }
+  .inv .tot div { display: flex; justify-content: space-between; padding: 4px 8px; }
+  .inv .tot .big { border-top: 2px solid #111; font-weight: 800; font-size: 16px; margin-top: 4px; padding-top: 8px; }
+  .inv .foot { margin-top: 28px; font-size: 11px; color: #666; }
+  .inv .ponly { display: none; }
+  .inv input.inl { border: 1px dashed #bbb; background: #fffbe6; color: #111; min-height: 0; padding: 2px 6px; width: 9em; }
+  @media (max-width: 640px) { .inv { padding: 18px 14px; } .inv .meta { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media print {
+    body { background: #fff !important; }
+    body.printing .side, body.printing .top, body.printing .noprint, body.printing #drawer, body.printing #drawerBg { display: none !important; }
+    body.printing .app { display: block; } body.printing .page { padding: 0; max-width: none; }
+    body.printing .inv { border: 0; padding: 0; max-width: none; }
+    body.printing .inv input.inl, body.printing .inv .scr { display: none; } body.printing .inv .ponly { display: inline; }
+  }
+
   /* Barre d'outils + tableau */
   .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
   .toolbar input[type=search] { flex: 1 1 240px; }
@@ -440,6 +466,7 @@ const PAGES = [
   { id: "courses", ico: "€", label: "Courses & CA", render: pageCourses },
   { id: "depenses", ico: "⛽", label: "Dépenses", render: pageExpenses },
   { id: "factures", ico: "▣", label: "Factures", render: pageInvoices },
+  { id: "facturation", ico: "✚", label: "Préparer une facture", render: pagePrepareInvoice },
   { id: "lettres", ico: "✎", label: "Lettres de voiture", render: pageLetters, group: "Documents" },
   { id: "rapprochement", ico: "⇄", label: "Rapprochement", render: pageMatch, group: "Documents" },
   { id: "sous-traitants", ico: "▤", label: "Sous-traitants", render: pageSubcontractors, group: "Documents" },
@@ -773,6 +800,209 @@ function releveGaps() {
   const nums = {}; R.lines.filter(l => l.key === r.key).forEach(l => { nums[digits(l.number)] = 1; });
   const conf = {}; M.sales.filter(x => x.date.slice(0, 7) === r.month).forEach(x => { const k = digits(x.number); if (k) conf[k] = 1; });
   return { month: r.month, missing: Object.keys(conf).filter(k => !nums[k]).length };
+}
+
+/* ---------- Préparation de la facture GFD (mensuelle ou hebdomadaire) à partir des courses confirmées ---------- */
+const COMPANY = { name: "GFD LOGISTIC", lines: ["1 avenue de Verdun", "93360 Neuilly-Plaisance", "06 52 13 53 08 · gfd.logistic@gmail.com"] };
+const CLIENT = { name: "ECOTIME GROUP" };
+const INVOICE_DUE_DAYS = 60; // échéance constatée sur les factures GFD (émise le 04/10, échéance le 03/12)
+// Grille des produits de facture (libellés des factures GFD), par véhicule et prix unitaire HT.
+const PRODUCTS = {
+  GV: { 60: "Courses GV zone 1", 71: "Courses GV zone 2", 85: "Courses GV zone 3", 68: "Course GV Idf", 80: "Course GV Idf2",
+    90: "Courses GV IdF", 100: "Course GV Province 1", 136: "Course GV Province 2", 156: "Course GV Province 3",
+    30: "Annulations Courses GV Z1", 35.5: "Annulations Courses GV Z2", 42.5: "Annulations Courses GV Z3" },
+  FG: { 41: "Courses Fourg Zone 1", 48: "Courses Fourg Zone 2", 20.5: "Annulations Courses Fourg Z1", 24: "Annulations Courses Fourg Z2" },
+  BK: { 24: "Courses Break Zone 1", 32: "Courses Break Zone 2", 52: "Courses Break Zone 3", 12: "Annulations Courses Break Z1" },
+};
+const VEH_LABEL = { GV: "GV", FG: "Fourgon", BK: "Break" };
+const amt = s => parseFloat(String(s).replace(/\s/g, "").replace(",", "."));
+// « GV ILE DE FRANCE 17 60,00 € ; ATTENTE 1 20,00 € » → [{ label: "GV ILE DE FRANCE", amount: 60 }, { label: "ATTENTE", amount: 20 }]
+function serviceParts(text) {
+  const out = []; let pending = "";
+  String(text || "").split(/\s*;\s*/).forEach(seg => {
+    const label = (/^[^\d]*/.exec(seg)[0] || "").replace(/[:€]/g, "").trim();
+    const m = seg.match(/\d+[.,]\d{1,2}/g);
+    const a = m ? amt(m[m.length - 1]) : null;
+    if (label && a === null) { pending = label; return; }
+    if (a === null) return;
+    out.push({ label: (label || pending).toUpperCase(), amount: a }); pending = "";
+  });
+  return out;
+}
+const vehicleOf = label => /FOURG/.test(label) ? "FG" : /BREAK/.test(label) ? "BK" : /\bGV\b/.test(label) ? "GV" : "";
+// Produit d'après le véhicule et le prix ; prix hors grille du véhicule mais présent dans la grille GV : libellé GV
+// (ex. Fourgon à 80 € facturé « Course GV Idf2 », comme sur la facture F-2026-1032).
+const productFor = (v, price) => (PRODUCTS[v] || {})[price] || PRODUCTS.GV[price] || (VEH_LABEL[v] + " · autre tarif");
+// Lignes de facture d'une course : prestation principale (produit selon véhicule et prix) + suppléments.
+function courseItems(x) {
+  const parts = serviceParts(x.services);
+  const base = parts.find(p => vehicleOf(p.label)) || null;
+  const veh = base ? vehicleOf(base.label) : vehicleOf(String(x.services).toUpperCase()) || "GV";
+  const items = [];
+  const product = productFor;
+  // Montant retenu différent de la confirmation (annulation payée ½ tarif, non réalisée payée…) : une seule ligne.
+  if (x.adj || !parts.length || Math.abs(parts.reduce((t, p) => t + p.amount, 0) - x.amount) > 0.01) {
+    items.push({ product: product(veh, x.amount), price: x.amount, qty: 1, unit: "unité" });
+    return items;
+  }
+  parts.forEach(p => {
+    if (!p.amount) return;
+    if (vehicleOf(p.label)) items.push({ product: product(vehicleOf(p.label), p.amount), price: p.amount, qty: 1, unit: "unité" });
+    else if (/MANUT/.test(p.label)) items.push({ product: "Manutentions", price: 20, qty: p.amount / 20, unit: "unité" });
+    else if (/ATTENTE/.test(p.label)) items.push({ product: "Attentes", price: 20, qty: p.amount / 20, unit: "unité" });
+    else items.push({ product: p.label.charAt(0) + p.label.slice(1).toLowerCase(), price: p.amount, qty: 1, unit: "unité" });
+  });
+  return items;
+}
+// Ligne du relevé Ecotime (code prestation + montant) → ligne de facture ; LICEN (négatif) = remise.
+function releveItem(l) {
+  const sv = String(l.service).toUpperCase(), a = l.amount;
+  const product = productFor;
+  if (a < 0 || /^LICEN/.test(sv)) return { discount: -a };
+  if (/^GV/.test(sv)) return { product: product("GV", a), price: a, qty: 1 };
+  if (/^F/.test(sv)) return { product: product("FG", a), price: a, qty: 1 };
+  if (/^B/.test(sv)) return { product: product("BK", a), price: a, qty: 1 };
+  // Regroupements constatés sur les factures GFD : douane avec les attentes, relivraison au tarif de course GV.
+  if (/^(MAN|EXPO)/.test(sv)) return { product: "Manutentions", price: 20, qty: a / 20 };
+  if (/^(ATT|DOUAN)/.test(sv)) return { product: "Attentes", price: 20, qty: a / 20 };
+  if (/^RELIV/.test(sv)) return { product: product("GV", a), price: a, qty: 1 };
+  return { product: sv + " · autre", price: a, qty: 1 };
+}
+const PRODUCT_ORDER = ["Courses GV", "Course GV Idf", "Course GV Province", "Courses Fourg", "Courses Break", "GV ·", "Fourgon ·", "Break ·", "Annulations", "Manutentions", "Attentes"];
+const productRank = p => { const i = PRODUCT_ORDER.findIndex(k => p.indexOf(k) === 0); return i < 0 ? 99 : i; };
+const isoWeekStart = d => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return isoDay(x); };
+
+function pagePrepareInvoice(el) {
+  const today = isoDay(new Date());
+  const lastMonth = (() => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return isoDay(d).slice(0, 7); })();
+  const st = view.prep = view.prep || { kind: "mois", month: lastMonth, week: addDays(isoWeekStart(today), -7), discount: null, issued: today };
+  const F = DATA.factures || { list: [], lines: [] };
+  // N° proposé : « F-AAAA-MM » + compteur suivant (F-2026-0930 puis F-2026-1032 → F-2026-1133 en novembre).
+  const seqs = F.list.map(f => /^F-(\d{4})-(\d{2})(\d+)$/.exec(f.number)).filter(Boolean).map(m => +m[3]);
+  const nextNumber = issued => "F-" + issued.slice(0, 4) + "-" + issued.slice(5, 7) + String((seqs.length ? Math.max.apply(null, seqs) : 0) + 1).padStart(2, "0");
+  const months = Object.keys(M.byMonth).sort().reverse().slice(0, 18);
+  const weeks = []; for (let w = isoWeekStart(today), i = 0; i < 16; i++, w = addDays(w, -7)) weeks.push(w);
+  el.innerHTML = '<div class="toolbar noprint"><div class="seg" role="group" aria-label="Période"><button type="button" data-k="mois">Mensuelle</button><button type="button" data-k="semaine">Hebdomadaire</button></div>' +
+    '<select id="fPer" aria-label="Période"></select><span class="count"></span>' +
+    '<button type="button" id="bCsv">Exporter CSV</button><button type="button" id="bPrint" style="background:var(--accent);color:#fff;border-color:var(--accent)">Imprimer / PDF</button></div>' +
+    '<p class="muted small noprint" style="margin:-4px 0 12px">Soriya prépare la facture à partir des courses confirmées par Ecotime sur la période, après les contrôles du CA (doublons, courses non réalisées, annulations payées ½ tarif). ' +
+    "Vérifiez les points signalés, ajustez le n°, la date et la remise, puis « Imprimer / PDF ».</p>" +
+    '<div class="grid g4 noprint" id="iSum" style="margin-bottom:16px"></div><div id="iWarn" class="noprint"></div><div id="iDoc"></div>' +
+    '<div class="noprint" style="margin-top:16px">' + fold("Détail des courses facturées", '<div id="iDet"></div>', false) + "</div>";
+  el.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { st.kind = b.dataset.k; st.discount = null; draw(); });
+  document.getElementById("fPer").onchange = e => { st[st.kind === "mois" ? "month" : "week"] = e.target.value; st.discount = null; draw(); };
+  document.getElementById("bPrint").onclick = () => { document.body.classList.add("printing"); window.print(); setTimeout(() => document.body.classList.remove("printing"), 500); };
+
+  let current = null;
+  function draw() {
+    el.querySelectorAll("[data-k]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.k === st.kind)));
+    const sel = document.getElementById("fPer");
+    sel.innerHTML = st.kind === "mois"
+      ? months.map(m => '<option value="' + m + '"' + (m === st.month ? " selected" : "") + ">" + monthLabel(m) + "</option>").join("")
+      : weeks.map(w => '<option value="' + w + '"' + (w === st.week ? " selected" : "") + ">Semaine du " + fmtDate(w) + " au " + fmtDate(addDays(w, 6)) + "</option>").join("");
+    const from = st.kind === "mois" ? st.month + "-01" : st.week;
+    const to = st.kind === "mois" ? isoDay(new Date(+st.month.slice(0, 4), +st.month.slice(5, 7), 0)) : addDays(st.week, 6);
+    const inP = x => { const d = (x.date || "").slice(0, 10); return d >= from && d <= to; };
+    // Source par mois : le relevé Ecotime en vigueur s'il est arrivé (c'est ce qu'Ecotime paie), sinon les confirmations.
+    const R = DATA.releves || { list: [], lines: [] };
+    const relByMonth = {}; R.list.forEach(r => { if (r.current && /^\d{4}-\d{2}$/.test(r.month)) relByMonth[r.month] = r; });
+    const ldvBy = {}; M.ldv.forEach(x => { const k = digits(x.number); if (k) ldvBy[k] = x; });
+    const confBy = {}; M.conf.forEach(x => { const k = digits(x.number); if (k && x.amount > 0) confBy[k] = x; });
+    const entries = [], excluded = [], claim = [], srcMonths = { rel: [], conf: [] };
+    let autoDisc = 0;
+    for (let m = from.slice(0, 7); m <= to.slice(0, 7); m = addDays(m + "-28", 7).slice(0, 7)) {
+      const rel = relByMonth[m];
+      const mFrom = from > m + "-01" ? from : m + "-01", mTo = to.slice(0, 7) === m ? to : m + "-31";
+      const inM = d => d >= mFrom && d <= mTo;
+      if (rel) {
+        srcMonths.rel.push(m);
+        const relNums = {};
+        R.lines.filter(l => l.key === rel.key).forEach(l => {
+          const it = releveItem(l);
+          if (it.discount !== undefined) { if (st.kind === "mois") autoDisc += it.discount; return; }
+          if (!inM(String(l.date).slice(0, 10))) return;
+          const k = digits(l.number); relNums[k] = 1;
+          const c = confBy[k] || {}, x = { date: l.date, number: l.number, from: l.from, to: l.to, driver: l.driver || c.driver, ldv: ldvBy[k] || c.ldv || null, src: "relevé", conf: confBy[k] || null };
+          entries.push({ x: x, items: [it] });
+        });
+        // Confirmées (non annulées, non exclues) mais absentes du relevé : à réclamer avant de facturer.
+        M.conf.filter(x => x.status.indexOf("Archivé") === 0 && x.amount > 0 && inM((x.date || "").slice(0, 10)) && !relNums[digits(x.number)]).forEach(x => claim.push(x));
+      } else {
+        srcMonths.conf.push(m);
+        M.conf.filter(x => x.status.indexOf("Archivé") === 0 && inM((x.date || "").slice(0, 10))).forEach(x => {
+          if (x.amount > 0) entries.push({ x: Object.assign(Object.create(x), { src: "confirmation" }), items: courseItems(x) });
+          else if (x.amountConf > 0) excluded.push(x);
+        });
+      }
+    }
+    const billed = entries.map(e => e.x);
+    // Lignes agrégées par produit et prix.
+    const agg = {}, det = [];
+    entries.forEach(e => e.items.forEach(it => {
+      const k = it.product + "|" + it.price; (agg[k] = agg[k] || { product: it.product, price: it.price, qty: 0 }).qty += it.qty;
+      det.push({ x: e.x, it: it }); }));
+    const lines = Object.values(agg).map(l => Object.assign(l, { total: Math.round(l.qty * l.price * 100) / 100 }))
+      .sort((a, b) => productRank(a.product) - productRank(b.product) || a.product.localeCompare(b.product) || a.price - b.price);
+    const gross = lines.reduce((t, l) => t + l.total, 0), disc = st.discount === null || st.discount === undefined ? autoDisc : +st.discount || 0;
+    const ht = gross - disc, vat = Math.round(ht * 20) / 100, ttc = ht + vat;
+    const number = st.number || nextNumber(st.issued);
+    const noLdv = billed.filter((x, i) => !x.ldv && !x.cancelled && billed.findIndex(y => digits(y.number) === digits(x.number)) === i), unknown = det.filter(d => / · autre/.test(d.it.product));
+    const period = st.kind === "mois" ? monthLabel(st.month) : "semaine du " + fmtDate(from) + " au " + fmtDate(to);
+    current = { lines: lines, det: det, number: number, from: from, to: to };
+    document.querySelector("#fPer + .count").textContent = billed.length + " course(s) facturée(s)";
+    // Facture déjà émise sur la même période (mensuelle) : comparaison ligne à ligne.
+    const real = st.kind === "mois" ? F.list.filter(f => f.month === st.month).pop() : null;
+    document.getElementById("iSum").innerHTML =
+      tile("Total HT", EUR2.format(ht), "<em class='muted' style='font-weight:400'>" + billed.length + " course(s) · " + period + "</em>", "hero") +
+      tile("TVA 20 %", EUR2.format(vat), "<em class='muted' style='font-weight:400'>TTC " + EUR2.format(ttc) + "</em>") +
+      tile("Sans lettre de voiture", String(noLdv.length), "<em class='" + (noLdv.length ? "down" : "up") + "'>" + (noLdv.length ? "preuve manquante" : "toutes prouvées ✔") + "</em>") +
+      (real ? tile("Facture émise " + real.number, EUR2.format(real.ht), "<em class='" + (Math.abs(real.ht - ht) < 0.01 ? "up'>identique ✔" : "down'>écart " + EUR2.format(ht - real.ht)) + "</em>")
+        : tile("Exclues du CA", String(excluded.length), "<em class='muted' style='font-weight:400'>doublons, non réalisées…</em>"));
+    // Points à vérifier.
+    const warn = [];
+    warn.push("<li><b>Source</b> : " + (srcMonths.rel.length ? "relevé Ecotime en vigueur (" + srcMonths.rel.map(monthLabel).join(", ") + ") — ce qu'Ecotime a validé et paiera" : "") +
+      (srcMonths.rel.length && srcMonths.conf.length ? " ; " : "") + (srcMonths.conf.length ? "confirmations d'affrètement (" + srcMonths.conf.map(monthLabel).join(", ") + ") — <b>provisoire</b> tant que le relevé du mois n'est pas arrivé" : "") +
+      (autoDisc && st.kind === "mois" ? ". Remise reprise du relevé (licence) : " + EUR2.format(autoDisc) : "") + ".</li>");
+    if (claim.length) warn.push("<li><b>" + claim.length + " course(s) confirmée(s) absente(s) du relevé</b> (" + EUR2.format(claim.reduce((t, x) => t + x.amount, 0)) + " HT) : à réclamer à Ecotime ou à ajouter à la facture. " +
+      claim.slice(0, 10).map(x => "n° " + esc(x.number) + (x.ldv ? " (lettre ✔)" : "")).join(", ") + (claim.length > 10 ? "…" : "") + "</li>");
+    if (noLdv.length) warn.push('<li><b>' + noLdv.length + " course(s) sans lettre de voiture</b> : " + (srcMonths.conf.length ? "facturées sur la foi de la confirmation ou du relevé. " : "payées au relevé, sans preuve archivée. ") + noLdv.slice(0, 12).map(x => "n° " + esc(x.number)).join(", ") + (noLdv.length > 12 ? "…" : "") + ' <a href="#/rapprochement" target="_self">Rapprochement →</a></li>');
+    if (unknown.length) warn.push("<li><b>" + unknown.length + " prestation(s) à un tarif hors grille</b> (libellé à vérifier) : " + unknown.slice(0, 8).map(d => "n° " + esc(d.x.number) + " (" + EUR2.format(d.it.price) + ")").join(", ") + "</li>");
+    if (excluded.length) warn.push("<li><b>" + excluded.length + " confirmation(s) non facturée(s)</b> : " + excluded.slice(0, 8).map(x => "n° " + esc(x.number) + " — " + esc(x.adj || "montant nul")).join(" ; ") + "</li>");
+    if (real) { const rl = F.lines.filter(l => l.key === real.key), diffs = [];
+      const by = {}; lines.forEach(l => { by[l.product.toLowerCase()] = l; });
+      rl.forEach(l => { const m = by[l.product.toLowerCase()]; if (!m || Math.abs(m.qty - l.qty) > 0.01 || Math.abs(m.price - l.price) > 0.01) diffs.push(esc(l.product) + " : facture " + l.qty + " × " + EUR2.format(l.price) + " / Soriya " + (m ? m.qty + " × " + EUR2.format(m.price) : "absent")); });
+      lines.forEach(l => { if (!rl.some(r => r.product.toLowerCase() === l.product.toLowerCase())) diffs.push(esc(l.product) + " : absent de la facture / Soriya " + l.qty + " × " + EUR2.format(l.price)); });
+      warn.push("<li><b>Comparaison avec la facture émise " + esc(real.number) + "</b> (" + EUR2.format(real.ht) + " HT" + (real.discount ? " après remise de " + EUR2.format(real.discount) : "") + ") : " +
+        (diffs.length ? diffs.length + " ligne(s) différente(s)<ul class='small'>" + diffs.map(d => "<li>" + d + "</li>").join("") + "</ul>" : "toutes les lignes correspondent ✔") + "</li>"); }
+    document.getElementById("iWarn").innerHTML = warn.length ? '<div class="card" style="margin-bottom:16px"><h2>À vérifier avant d\'émettre</h2><ul class="small" style="margin:0;padding-left:18px">' + warn.join("") + "</ul></div>" : "";
+    // Aperçu imprimable.
+    const due = addDays(st.issued, INVOICE_DUE_DAYS);
+    document.getElementById("iDoc").innerHTML = !billed.length ? '<div class="card"><p class="muted" style="margin:0">Aucune course confirmée sur cette période.</p></div>' :
+      '<div class="inv"><div class="hd"><div><h1>' + esc(COMPANY.name) + "</h1>" + COMPANY.lines.map(l => '<div class="small">' + esc(l) + "</div>").join("") + '</div>' +
+      '<div class="to"><div style="font-size:20px;font-weight:800">FACTURE</div><div class="small">Client</div><b>' + esc(CLIENT.name) + "</b></div></div>" +
+      '<div class="meta"><div><span>N° facture</span><input class="inl" id="iNum" value="' + esc(number) + '"><b class="ponly">' + esc(number) + '</b></div><div><span>Émise le</span><input class="inl" type="date" id="iIss" value="' + st.issued + '"><b class="ponly">' + fmtDate(st.issued) + "</b></div>" +
+      "<div><span>Échéance</span>" + fmtDate(due) + "</div><div><span>Période</span>" + fmtDate(from) + " → " + fmtDate(to) + "</div></div>" +
+      '<table><thead><tr><th>Produit</th><th class="num">Qté</th><th>Unité</th><th class="num">Prix u. HT</th><th class="num">TVA</th><th class="num">Total HT</th></tr></thead><tbody>' +
+      lines.map(l => "<tr><td>" + esc(l.product) + '</td><td class="num">' + String(Math.round(l.qty * 100) / 100).replace(".", ",") + "</td><td>" + (l.qty > 1 ? "unités" : "unité") +
+        '</td><td class="num">' + EUR2.format(l.price) + '</td><td class="num">20 %</td><td class="num">' + EUR2.format(l.total) + "</td></tr>").join("") + "</tbody></table>" +
+      '<div class="tot"><div><span>Total HT avant remise</span><span>' + EUR2.format(gross) + '</span></div><div><span>Remise</span><span>− <input class="inl" id="iDisc" inputmode="decimal" style="width:6em;text-align:right" value="' +
+      (disc ? String(disc).replace(".", ",") : "0") + '"><span class="scr"> €</span><b class="ponly" style="font-weight:400">' + EUR2.format(disc) + "</b></span></div>" + '<div><span>Total HT</span><span>' + EUR2.format(ht) + "</span></div><div><span>TVA 20 %</span><span>" + EUR2.format(vat) +
+      '</span></div><div class="big"><span>Total TTC</span><span>' + EUR2.format(ttc) + "</span></div></div>" +
+      '<div class="foot">Transport et manutention du ' + fmtDate(from) + " au " + fmtDate(to) + " · " + billed.length + " course(s). Paiement à " + INVOICE_DUE_DAYS + " jours, échéance le " + fmtDate(due) + ".</div></div>";
+    const num = document.getElementById("iNum"); if (num) num.onchange = e => { st.number = e.target.value.trim(); draw(); };
+    const iss = document.getElementById("iIss"); if (iss) iss.onchange = e => { if (e.target.value) { st.issued = e.target.value; draw(); } };
+    const dsc = document.getElementById("iDisc"); if (dsc) dsc.onchange = e => { st.discount = amt(e.target.value) || 0; draw(); };
+    dataTable(document.getElementById("iDet"), det, [
+      { key: "date", label: "Date", val: d => d.x.date, html: d => fmtDate(d.x.date) }, { key: "number", label: "N°", nw: true, val: d => d.x.number },
+      { key: "route", label: "Trajet", val: d => city(d.x.from) + " → " + city(d.x.to) }, { key: "driver", label: "Chauffeur", sm: true, val: d => d.x.driver || "—" },
+      { key: "product", label: "Produit", val: d => d.it.product }, { key: "total", label: "HT", num: true, val: d => d.it.qty * d.it.price, html: d => EUR2.format(d.it.qty * d.it.price) },
+      { key: "src", label: "Source", sm: true, val: d => d.x.src }, { key: "ldv", label: "Lettre", val: d => d.x.ldv ? "oui" : "non", html: d => d.x.ldv ? "✔" : '<span class="pill warn">manquante</span>' },
+    ], { state: (st.det = st.det || {}), sort: "date", onRow: d => { const t = d.x.src === "relevé" ? (d.x.conf || d.x.ldv) : d.x; if (t) openDoc(t); } });
+  }
+  document.getElementById("bCsv").onclick = () => { if (!current) return;
+    downloadCsv("facture-" + current.number, [["N° facture", "Produit", "Qté", "Prix u. HT", "Total HT"]].concat(current.lines.map(l => [current.number, l.product, String(l.qty).replace(".", ","), String(l.price).replace(".", ","), String(l.total).replace(".", ",")]))
+      .concat([[], ["Date", "N° course", "Trajet", "Chauffeur", "Produit", "HT", "Lettre de voiture"]]).concat(current.det.map(d => [d.x.date.slice(0, 10), d.x.number, city(d.x.from) + " → " + city(d.x.to), d.x.driver || "", d.it.product, String(d.it.qty * d.it.price).replace(".", ","), d.x.ldv ? "oui" : "non"]))); };
+  draw();
 }
 
 /* ---------- Planning / dispatch : affecter les courses confirmées aux chauffeurs ---------- */
