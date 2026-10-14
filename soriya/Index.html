@@ -3,13 +3,13 @@
 <head>
 <base target="_blank">
 <meta charset="utf-8">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <style>
   :root {
     color-scheme: light;
     /* Charte GFD Logistic : bleu marine, blanc, rouge bordeaux */
     --navy: #0f1f4b; --navy-2: #1b3170; --bordeaux: #8c1c2f; --bordeaux-2: #a8263b; --bordeaux-soft: #f8e8eb;
-    --bg: #f3f5f9; --surface: #ffffff; --surface-2: #f7f8fb; --line: #e2e6ef; --grid: #edf0f5;
+    --bg: #ffffff; --surface: #f3f5fb; --surface-2: #ffffff; --line: #e3e7f1; --grid: #e6eaf3; --tint: #eef1fa; --tint-2: #fbeef0;
     --ink: #0f1b3d; --ink-2: #4b5572; --ink-3: #7d859b;
     --accent: #1b3170; --accent-ink: #ffffff; --accent-soft: #e9eef8;
     --s-conf: #1f3d8f; --s-ldv: #8c1c2f; --c1: #1f3d8f; --c2: #8c1c2f; --c3: #1a8a64;
@@ -23,7 +23,7 @@
     :root {
       color-scheme: dark;
       --navy: #0b1530; --navy-2: #2b4590; --bordeaux: #e0566b; --bordeaux-2: #ec7183; --bordeaux-soft: #3a1820;
-      --bg: #080e1f; --surface: #101a33; --surface-2: #15213f; --line: #25325a; --grid: #1c2847;
+      --bg: #070c1c; --surface: #111a33; --surface-2: #16213f; --line: #25325a; --grid: #1c2847; --tint: #142045; --tint-2: #2a1520;
       --ink: #f1f4fb; --ink-2: #b4bcd4; --ink-3: #8790ab;
       --accent: #8aa6ff; --accent-ink: #0b1530; --accent-soft: #1a2750;
       --s-conf: #8aa6ff; --s-ldv: #e0566b; --c1: #8aa6ff; --c2: #e0566b; --c3: #4cc596;
@@ -337,85 +337,133 @@
   }
   @media (max-width: 520px) { .g6, .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tile b { font-size: 21px; } }
 
-  /* ================= Thème GFD (refonte visuelle) ================= */
-  body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14.5px; -webkit-font-smoothing: antialiased; }
-  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
-  button, select, input { border-radius: 10px; border-color: var(--line); }
-  button { font-weight: 600; transition: background .15s, border-color .15s, color .15s; }
-  button:hover { border-color: var(--navy-2); }
-  /* Cartes : blanches, sans bordure, ombre douce */
-  .card, .tile, .kpi, .table-wrap, details.fold, .lane, .drv-card, .col, .inv { border: 1px solid transparent; box-shadow: var(--shadow); border-radius: 16px; }
-  @media (prefers-color-scheme: dark) { .card, .tile, .kpi, .table-wrap, details.fold, .lane, .drv-card, .col { border-color: var(--line); } }
-  .card h2 { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
-  .tile span, .kpi .lbl { font-weight: 500; }
-  .tile b, .kpi b { font-weight: 800; letter-spacing: -0.02em; }
-  .tile.hero, .kpi.hero { background: linear-gradient(135deg, var(--ca-from), var(--ca-to)); position: relative; overflow: hidden; }
-  .tile.hero::after, .kpi.hero::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--bordeaux); }
-  .kpi .lbl i { background: var(--accent-soft); color: var(--navy-2); } .kpi .lbl i svg { width: 14px; height: 14px; }
-  .kpi.hero .lbl i { color: #fff; }
-  /* Barre latérale */
-  .side { background: var(--side); padding: 20px 14px; }
-  .brand { padding: 0 6px 22px; gap: 12px; }
-  .brand .logo { width: 46px; height: 46px; border-radius: 50%; background: #fff; padding: 2px; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+  /* ================= Thème GFD — esprit Stuart : blanc, grands titres, blocs pastel, pilules ================= */
+  body { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 15px; -webkit-font-smoothing: antialiased; background: var(--bg); }
+  a { color: var(--navy-2); text-decoration-thickness: 1.5px; text-underline-offset: 3px; font-weight: 600; }
+  @media (prefers-color-scheme: dark) { a { color: var(--accent); } }
+  button, select, input { border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface-2); padding: 9px 18px; min-height: 42px; }
+  textarea { border-radius: 16px; }
+  button { font-weight: 700; transition: background .15s, border-color .15s, color .15s, transform .1s; }
+  button:hover { border-color: var(--navy-2); } button:active { transform: scale(.98); }
+  #bPrint, button.primary { background: var(--bordeaux) !important; border-color: var(--bordeaux) !important; color: #fff !important; }
+
+  /* Barre de navigation blanche en haut */
+  .app { display: block; }
+  .side { position: sticky; top: 0; z-index: 30; height: auto; flex-direction: row; align-items: center; gap: 28px;
+    background: var(--bg); color: var(--ink); padding: 12px 40px; border-bottom: 1px solid var(--line); }
+  .brand { padding: 0; gap: 12px; color: var(--ink); flex: none; }
+  .brand .logo { width: 44px; height: 44px; border-radius: 50%; background: #fff; padding: 0; box-shadow: none; }
   .brand .logo svg { width: 100%; height: 100%; display: block; }
-  .brand b { font-size: 16px; font-weight: 800; letter-spacing: .01em; }
-  .brand small { font-size: 12px; opacity: .85; }
-  .nav a { position: relative; padding: 10px 12px; border-radius: 12px; font-weight: 500; gap: 12px; }
-  .nav a.on { background: var(--side-act); color: #fff; font-weight: 600; }
-  .nav a.on::before { content: ""; position: absolute; left: -14px; top: 8px; bottom: 8px; width: 4px; border-radius: 0 4px 4px 0; background: var(--bordeaux-2); }
-  .nav .ico { width: 20px; height: 20px; display: inline-grid; place-items: center; opacity: .9; }
-  .nav .ico svg, .tabbar svg { width: 20px; height: 20px; }
-  .nav .cnt.alert { background: var(--bordeaux-2); }
-  .nav .grp { font-weight: 600; opacity: .55; }
-  /* En-tête */
-  .top { background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); padding: 14px 28px; }
-  .top h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
-  .page { padding: 22px 28px 56px; }
-  #refresh { border-radius: 999px; }
-  /* Pastilles, onglets, tableaux */
-  .pill { border-radius: 999px; font-weight: 600; }
-  .pill.info { color: var(--navy-2); background: var(--accent-soft); }
-  @media (prefers-color-scheme: dark) { .pill.info { color: var(--accent); } }
-  .seg { border-radius: 999px; padding: 3px; background: var(--surface); gap: 2px; }
-  .seg button { border-radius: 999px; min-height: 34px; background: transparent; }
-  .seg button[aria-pressed="true"] { background: var(--navy-2); color: #fff; }
-  th { font-size: 11px; letter-spacing: .05em; color: var(--ink-3); }
-  tbody tr:hover td { background: var(--accent-soft); }
+  .brand b { font-size: 17px; font-weight: 800; letter-spacing: -.01em; color: var(--navy); }
+  @media (prefers-color-scheme: dark) { .brand b { color: #fff; } }
+  .brand small { color: var(--ink-3); font-size: 12px; }
+  .nav { display: flex; align-items: center; gap: 2px; flex: 1; min-width: 0; }
+  .nav a { color: var(--ink-2); padding: 9px 14px; border-radius: 999px; font-size: 14.5px; font-weight: 600; gap: 8px; white-space: nowrap; }
+  .nav a:hover { background: var(--tint); color: var(--ink); }
+  .nav a.on { background: var(--navy); color: #fff; }
+  @media (prefers-color-scheme: dark) { .nav a.on { background: var(--accent); color: var(--accent-ink); } }
+  .nav a.on::before { display: none; }
+  .nav .ico { display: none; }
+  .nav > .grp { display: none; }
+  .nav details { position: relative; }
+  .nav details > summary { list-style: none; cursor: pointer; padding: 9px 14px; border-radius: 999px; font-weight: 600; font-size: 14.5px; color: var(--ink-2); }
+  .nav details > summary:hover, .nav details[open] > summary { background: var(--tint); color: var(--ink); }
+  .nav details > summary .grp { all: unset; }
+  .nav details[open] .grp::after, .nav details:not([open]) .grp::after { content: ""; }
+  .nav details > summary::after { content: " ▾"; font-size: 11px; }
+  .nav .menu { position: absolute; top: calc(100% + 8px); right: 0; min-width: 260px; background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 20px; padding: 10px; box-shadow: 0 18px 40px rgba(15,27,61,.14); display: grid; gap: 2px; }
+  .nav .menu .grp { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); padding: 10px 12px 4px; opacity: 1; }
+  .nav .menu a { border-radius: 12px; }
+  .nav .menu .ico { display: inline-grid; width: 18px; height: 18px; color: var(--ink-3); } .nav .menu .ico svg { width: 18px; height: 18px; }
+  .nav .menu a.on .ico { color: #fff; }
+  .side-foot { display: none; }
+  .nav .cnt.alert { background: var(--bordeaux); color: #fff; }
+
+  /* En-tête de page : très grand titre */
+  .top { position: static; background: none; backdrop-filter: none; border: 0; padding: 36px 40px 8px; max-width: 1480px; }
+  .top h1 { font-size: 40px; line-height: 1.1; font-weight: 800; letter-spacing: -0.035em; color: var(--navy); }
+  @media (prefers-color-scheme: dark) { .top h1 { color: #fff; } }
+  .top small { font-size: 13px; color: var(--ink-3); margin-top: 8px; letter-spacing: 0; font-weight: 500; }
+  #refresh { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .page { padding: 20px 40px 72px; max-width: 1480px; }
+
+  /* Blocs pastel très arrondis, sans ombre */
+  .card, .kpi, .tile, details.fold, .lane, .drv-card, .col { background: var(--surface); border: 0; box-shadow: none; border-radius: 24px; }
+  .card { padding: 22px; }
+  .card h2 { font-size: 17px; font-weight: 800; letter-spacing: -0.015em; color: var(--navy); }
+  @media (prefers-color-scheme: dark) { .card h2 { color: #fff; } }
+  .tile, .kpi { padding: 20px 22px; }
+  .tile span, .kpi .lbl { font-weight: 600; color: var(--ink-2); font-size: 13px; }
+  .tile b, .kpi b { font-size: 32px; font-weight: 800; letter-spacing: -0.03em; color: var(--navy); }
+  @media (prefers-color-scheme: dark) { .tile b, .kpi b { color: #fff; } }
+  .tile.hero, .kpi.hero { background: var(--navy); color: #fff; }
+  .tile.hero b, .kpi.hero b { color: #fff; }
+  .tile.hero::after, .kpi.hero::after { display: none; }
+  .tile.hero span, .kpi.hero .lbl { color: rgba(255,255,255,.75); }
+  .grid > .tile:nth-child(2), .kpis > .kpi:nth-child(2) { background: var(--tint-2); }
+  .kpi .lbl i { background: #fff; color: var(--navy-2); width: 26px; height: 26px; border-radius: 50%; } .kpi .lbl i svg { width: 14px; height: 14px; }
+  .kpi.hero .lbl i { background: rgba(255,255,255,.14); color: #fff; }
+  @media (prefers-color-scheme: dark) { .kpi .lbl i { background: var(--surface-2); } }
+  .table-wrap { background: var(--surface-2); border: 1.5px solid var(--line); border-radius: 24px; box-shadow: none; }
+  th { background: var(--surface-2); font-size: 11px; font-weight: 700; letter-spacing: .07em; color: var(--ink-3); }
+  th, td { padding: 13px 14px; }
+  tbody tr:hover td { background: var(--tint); }
   tbody tr:nth-child(even):not(.grp) td { background: transparent; }
-  tr.grp td { background: var(--surface-2) !important; }
+  tr.grp td { background: var(--tint) !important; }
+  .pill { border-radius: 999px; font-weight: 700; padding: 3px 11px; }
+  .pill.info { color: var(--navy-2); background: var(--tint); }
+  @media (prefers-color-scheme: dark) { .pill.info { color: var(--accent); } }
+  .seg { border-radius: 999px; padding: 4px; background: var(--surface); border: 0; gap: 2px; }
+  .seg button { border: 0; border-radius: 999px; min-height: 36px; background: transparent; }
+  .seg button[aria-pressed="true"] { background: var(--navy); color: #fff; }
+  .lane { padding: 16px; } .lane.todo { background: var(--tint-2); border: 0; }
+  .job { border: 0; border-radius: 18px; background: var(--surface-2); padding: 14px; }
+  .job .t { font-weight: 800; font-size: 17px; }
+  details.fold > summary { font-weight: 800; font-size: 16px; padding: 18px 22px; }
   .bar-row .bar i, .meter > i { background: var(--navy-2); }
   @media (prefers-color-scheme: dark) { .bar-row .bar i, .meter > i { background: var(--accent); } }
-  .avatar { background: var(--navy-2); }
-  .lane.todo { border-color: var(--bordeaux); }
-  .job { border-radius: 12px; }
-  .job .t { font-weight: 800; }
-  details.fold > summary { font-weight: 700; }
+  .avatar { background: var(--bordeaux); }
+  .tips .ic { border-radius: 50%; }
+  .minis div { background: var(--surface-2); border-radius: 14px; }
+  .inv { border-radius: 24px; border: 1.5px solid var(--line); box-shadow: none; }
+  .drawer { border-radius: 24px 0 0 24px; }
   /* Textes d'aide : une ligne, le reste au clic */
   #page > p.muted.small, .toolbar > span.muted.small { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
   #page > p.muted.small.open, .toolbar > span.muted.small.open { -webkit-line-clamp: unset; display: block; }
-  #page > p.muted.small::before, .toolbar > span.muted.small::before { content: "ⓘ "; color: var(--navy-2); font-weight: 700; }
-  /* Barre d'onglets en bas (mobile) */
+  #page > p.muted.small::before, .toolbar > span.muted.small::before { content: "ⓘ "; color: var(--bordeaux); font-weight: 800; }
+
+  /* Mobile : logo en haut, onglets en bas, « Plus » en panneau */
   .tabbar { display: none; }
+  @media (max-width: 1100px) { .side { padding: 10px 20px; gap: 16px; } .nav a, .nav details > summary { padding: 8px 10px; font-size: 13.5px; } .brand small { display: none; } }
   @media (max-width: 860px) {
-    .tabbar { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
-      background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -4px 20px rgba(15,27,61,.08); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
-    .tabbar a, .tabbar button { display: grid; justify-items: center; gap: 2px; font-size: 11px; font-weight: 600; color: var(--ink-3); text-decoration: none;
-      background: none; border: 0; min-height: 48px; padding: 4px 0; }
+    .side { padding: 10px 16px; transform: none !important; position: sticky; width: auto; }
+    .nav { display: none; }
+    .side.open .nav { display: grid; position: fixed; left: 8px; right: 8px; bottom: 76px; max-height: 70vh; overflow: auto; background: var(--surface-2);
+      border-radius: 24px; padding: 12px; box-shadow: 0 -10px 40px rgba(15,27,61,.25); gap: 2px; z-index: 40; }
+    .side.open .nav details > summary { display: none; }
+    .side.open .nav .menu { position: static; box-shadow: none; border: 0; padding: 0; min-width: 0; }
+    .side.open .nav .ico { display: inline-grid; width: 18px; height: 18px; } .side.open .nav .ico svg { width: 18px; height: 18px; }
+    .tabbar { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 35;
+      background: var(--bg); border-top: 1px solid var(--line); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+    .tabbar a, .tabbar button { display: grid; justify-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: var(--ink-3); text-decoration: none;
+      background: none; border: 0; min-height: 50px; padding: 4px 0; border-radius: 14px; }
+    .tabbar svg { width: 22px; height: 22px; }
     .tabbar .on { color: var(--bordeaux); }
-    .page { padding-bottom: 96px; }
     .menu-btn { display: none !important; }
-    .top { padding: 12px 16px; }
-    .top h1 { font-size: 19px; }
+    .top { padding: 22px 16px 4px; } .top h1 { font-size: 30px; }
+    .page { padding: 14px 16px 104px; }
+    .tile b, .kpi b { font-size: 26px; }
   }
 </style>
 </head>
 <body>
 <div class="app">
-  <nav class="side" id="side" aria-label="Menu">
-    <div class="brand"><div class="logo" id="brandLogo"></div><div><b>GFD Logistic</b><small>Soriya · gestion transport</small></div></div>
+  <header class="side" id="side" aria-label="Menu">
+    <a class="brand" href="#/" target="_self" style="text-decoration:none"><div class="logo" id="brandLogo"></div><div><b>GFD Logistic</b><small>Soriya · gestion transport</small></div></a>
     <div class="nav" id="nav"></div>
     <div class="side-foot" id="sideFoot"></div>
-  </nav>
+  </header>
   <div class="main">
     <div class="top">
       <button class="menu-btn" id="menuBtn" type="button" aria-label="Menu">☰</button>
@@ -589,8 +637,8 @@ function route() {
     return '<a href="#/' + x.id + '" target="_self" class="' + (x === p ? "on" : "") + '"><span class="ico">' + icon(x.ico) + "</span>" + x.label + cnt + "</a>";
   };
   const grp = g => PAGES.filter(x => (x.group || "") === g).map(link).join("");
-  document.getElementById("nav").innerHTML = grp("") + '<div class="grp">Documents</div>' + grp("Documents") +
-    "<details" + (p.group === "Plus" ? " open" : "") + '><summary><div class="grp">Plus</div></summary>' + grp("Plus") + "</details>";
+  document.getElementById("nav").innerHTML = grp("") + '<span style="flex:1"></span><details class="more-menu"><summary>Documents & plus</summary><div class="menu">' +
+    '<div class="grp">Documents</div>' + grp("Documents") + '<div class="grp">Plus</div>' + grp("Plus") + "</div></details>";
   document.getElementById("title").firstChild.nodeValue = p.label;
   document.getElementById("sub").textContent = "Données à jour au " + DATA.generatedAt;
   document.getElementById("sideFoot").innerHTML = DATA.activities.map(a =>
@@ -601,7 +649,8 @@ function route() {
   const TABS = [["", "dash", "Accueil"], ["planning", "cal", "Planning"], ["courses", "euro", "Courses"], ["factures", "file", "Factures"]];
   document.getElementById("tabbar").innerHTML = TABS.map(t => '<a href="#/' + t[0] + '" target="_self" class="' + (p.id === t[0] ? "on" : "") + '">' + icon(t[1]) + "<span>" + t[2] + "</span></a>").join("") +
     '<button type="button" id="tabMore" class="' + (TABS.some(t => t[0] === p.id) ? "" : "on") + '">' + icon("more") + "<span>Plus</span></button>";
-  document.getElementById("tabMore").onclick = () => document.getElementById("side").classList.toggle("open");
+  document.getElementById("tabMore").onclick = () => { const sd = document.getElementById("side"), mm = document.querySelector("#nav .more-menu");
+    sd.classList.toggle("open"); if (mm) mm.open = sd.classList.contains("open"); };
   p.render(document.getElementById("page"), arg ? decodeURIComponent(arg) : "");
 }
 window.addEventListener("hashchange", route);
@@ -1759,6 +1808,9 @@ function pageActivity(el) {
 document.getElementById("refresh").onclick = load;
 document.getElementById("menuBtn").onclick = () => document.getElementById("side").classList.toggle("open");
 document.getElementById("brandLogo").innerHTML = GFD_LOGO;
+// Menu « Documents & plus » : se ferme au clic ailleurs ou sur un lien.
+document.addEventListener("click", e => { const mm = document.querySelector("#nav .more-menu");
+  if (mm && mm.open && !e.target.closest("#tabMore") && (!mm.contains(e.target) || e.target.closest("a"))) mm.open = false; });
 // Textes d'aide repliés sur une ligne : un clic les déplie.
 document.addEventListener("click", e => { const t = e.target.closest && e.target.closest("#page > p.muted.small, .toolbar > span.muted.small"); if (t) t.classList.toggle("open"); });
 let resizeT; window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (DATA && !location.hash.replace(/^#\/?/, "")) route(); }, 200); });
