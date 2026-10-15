@@ -76,6 +76,8 @@ const SORIYA_CONFIG = {
   },
   // Compte Google qui doit faire tourner Soriya (sa boîte Gmail, son Drive). Lancé avec un autre compte, Soriya s'arrête.
   OWNER_EMAIL: 'gfd.logistic@gmail.com',
+  // Adresse publique de l'application Soriya (déploiement mis à jour à chaque version) : liens de l'espace chauffeur.
+  WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbw8NAz4kKY0k4aUc2VMTFNI3m_dn6LL3i1DhbCRUla1_RJUbkcQiSblA5mqUevj9qY-NA/exec',
 
   // Relances Ecotime : lettres de voiture sans confirmation (voir Relances.gs).
   // MODE 'brouillon' = mails préparés dans Gmail › Brouillons, à relire et envoyer ; 'envoi' = envoyés automatiquement.

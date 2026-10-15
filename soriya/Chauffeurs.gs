@@ -27,7 +27,7 @@ function soriyaDriverTokens_() {
   names.forEach(function (n) {
     if (!has[n]) { const t = Utilities.getUuid().replace(/-/g, ''); tokens[t] = n; has[n] = t; changed = true; }
   });
-  const url = ScriptApp.getService().getUrl();
+  const url = SORIYA_CONFIG.WEB_APP_URL || ScriptApp.getService().getUrl();
   const key = names.join(',') + '|' + url;
   if (!changed && props.getProperty('SORIYA_DRIVER_ACCESS_WRITTEN') === key) return tokens;
   props.setProperty('SORIYA_DRIVER_TOKENS', JSON.stringify(tokens));
