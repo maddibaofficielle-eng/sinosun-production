@@ -82,6 +82,58 @@ function soriyaAdminNouveau_(j) {
   return false;
 }
 
+/**
+ * Documents administratifs déposés directement dans le Drive de GFD (ex. nouvel extrait Kbis) : repérés par leur nom,
+ * lus comme ceux reçus par e-mail, puis COPIÉS dans « Documents administratifs » (l'original reste où il est).
+ * Un document par passage, au plus une recherche Drive par heure. @return {boolean}
+ */
+function soriyaAdminDepuisDrive_(j) {
+  const props = PropertiesService.getScriptProperties();
+  const last = Number(props.getProperty('SORIYA_ADMIN_DRIVE_SCAN') || 0);
+  if (Date.now() - last < 3600000) return false;
+  const sh = soriyaAdminSheet_(j);
+  const rows = soriyaSheetRows_(sh);
+  // Fichiers déjà connus : clé « drive:<id> » ou lien du document rangé.
+  const known = new Set();
+  rows.forEach(function (r) { known.add(String(r[0])); const m = /\/d\/([\w-]+)/.exec(String(r[15])); if (m) known.add('drive:' + m[1]); });
+  const folder = soriyaSubFolder_(soriyaRootFolder_('confirmation'), [SORIYA_ADMIN.FOLDER]);
+  const q = '(title contains "kbis" or title contains "Kbis" or title contains "KBIS" or title contains "urssaf" or title contains "URSSAF" or ' +
+    'title contains "vigilance" or title contains "attestation" or title contains "Attestation" or title contains "assurance" or ' +
+    'title contains "licence" or title contains "Licence") and trashed = false and (mimeType = "application/pdf" or mimeType contains "image/") and modifiedDate > "' +
+    Utilities.formatDate(new Date(Date.now() - 90 * 86400000), 'UTC', "yyyy-MM-dd'T'HH:mm:ss") + '"'; // déposés ces 90 derniers jours
+  const it = DriveApp.searchFiles(q);
+  const candidates = [];
+  while (it.hasNext() && candidates.length < 200) {
+    const f = it.next();
+    if (known.has('drive:' + f.getId())) continue;
+    // Déjà rangé par Soriya (dossier Documents administratifs) ou reçu par e-mail : ignoré.
+    const parents = f.getParents(); let inAdmin = false;
+    while (parents.hasNext()) if (parents.next().getId() === folder.getId()) inAdmin = true;
+    if (inAdmin || /^Archivé par Soriya/.test(f.getDescription() || '')) continue;
+    candidates.push(f);
+  }
+  if (!candidates.length) { props.setProperty('SORIYA_ADMIN_DRIVE_SCAN', String(Date.now())); return false; }
+  candidates.sort(function (a, b) { return b.getLastUpdated() - a.getLastUpdated(); }); // le plus récent d'abord
+  const file = candidates[0];
+  const key = 'drive:' + file.getId();
+  const base = [key, file.getDateCreated(), 'Drive GFD', file.getName()];
+  const d = soriyaClaudeJson_(file.getBlob(), soriyaAdminPrompt_(), soriyaAdminSchema_(),
+    'Fichier déposé dans le Drive de GFD : « ' + file.getName() + ' ».\nIdentifie ce document et extrais ses informations.', null, 4000);
+  if (!d.est_document_administratif) {
+    sh.appendRow(base.concat(['', '', '', '', '', '', '', '', '', '', '', '', new Date(), 'Pas un document administratif : ' + d.remarques]));
+    return true;
+  }
+  const date = soriyaParseDate_(d.date_document) || file.getDateCreated();
+  const name = soriyaUniqueName_(folder, Utilities.formatDate(date, Session.getScriptTimeZone(), 'dd-MM-yyyy') + '_' +
+    String(d.type_document).replace(/[^A-Za-zÀ-ÿ0-9]+/g, '_').replace(/^_|_$/g, '') + (/pdf/.test(file.getMimeType()) ? '.pdf' : '.' + (file.getName().split('.').pop() || 'jpg')));
+  const copy = file.makeCopy(name, folder);
+  copy.setDescription('Copié par Soriya depuis le Drive de GFD (original : ' + file.getUrl() + ').');
+  sh.appendRow(base.concat([d.type_document, d.emetteur, d.destinataire, "'" + d.date_document,
+    "'" + d.valable_jusqu_au, d.societe_concernee, "'" + d.reference, d.resume, (d.pieces_demandees || []).join(' ; '),
+    "'" + d.date_limite, name, copy.getUrl(), new Date(), 'Trouvé dans le Drive de GFD. ' + (d.remarques || ''), folder.getUrl()]));
+  return true;
+}
+
 function soriyaAdminPrompt_() {
   return [
     'Tu es Soriya, assistante administrative de GFD-LOGISTIC, transporteur sous-traitant d\'Ecotime.',

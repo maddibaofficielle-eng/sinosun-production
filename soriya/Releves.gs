@@ -73,7 +73,7 @@ function soriyaTraiterReleves_(started, report) {
     try {
       // Totaux des nouveaux relevés, factures, documents administratifs, puis détail des relevés (le plus long).
       did = soriyaReleveNouveau_(s) || soriyaFactureNouvelle_(s.journal) || soriyaAdminNouveau_(s.journal) ||
-        soriyaReleveDetail_(s);
+        soriyaAdminDepuisDrive_(s.journal) || soriyaReleveDetail_(s);
     } catch (e) {
       report.errors.push('Relevés sous-traitant : ' + e.message);
       break;
