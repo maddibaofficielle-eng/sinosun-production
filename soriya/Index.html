@@ -1768,16 +1768,19 @@ function pageExpenses(el, sub) {
   const D = DATA.depenses || { list: [] };
   // Même ticket envoyé deux fois (photo + capture) : un seul par date, heure et montant.
   const seen = {}, all = D.list.filter(x => { const k = x.date + "|" + x.time + "|" + x.ttc; if (x.ttc && seen[k]) return false; seen[k] = 1; return true; });
-  const cats = Array.from(new Set(all.map(x => x.category).filter(c => c && c !== "Carburant"))).sort();
-  const tabs = ["Carburant"].concat(cats.length ? ["Autres dépenses"] : []);
-  const tab = sub === "autres" && cats.length ? "Autres dépenses" : "Carburant";
+  // Frais généraux : factures fournisseurs reçues par e-mail (comptable, logiciels…), hors dépenses des chauffeurs.
+  const FG = { "Comptabilité": 1, "Logiciels / IA": 1 }, isFG = x => !!FG[x.category];
+  const cats = Array.from(new Set(all.map(x => x.category).filter(c => c && c !== "Carburant" && !FG[c]))).sort();
+  const hasFG = all.some(isFG);
+  const tabs = ["Carburant"].concat(cats.length ? ["Autres dépenses"] : []).concat(hasFG ? ["Frais généraux"] : []);
+  const tab = sub === "autres" && cats.length ? "Autres dépenses" : sub === "frais" && hasFG ? "Frais généraux" : "Carburant";
   const st = view.exp = view.exp || { month: "", driver: "" };
-  const list = all.filter(x => tab === "Carburant" ? x.category === "Carburant" : x.category !== "Carburant");
+  const list = all.filter(x => tab === "Carburant" ? x.category === "Carburant" : tab === "Frais généraux" ? isFG(x) : x.category !== "Carburant" && !isFG(x));
   const months = Array.from(new Set(list.map(x => x.date.slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m)))).sort().reverse();
   const drivers = Array.from(new Set(list.map(x => x.driver || x.sender))).sort();
   if (st.month && months.indexOf(st.month) < 0) st.month = "";
   const folder = D.folderUrl ? '<a class="more" href="' + esc(D.folderUrl) + '">Dossier des tickets ↗</a>' : "";
-  el.innerHTML = '<div class="toolbar"><div class="seg">' + tabs.map(t => '<button type="button" data-t="' + (t === "Carburant" ? "carburant" : "autres") + '" aria-pressed="' + (t === tab) + '">' + (t === "Carburant" ? "⛽ " : "") + t + "</button>").join("") + "</div>" +
+  el.innerHTML = '<div class="toolbar"><div class="seg">' + tabs.map(t => '<button type="button" data-t="' + (t === "Carburant" ? "carburant" : t === "Frais généraux" ? "frais" : "autres") + '" aria-pressed="' + (t === tab) + '">' + (t === "Carburant" ? "⛽ " : "") + t + "</button>").join("") + "</div>" +
     '<select id="fMonth"><option value="">Tous les mois</option>' + months.map(m => '<option value="' + m + '"' + (m === st.month ? " selected" : "") + ">" + monthLabel(m) + "</option>").join("") + "</select>" +
     '<select id="fDrv"><option value="">Tous les chauffeurs</option>' + drivers.map(d => '<option' + (d === st.driver ? " selected" : "") + ">" + esc(d) + "</option>").join("") + "</select></div>" +
     (list.length ? '<div class="grid g4" id="eSum" style="margin-bottom:16px"></div>' +

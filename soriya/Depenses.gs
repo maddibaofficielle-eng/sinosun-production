@@ -13,7 +13,7 @@ const SORIYA_DEPENSES_HEADERS = ['Clé', 'Reçu le', 'Expéditeur', 'Chauffeur',
   'Immatriculation', 'Kilométrage', 'N° ticket', 'Nom dans Drive', 'Lien Drive', 'Traité le', 'Remarques', 'Dossier',
   'Type de pièce'];
 const SORIYA_DEPENSES_CATEGORIES = ['Carburant', 'Péage', 'Parking', 'Lavage', 'Entretien', 'Réparation', 'Pièces',
-  'Restauration', 'Téléphone', 'Fournitures', 'Assurance', 'Autre'];
+  'Restauration', 'Téléphone', 'Fournitures', 'Assurance', 'Comptabilité', 'Logiciels / IA', 'Autre'];
 const SORIYA_DEPENSES_TYPES = ['Ticket de caisse', 'Facture', 'Devis', 'Autre'];
 
 /** Statut « À vérifier » d'un document WhatsApp qui est un ticket de caisse / reçu de dépense. */
@@ -218,4 +218,64 @@ function soriyaRestaurerTicketsSupprimes_(since) {
    }
   }
   return n;
+}
+
+// ---------- Frais généraux : factures fournisseurs reçues par e-mail (Keobiz, Anthropic…) ----------
+
+/** Fournisseurs suivis : recherche Gmail, catégorie, pièce jointe à retenir (les reçus / rappels en double sont ignorés). */
+const SORIYA_FRAIS_GENERAUX = [
+  { query: 'from:keobiz', fournisseur: 'Keobiz', categorie: 'Comptabilité', piece: /\.pdf$/i },
+  { query: 'from:anthropic.com', fournisseur: 'Anthropic (Claude)', categorie: 'Logiciels / IA', piece: /^Invoice/i },
+];
+
+/**
+ * Factures des fournisseurs suivis : lecture IA (n°, date, HT, TVA, TTC), PDF rangé dans « Dépenses / Frais généraux »,
+ * ligne dans l'onglet « Dépenses » (chauffeur « GFD (frais généraux) ») ; l'interface les montre dans Dépenses ›
+ * Frais généraux. Une même facture reçue deux fois (facture + rappel d'encaissement) n'est comptée qu'une fois.
+ * @return {number} factures ajoutées
+ */
+function soriyaFraisGeneraux_(started) {
+  if (!PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY')) return 0;
+  const root = soriyaRootFolder_('lettre_voiture');
+  const j = soriyaJournalSpreadsheet_(root, 'lettre_voiture');
+  const sh = soriyaDepensesSheet_(j);
+  const keys = new Set(soriyaSheetRows_(sh).map(function (r) { return String(r[0]); }));
+  const tz = Session.getScriptTimeZone();
+  let added = 0;
+  for (let f = 0; f < SORIYA_FRAIS_GENERAUX.length; f++) {
+    const fr = SORIYA_FRAIS_GENERAUX[f];
+    const threads = GmailApp.search('(' + fr.query + ') has:attachment filename:pdf after:' +
+      Utilities.formatDate(soriyaHistoryStart_(), tz, 'yyyy/MM/dd'), 0, 50);
+    for (let t = 0; t < threads.length; t++) {
+      const msgs = threads[t].getMessages();
+      for (let m = 0; m < msgs.length; m++) {
+        const atts = soriyaPdfs_(msgs[m]).filter(function (a) { return fr.piece.test(a.getName()); });
+        for (let a = 0; a < atts.length; a++) {
+          if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS || added >= 6) return added;
+          const key = 'fg:' + fr.fournisseur + ':' + atts[a].getName();
+          if (keys.has(key)) continue;
+          keys.add(key);
+          const d = soriyaClaudeJson_(atts[a].copyBlob(), [
+            'Tu lis une facture fournisseur reçue par GFD-LOGISTIC (transporteur). Recopie les valeurs telles qu\'imprimées ;',
+            'dates au format AAAA-MM-JJ ; montants en nombres (point décimal) ; chaîne vide ou 0 si absent.'].join('\n'), {
+            type: 'object', additionalProperties: false,
+            required: ['numero', 'date', 'montant_ht', 'tva', 'montant_ttc', 'objet'],
+            properties: { numero: { type: 'string' }, date: { type: 'string' }, montant_ht: { type: 'number' }, tva: { type: 'number' },
+              montant_ttc: { type: 'number' }, objet: { type: 'string' } },
+          }, 'Facture de ' + fr.fournisseur + ' — objet du mail : ' + msgs[m].getSubject(), null, 1500);
+          const date = soriyaParseDate_(d.date) || msgs[m].getDate();
+          const folder = soriyaSubFolder_(root, [SORIYA_DEPENSES.FOLDER, 'Frais généraux']);
+          const name = soriyaUniqueName_(folder, Utilities.formatDate(date, tz, 'dd-MM-yyyy') + '_Facture_' +
+            fr.fournisseur.replace(/[^A-Za-zÀ-ÿ0-9]+/g, '_').replace(/_$/, '') + (d.numero ? '_' + String(d.numero).replace(/[^\w-]+/g, '') : '') + '.pdf');
+          const file = folder.createFile(atts[a].copyBlob().setName(name));
+          sh.appendRow([key, msgs[m].getDate(), "'" + msgs[m].getFrom(), 'GFD (frais généraux)', fr.categorie,
+            "'" + Utilities.formatDate(date, tz, 'yyyy-MM-dd'), '', fr.fournisseur, '', '', '', '', '',
+            d.montant_ttc || '', d.tva || '', d.montant_ht || '', '', '', '', "'" + (d.numero || ''), name, file.getUrl(), new Date(),
+            d.objet || '', folder.getUrl(), 'Facture']);
+          added++;
+        }
+      }
+    }
+  }
+  return added;
 }
