@@ -224,7 +224,7 @@ function soriyaRestaurerTicketsSupprimes_(since) {
 
 /** Fournisseurs suivis : recherche Gmail, catégorie, pièce jointe à retenir (les reçus / rappels en double sont ignorés). */
 const SORIYA_FRAIS_GENERAUX = [
-  { query: 'from:keobiz', fournisseur: 'Keobiz', categorie: 'Comptabilité', piece: /\.pdf$/i },
+  { query: 'from:keobiz', fournisseur: 'Keobiz', categorie: 'Comptabilité', piece: /^invoice_FAC/i }, // pas la TVA, la paie ni les tableaux de charges
   { query: 'from:anthropic.com', fournisseur: 'Anthropic (Claude)', categorie: 'Logiciels / IA', piece: /^Invoice/i },
 ];
 
@@ -239,11 +239,13 @@ function soriyaFraisGeneraux_(started) {
   const root = soriyaRootFolder_('lettre_voiture');
   const j = soriyaJournalSpreadsheet_(root, 'lettre_voiture');
   const sh = soriyaDepensesSheet_(j);
+  soriyaFraisGenerauxNettoyer_(sh);
   const keys = new Set(soriyaSheetRows_(sh).map(function (r) { return String(r[0]); }));
   const tz = Session.getScriptTimeZone();
   let added = 0;
   for (let f = 0; f < SORIYA_FRAIS_GENERAUX.length; f++) {
     const fr = SORIYA_FRAIS_GENERAUX[f];
+    let count = 0; // 6 par fournisseur et par passage, pour que chacun avance
     const threads = GmailApp.search('(' + fr.query + ') has:attachment filename:pdf after:' +
       Utilities.formatDate(soriyaHistoryStart_(), tz, 'yyyy/MM/dd'), 0, 50);
     for (let t = 0; t < threads.length; t++) {
@@ -251,7 +253,8 @@ function soriyaFraisGeneraux_(started) {
       for (let m = 0; m < msgs.length; m++) {
         const atts = soriyaPdfs_(msgs[m]).filter(function (a) { return fr.piece.test(a.getName()); });
         for (let a = 0; a < atts.length; a++) {
-          if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS || added >= 6) return added;
+          if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS) return added;
+          if (count >= 6) break;
           const key = 'fg:' + fr.fournisseur + ':' + atts[a].getName();
           if (keys.has(key)) continue;
           keys.add(key);
@@ -272,10 +275,24 @@ function soriyaFraisGeneraux_(started) {
             "'" + Utilities.formatDate(date, tz, 'yyyy-MM-dd'), '', fr.fournisseur, '', '', '', '', '',
             d.montant_ttc || '', d.tva || '', d.montant_ht || '', '', '', '', "'" + (d.numero || ''), name, file.getUrl(), new Date(),
             d.objet || '', folder.getUrl(), 'Facture']);
-          added++;
+          added++; count++;
         }
       }
     }
   }
   return added;
+}
+
+/** Retire les lignes de frais généraux dont la pièce n'est pas retenue par le filtre, avec la copie PDF faite par Soriya. */
+function soriyaFraisGenerauxNettoyer_(sh) {
+  const rows = soriyaSheetRows_(sh);
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const m = String(rows[i][0]).match(/^fg:([^:]+):(.*)$/);
+    if (!m) continue;
+    const fr = SORIYA_FRAIS_GENERAUX.filter(function (x) { return x.fournisseur === m[1]; })[0];
+    if (fr && fr.piece.test(m[2])) continue;
+    const id = (String(rows[i][21]).match(/[-\w]{25,}/) || [])[0];
+    if (id) { try { DriveApp.getFileById(id).setTrashed(true); } catch (e) { /* déjà supprimé */ } }
+    sh.deleteRow(i + 2);
+  }
 }
