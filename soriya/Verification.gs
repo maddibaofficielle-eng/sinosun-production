@@ -85,3 +85,72 @@ function soriyaVerifierConfirmationsManquantes_(started) {
   if (out.length) sh.getRange(2, 1, out.length, SORIYA_VERIF.HEADERS.length).setValues(out);
   return nums.length;
 }
+
+// ---------- Contrôle de la boîte Gmail : mails reçus que Soriya n'a pas lus ----------
+
+const SORIYA_CONTROLE_GMAIL = {
+  SHEET: 'Contrôle Gmail',
+  SINCE: '2026/10/01',
+  HEADERS: ['Reçu le', 'De', 'Objet', 'Pièces jointes', 'Non lu dans Gmail', 'Lu par Soriya', 'Pourquoi', 'Libellés', 'Lien'],
+};
+
+/**
+ * Passe en revue les mails reçus depuis SINCE (hors envoyés) et compare avec les journaux de Soriya.
+ * Résultat : onglet « Contrôle Gmail » du Journal Soriya (mails non lus par Soriya en premier).
+ * À lancer à la main (Exécuter) ; lancé aussi une fois automatiquement (indicateur SORIYA_CONTROLE_GMAIL_V1).
+ */
+function soriyaControleGmail() {
+  const tz = Session.getScriptTimeZone();
+  const conf = soriyaJournalSpreadsheet_(soriyaRootFolder_('confirmation'), 'confirmation');
+  const keys = new Set();
+  [conf.main, conf.ss.getSheetByName('Doublons')].forEach(function (sh) {
+    if (!sh) return;
+    const h = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0], k = h.indexOf('Clé');
+    if (k >= 0) soriyaSheetRows_(sh).forEach(function (r) { keys.add(String(r[k])); });
+  });
+  ['Factures', 'Relevés sous-traitant', 'Documents administratifs'].forEach(function (n) {
+    const sh = conf.ss.getSheetByName(n);
+    if (sh) soriyaSheetRows_(sh).forEach(function (r) { keys.add(String(r[0])); });
+  });
+  const msgIds = new Set(Array.from(keys).map(function (k) { return k.split(':')[0]; }));
+  const query = soriyaQuery_().replace(/\s(after:\S+|newer_than:\S+)\s*$/, '');
+  const out = [];
+  for (let start = 0; start < 500; start += 100) {
+    const threads = GmailApp.search('after:' + SORIYA_CONTROLE_GMAIL.SINCE + ' -in:sent -in:chats -in:spam', start, 100);
+    if (!threads.length) break;
+    threads.forEach(function (t) {
+      const labels = t.getLabels().map(function (l) { return l.getName(); }).join(', ');
+      t.getMessages().forEach(function (m) {
+        if (m.getDate() < new Date(SORIYA_CONTROLE_GMAIL.SINCE.replace(/\//g, '-') + 'T00:00:00')) return;
+        if (/gfd\.logistic@gmail\.com/i.test(m.getFrom()) && /Soriya/i.test(m.getFrom())) return; // rapports de Soriya
+        const atts = m.getAttachments({ includeInlineImages: false });
+        const pdfs = atts.filter(function (a) { return a.getContentType() === 'application/pdf' || /\.pdf$/i.test(a.getName()); });
+        const seen = pdfs.filter(function (a) { return keys.has(m.getId() + ':' + a.getName()); }).length;
+        const fromEco = /ecotimegroup\.com/i.test(m.getFrom());
+        const inScope = fromEco || /(^|, )(ecotime|clients)(\/|,|$)/i.test(labels);
+        let read, why;
+        if (pdfs.length && seen === pdfs.length) { read = 'oui'; why = ''; }
+        else if (pdfs.length && seen) { read = 'en partie'; why = (pdfs.length - seen) + ' PDF non lu(s) sur ' + pdfs.length; }
+        else if (msgIds.has(m.getId())) { read = 'oui'; why = ''; }
+        else if (!atts.length) { read = 'non'; why = fromEco ? 'Mail Ecotime sans pièce jointe (Soriya ne lit que les PDF)' : 'Sans pièce jointe'; }
+        else if (!pdfs.length) { read = 'non'; why = 'Pièces jointes non PDF (' + atts.map(function (a) { return a.getName(); }).join(', ').slice(0, 120) + ')'; }
+        else if (!inScope) { read = 'non'; why = 'Expéditeur hors périmètre (ni Ecotime, ni libellé « ecotime » / « clients »)'; }
+        else { read = 'non'; why = 'PDF dans le périmètre mais pas encore lu : à reprendre'; }
+        if (read === 'oui' || (!fromEco && !atts.length)) return; // seul l'utile est listé
+        out.push([m.getDate(), m.getFrom(), m.getSubject(), atts.map(function (a) { return a.getName(); }).join(' ; ').slice(0, 300),
+          m.isUnread() ? 'oui' : 'non', read, why, labels, 'https://mail.google.com/mail/u/0/#all/' + m.getId()]);
+      });
+    });
+    if (threads.length < 100) break;
+  }
+  out.sort(function (a, b) { return b[0] - a[0]; });
+  let sh = conf.ss.getSheetByName(SORIYA_CONTROLE_GMAIL.SHEET) || conf.ss.insertSheet(SORIYA_CONTROLE_GMAIL.SHEET);
+  sh.clearContents();
+  sh.getRange(1, 1, 1, SORIYA_CONTROLE_GMAIL.HEADERS.length).setValues([SORIYA_CONTROLE_GMAIL.HEADERS]).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  if (out.length) sh.getRange(2, 1, out.length, SORIYA_CONTROLE_GMAIL.HEADERS.length).setValues(out);
+  sh.getRange(1, SORIYA_CONTROLE_GMAIL.HEADERS.length + 2).setValue('Contrôle du ' + Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm') +
+    ' — recherche Soriya : ' + query);
+  Logger.log('Contrôle Gmail : %s mail(s) non lus par Soriya depuis le %s.', out.length, SORIYA_CONTROLE_GMAIL.SINCE);
+  return out.length;
+}

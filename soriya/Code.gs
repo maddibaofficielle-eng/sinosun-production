@@ -162,6 +162,11 @@ function soriyaRun(e) {
     } catch (e) {
       report.errors.push('Test du rappel WhatsApp : ' + e.message);
     }
+    // Contrôle de la boîte Gmail demandé le 26/10/2026 (une seule fois ; relançable à la main : soriyaControleGmail).
+    try {
+      const pr = PropertiesService.getScriptProperties();
+      if (pr.getProperty('SORIYA_CONTROLE_GMAIL_V1') !== 'ok') { pr.setProperty('SORIYA_CONTROLE_GMAIL_V1', 'ok'); soriyaControleGmail(); }
+    } catch (e) { report.errors.push('Contrôle Gmail : ' + e.message); }
     // Espace chauffeur : liens personnels (onglet « Accès chauffeurs » du Sheet Prospects).
     try { soriyaDriverTokens_(); } catch (e) { report.errors.push('Accès chauffeurs : ' + e.message); }
     // Relances Ecotime : courses sans confirmation, un mail groupé par jour (brouillon à relire), voir Relances.gs.
