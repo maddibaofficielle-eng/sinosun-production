@@ -115,7 +115,8 @@ function soriyaControleGmail() {
   const msgIds = new Set(Array.from(keys).map(function (k) { return k.split(':')[0]; }));
   const query = soriyaQuery_().replace(/\s(after:\S+|newer_than:\S+)\s*$/, '');
   const out = [];
-  for (let start = 0; start < 500; start += 100) {
+  let scanned = 0;
+  for (let start = 0; start < 2000; start += 100) {
     const threads = GmailApp.search('after:' + SORIYA_CONTROLE_GMAIL.SINCE + ' -in:sent -in:chats -in:spam', start, 100);
     if (!threads.length) break;
     threads.forEach(function (t) {
@@ -141,6 +142,7 @@ function soriyaControleGmail() {
           m.isUnread() ? 'oui' : 'non', read, why, labels, 'https://mail.google.com/mail/u/0/#all/' + m.getId()]);
       });
     });
+    scanned += threads.length;
     if (threads.length < 100) break;
   }
   out.sort(function (a, b) { return b[0] - a[0]; });
@@ -150,7 +152,8 @@ function soriyaControleGmail() {
   sh.setFrozenRows(1);
   if (out.length) sh.getRange(2, 1, out.length, SORIYA_CONTROLE_GMAIL.HEADERS.length).setValues(out);
   sh.getRange(1, SORIYA_CONTROLE_GMAIL.HEADERS.length + 2).setValue('Contrôle du ' + Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm') +
-    ' — recherche Soriya : ' + query);
-  Logger.log('Contrôle Gmail : %s mail(s) non lus par Soriya depuis le %s.', out.length, SORIYA_CONTROLE_GMAIL.SINCE);
+    ' — compte ' + Session.getEffectiveUser().getEmail() + ' — ' + scanned + ' conversation(s) parcourue(s) — recherche Soriya : ' + query);
+  Logger.log('Contrôle Gmail (%s) : %s conversation(s) parcourue(s), %s mail(s) non lus par Soriya depuis le %s.',
+    Session.getEffectiveUser().getEmail(), scanned, out.length, SORIYA_CONTROLE_GMAIL.SINCE);
   return out.length;
 }
