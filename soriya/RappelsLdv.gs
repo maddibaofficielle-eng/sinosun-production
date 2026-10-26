@@ -85,12 +85,16 @@ function soriyaRappelLdvData_(day) {
   // Toutes les lettres de voiture archivées (quelle que soit leur date) et celles du jour par chauffeur.
   const ldv = soriyaJournalSpreadsheet_(soriyaRootFolder_('lettre_voiture'), 'lettre_voiture');
   const lh = ldv.headers;
-  const ldvNums = new Set(), byDriver = {};
+  const ldvNums = new Set(), byDriver = {}, routes = {};
   soriyaSheetRows_(ldv.main).forEach(function (r) {
     if (!/^Archivé/.test(String(r[lh.indexOf('Statut')]))) return;
     const n = digits(r[lh.indexOf('N° lettre de voiture')]);
     if (n.length >= 5) ldvNums.add(n);
     if ((iso(r[lh.indexOf('Date livraison')]) || iso(r[lh.indexOf('Date prise en charge')])) !== day) return;
+    // Même jour, même trajet (codes postaux d'enlèvement et de livraison) : la lettre couvre la course même si
+    // le numéro diffère (lettre établie sous un autre n° d'ordre, numéro mal lu sur une photo…).
+    const rk = soriyaRouteKey_(r[lh.indexOf('Lieu prise en charge')], r[lh.indexOf('Lieu livraison')]);
+    if (rk) routes[rk] = (routes[rk] || 0) + 1;
     const parts = String(r[lh.indexOf('Transporteur')]).split('/');
     const d = parts[parts.length - 1].trim().toUpperCase() || 'NON IDENTIFIÉ';
     byDriver[d] = (byDriver[d] || 0) + 1;
@@ -112,9 +116,29 @@ function soriyaRappelLdvData_(day) {
     if (n.length < 5 || seen[n] || iso(r[ch.indexOf('Date livraison')]) !== day || data.notDone.has(n)) return;
     seen[n] = true;
     confirmed++;
-    if (!ldvNums.has(n)) missing.push({ n: n, driver: planned[n] || '', route: city(r[ch.indexOf('Lieu chargement')]) + ' → ' + city(r[ch.indexOf('Lieu livraison')]) });
+    if (ldvNums.has(n)) return;
+    const rk = soriyaRouteKey_(r[ch.indexOf('Lieu chargement')], r[ch.indexOf('Lieu livraison')]);
+    if (rk && routes[rk] > 0) { routes[rk]--; return; }
+    missing.push({ n: n, driver: planned[n] || '', route: city(r[ch.indexOf('Lieu chargement')]) + ' → ' + city(r[ch.indexOf('Lieu livraison')]) });
   });
   return { confirmed: confirmed, missing: missing, byDriver: byDriver };
+}
+
+/** « 93150>93400 » : codes postaux d'enlèvement et de livraison ('' si l'un manque). */
+function soriyaRouteKey_(from, to) {
+  const cp = function (x) { const m = /\b(\d{5})\b/.exec(String(x || '')); return m ? m[1] : ''; };
+  const a = cp(from), b = cp(to);
+  return a && b ? a + '>' + b : '';
+}
+
+/** Documents WhatsApp encore dans le dossier d'entrée, par numéro d'expéditeur (33783794351 → 2). */
+function soriyaRappelPendingBySender_() {
+  const out = {};
+  soriyaWhatsAppPdfs_(soriyaWhatsAppInbox_()).forEach(function (f) {
+    const info = soriyaWhatsAppParseName_(f.getName());
+    if (info && info.sender) out[info.sender] = (out[info.sender] || 0) + 1;
+  });
+  return out;
 }
 
 /** Construit et envoie les rappels du jour. @param {number} pending lettres encore en attente de lecture */
@@ -131,20 +155,25 @@ function soriyaRappelLdvEnvoyer_(pending) {
   // Récapitulatif : chaque course avec son chauffeur prévu (planning du site) ou « non affectée ».
   const list = d.missing.map(function (m) { return line(m) + ' (' + (m.driver || 'non affectée') + ')'; }).join('\n');
   const sent = [], log = [];
+  // Un chauffeur n'est relancé que pour SES courses (planning du site) ; les courses non affectées vont au gérant.
+  // Pas de relance si des documents de ce chauffeur sont encore en cours de lecture (envoyés juste avant 19 h 30).
+  let pendingBy = {};
+  try { pendingBy = soriyaRappelPendingBySender_(); } catch (e) { /* dossier d'entrée illisible */ }
+  const skipped = [];
   Object.keys(cfg.DRIVERS || {}).forEach(function (name) {
     const phone = cfg.DRIVERS[name];
     const mine = d.missing.filter(function (m) { return m.driver === name; });
-    if (!mine.length && !free.length) return; // ses courses du jour ont toutes leur lettre
+    if (!mine.length) return; // ses courses du jour ont toutes leur lettre
+    if (pendingBy[soriyaNormalizePhone_(phone)]) { skipped.push(name + ' (' + pendingBy[soriyaNormalizePhone_(phone)] + ' document(s) en cours de lecture)'); return; }
     const got = d.byDriver[name] || 0;
     const text = 'Bonjour ' + name + ',\n\n' +
-      'Il est 19 h 30 et Soriya n\'a pas reçu toutes les lettres de voiture d\'aujourd\'hui (' + fr + ').\n' +
-      (got ? 'Lettres déjà reçues de votre part aujourd\'hui : ' + got + '. Merci !\n' : '') +
-      (mine.length ? '\nVos courses sans lettre de voiture :\n' + mine.map(line).join('\n') + '\n' : '') +
-      (free.length ? '\nCourses non affectées sans lettre (si l\'une est la vôtre) :\n' + free.map(line).join('\n') + '\n' : '') +
-      '\nMerci d\'envoyer dès maintenant la lettre de voiture signée (PDF ou photo) sur ce WhatsApp.\n\nSoriya — GFD LOGISTIC';
+      'Il est 19 h 30 et Soriya n\'a pas encore reçu la lettre de voiture de ' + (mine.length > 1 ? 'ces courses' : 'cette course') + ' d\'aujourd\'hui (' + fr + ') :\n' +
+      mine.map(line).join('\n') + '\n' +
+      (got ? '\n(' + got + ' lettre(s) déjà reçue(s) de votre part aujourd\'hui, merci !)\n' : '') +
+      '\nSi vous l\'avez déjà envoyée, ignorez ce message. Sinon, merci d\'envoyer la lettre de voiture signée (PDF ou photo) sur ce WhatsApp.\n\nSoriya — GFD LOGISTIC';
     const ok = soriyaWhatsAppSend_(phone, text);
     if (ok) sent.push(name);
-    log.push([day, new Date(), name, phone, mine.length + free.length, ok ? 'Envoyé' : 'Échec', text]);
+    log.push([day, new Date(), name, phone, mine.length, ok ? 'Envoyé' : 'Échec', text]);
   });
 
   const recap = 'Soriya — lettres de voiture du ' + fr + ' (19 h 30)\n\n' +
@@ -152,7 +181,9 @@ function soriyaRappelLdvEnvoyer_(pending) {
     'Lettres de voiture manquantes : ' + d.missing.length + '\n' + list + '\n\n' +
     'Lettres reçues aujourd\'hui : ' + (Object.keys(d.byDriver).map(function (k) { return k + ' ' + d.byDriver[k]; }).join(', ') || 'aucune') + '\n' +
     (pending ? pending + ' document(s) WhatsApp encore en cours de lecture.\n' : '') +
-    'Rappel envoyé à : ' + (sent.join(', ') || 'personne (échec de l\'envoi)') + '.\n\n' +
+    (free.length ? free.length + ' course(s) non affectée(s) : aucun chauffeur relancé pour elles (affectez-les dans le Planning).\n' : '') +
+    (skipped.length ? 'Pas de relance pour : ' + skipped.join(', ') + '.\n' : '') +
+    'Rappel envoyé à : ' + (sent.join(', ') || 'personne') + '.\n\n' +
     'Détail : https://tinyurl.com/soriya-gfd';
   const mgr = cfg.MANAGER || {};
   if (mgr.PHONE) {

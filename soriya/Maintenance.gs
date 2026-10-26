@@ -578,17 +578,45 @@ function soriyaSupprimerLdvSansNumero_() {
   if (n < 1) return 0;
   const col = function (title) { return j.headers.indexOf(title); };
   const rows = j.main.getRange(2, 1, n, j.headers.length).getValues();
-  let removed = 0;
+  // Confirmations Ecotime par jour et trajet : retrouvent le numéro d'une lettre dont le n° est illisible.
+  const byRoute = {};
+  try {
+    const c = soriyaJournalSpreadsheet_(soriyaRootFolder_('confirmation'), 'confirmation'), ch = c.headers;
+    const tz = Session.getScriptTimeZone();
+    const iso = function (v) { return v instanceof Date ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : String(v || '').slice(0, 10); };
+    soriyaSheetRows_(c.main).forEach(function (x) {
+      const k = soriyaRouteKey_(x[ch.indexOf('Lieu chargement')], x[ch.indexOf('Lieu livraison')]);
+      const num = String(x[ch.indexOf('N° affrètement')]).replace(/\D/g, '');
+      if (k && num.length >= 5) (byRoute[iso(x[ch.indexOf('Date livraison')]) + '|' + k] = byRoute[iso(x[ch.indexOf('Date livraison')]) + '|' + k] || []).push(num);
+    });
+  } catch (e) { /* journal des confirmations illisible : pas de rapprochement */ }
+  const tz = Session.getScriptTimeZone();
+  const iso = function (v) { return v instanceof Date ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : String(v || '').slice(0, 10); };
+  let removed = 0, aside = null;
   for (let r = rows.length - 1; r >= 0; r--) { // de bas en haut : les suppressions ne décalent pas les lignes restantes
     if (String(rows[r][col('N° lettre de voiture')]).trim()) continue;
     const status = String(rows[r][col('Statut')]);
     if (soriyaIsTicket_(status)) continue; // ticket de caisse : rangé dans « Dépenses » par soriyaDepensesNouvelles_
     if (!/^(Archivé|À vérifier)/.test(status) || /^Archivé (— lecture IA impossible|\(sans lecture IA\))/.test(status)) continue;
+    // Numéro illisible mais même jour et même trajet qu'une seule confirmation : la lettre lui est rattachée.
+    const key = (iso(rows[r][col('Date livraison')]) || iso(rows[r][col('Date prise en charge')])) + '|' +
+      soriyaRouteKey_(rows[r][col('Lieu prise en charge')], rows[r][col('Lieu livraison')]);
+    const cand = byRoute[key] || [];
+    if (cand.length === 1 && /^Archivé/.test(status)) {
+      j.main.getRange(r + 2, col('N° lettre de voiture') + 1).setValue("'" + cand[0]);
+      j.main.getRange(r + 2, col('Remarques') + 1).setValue('N° retrouvé par le trajet et la date (confirmation ' + cand[0] + '). ' + rows[r][col('Remarques')]);
+      Logger.log('Lettre de voiture sans numéro rattachée à la confirmation %s : %s', cand[0], rows[r][col('Nom dans Drive')]);
+      continue;
+    }
+    // Sinon : retirée du journal mais mise de côté (dossier « Sans numéro — à vérifier »), jamais supprimée.
     const id = (/\/d\/([\w-]+)/.exec(String(rows[r][col('Lien Drive')])) || [])[1];
     if (id) {
-      try { DriveApp.getFileById(id).setTrashed(true); } catch (e) { /* fichier déjà supprimé */ }
+      try {
+        aside = aside || soriyaSubFolder_(soriyaRootFolder_('lettre_voiture'), ['Sans numéro — à vérifier']);
+        DriveApp.getFileById(id).moveTo(aside);
+      } catch (e) { /* fichier introuvable */ }
     }
-    Logger.log('Lettre de voiture sans numéro retirée : %s (%s)', rows[r][col('Nom dans Drive')], status);
+    Logger.log('Lettre de voiture sans numéro mise de côté : %s (%s)', rows[r][col('Nom dans Drive')], status);
     j.main.deleteRow(r + 2);
     removed++;
   }
