@@ -224,8 +224,8 @@ function soriyaRestaurerTicketsSupprimes_(since) {
 
 /** Fournisseurs suivis : recherche Gmail, catégorie, pièce jointe à retenir (les reçus / rappels en double sont ignorés). */
 const SORIYA_FRAIS_GENERAUX = [
-  { query: 'from:keobiz', fournisseur: 'Keobiz', categorie: 'Comptabilité', piece: /^invoice_FAC/i }, // pas la TVA, la paie ni les tableaux de charges
   { query: 'from:anthropic', fournisseur: 'Anthropic (Claude)', categorie: 'Logiciels / IA', piece: /^Invoice/i }, // reçus envoyés via Stripe au nom « Anthropic Ireland, Limited »
+  { query: 'from:keobiz', fournisseur: 'Keobiz', categorie: 'Comptabilité', piece: /^invoice_FAC/i }, // pas la TVA, la paie ni les tableaux de charges
 ];
 
 /**
@@ -243,7 +243,8 @@ function soriyaFraisGeneraux_(started) {
   const keys = new Set(soriyaSheetRows_(sh).map(function (r) { return String(r[0]); }));
   const tz = Session.getScriptTimeZone();
   let added = 0;
-  for (let f = 0; f < SORIYA_FRAIS_GENERAUX.length; f++) {
+  // Le fournisseur aux factures rares passe en premier, pour ne pas manquer de temps derrière un long historique.
+  fournisseurs: for (let f = 0; f < SORIYA_FRAIS_GENERAUX.length; f++) {
     const fr = SORIYA_FRAIS_GENERAUX[f];
     let count = 0; // 6 par fournisseur et par passage, pour que chacun avance
     const threads = GmailApp.search('(' + fr.query + ') has:attachment filename:pdf after:' +
@@ -254,7 +255,7 @@ function soriyaFraisGeneraux_(started) {
         const atts = soriyaPdfs_(msgs[m]).filter(function (a) { return fr.piece.test(a.getName()); });
         for (let a = 0; a < atts.length; a++) {
           if (Date.now() - started > SORIYA_CONFIG.MAX_RUNTIME_MS) return added;
-          if (count >= 6) break;
+          if (count >= 6) continue fournisseurs;
           const key = 'fg:' + fr.fournisseur + ':' + atts[a].getName();
           if (keys.has(key)) continue;
           keys.add(key);
