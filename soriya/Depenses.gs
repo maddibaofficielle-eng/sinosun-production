@@ -224,7 +224,7 @@ function soriyaRestaurerTicketsSupprimes_(since) {
 
 /** Fournisseurs suivis : recherche Gmail, catégorie, pièce jointe à retenir (les reçus / rappels en double sont ignorés). */
 const SORIYA_FRAIS_GENERAUX = [
-  { query: 'from:anthropic', fournisseur: 'Anthropic (Claude)', categorie: 'Logiciels / IA', piece: /^Invoice/i }, // reçus envoyés via Stripe au nom « Anthropic Ireland, Limited »
+  { query: 'from:anthropic OR "Anthropic Ireland"', fournisseur: 'Anthropic (Claude)', categorie: 'Logiciels / IA', piece: /^Invoice/i }, // reçus envoyés via Stripe au nom « Anthropic Ireland, Limited »
   { query: 'from:keobiz', fournisseur: 'Keobiz', categorie: 'Comptabilité', piece: /^invoice_FAC/i }, // pas la TVA, la paie ni les tableaux de charges
 ];
 
@@ -249,6 +249,7 @@ function soriyaFraisGeneraux_(started) {
     let count = 0; // 6 par fournisseur et par passage, pour que chacun avance
     const threads = GmailApp.search('(' + fr.query + ') has:attachment filename:pdf after:' +
       Utilities.formatDate(soriyaHistoryStart_(), tz, 'yyyy/MM/dd'), 0, 50);
+    Logger.log('Frais généraux %s : %s conversation(s) trouvée(s).', fr.fournisseur, threads.length);
     for (let t = 0; t < threads.length; t++) {
       const msgs = threads[t].getMessages();
       for (let m = 0; m < msgs.length; m++) {
