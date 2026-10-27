@@ -225,7 +225,7 @@ function soriyaRestaurerTicketsSupprimes_(since) {
 /** Fournisseurs suivis : recherche Gmail, catégorie, pièce jointe à retenir (les reçus / rappels en double sont ignorés). */
 const SORIYA_FRAIS_GENERAUX = [
   { query: 'from:keobiz', fournisseur: 'Keobiz', categorie: 'Comptabilité', piece: /^invoice_FAC/i }, // pas la TVA, la paie ni les tableaux de charges
-  { query: 'from:anthropic.com', fournisseur: 'Anthropic (Claude)', categorie: 'Logiciels / IA', piece: /^Invoice/i },
+  { query: 'from:anthropic', fournisseur: 'Anthropic (Claude)', categorie: 'Logiciels / IA', piece: /^Invoice/i }, // reçus envoyés via Stripe au nom « Anthropic Ireland, Limited »
 ];
 
 /**
