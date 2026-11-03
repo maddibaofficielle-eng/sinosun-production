@@ -9,6 +9,8 @@
 function doGet(e) {
   // Espace chauffeur : lien personnel …/exec?d=<jeton> (voir Chauffeurs.gs).
   if (e && e.parameter && e.parameter.d) return soriyaDriverPage_(e.parameter.d);
+  // Lancement d'un passage à la demande (…/exec?run=<code>) : seule l'empreinte SHA-256 du code figure ici.
+  if (e && e.parameter && e.parameter.run) return soriyaRunOnDemand_(e.parameter.run);
   const key = PropertiesService.getScriptProperties().getProperty('SORIYA_WEB_KEY');
   if (!key || !e || !e.parameter || e.parameter.k !== key) {
     return HtmlService.createHtmlOutput(
@@ -414,4 +416,19 @@ function doPost(e) {
   try { body = JSON.parse(e.postData.contents); } catch (err) { /* corps illisible */ }
   const out = body.action === 'chat' ? soriyaChatPost_(body) : { error: 'Action inconnue' };
   return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
+const SORIYA_RUN_CODE_SHA256 = '155a05ba383b9699ae646610d7333f735483e9cc31e7c45ee368b29e8aefe7b2';
+
+/** Programme un passage complet (mails, relevés, factures…) dans une minute ; un seul à la fois. */
+function soriyaRunOnDemand_(code) {
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(code), Utilities.Charset.UTF_8)
+    .map(function (b) { return ('0' + (b & 255).toString(16)).slice(-2); }).join('');
+  let msg = 'Code invalide.';
+  if (digest === SORIYA_RUN_CODE_SHA256) {
+    const pending = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'soriyaRunSuite'; });
+    if (!pending) ScriptApp.newTrigger('soriyaRunSuite').timeBased().after(60000).create();
+    msg = pending ? 'Un passage est déjà programmé.' : 'Passage Soriya programmé dans une minute.';
+  }
+  return ContentService.createTextOutput(msg);
 }
