@@ -69,7 +69,7 @@ const SORIYA_CONFIG = {
     // Jours du rappel (1 = lundi … 7 = dimanche) : vendredi compris, même si Soriya s'arrête le vendredi 0 h.
     DAYS: [1, 2, 3, 4, 5],
     // Chauffeurs qui reçoivent le rappel (numéro WhatsApp au format international).
-    DRIVERS: { VINCENT: '+33783794351', CHEICK: '+33769391541' },
+    DRIVERS: { VINCENT: '+33783794351', CHEICK: '+33769391541', MIHAI: '+33759295366' },
     // Gérant : récapitulatif (manquantes, reçues, rappels envoyés) sur WhatsApp, et copie par e-mail à OWNER_EMAIL.
     MANAGER: { NAME: 'MOHAMED', PHONE: '+33651516936' },
     EMAIL_COPY: true,
@@ -126,6 +126,7 @@ const SORIYA_CONFIG = {
     '0769391541': 'CHEICK',
     '0651516936': 'MOHAMED',
     '0783794351': 'VINCENT',
+    '0759295366': 'MIHAI',
     '0675640084': 'SORIYA',
   },
   // Nom du groupe WhatsApp dont les exports de discussion (.zip) sont déposés dans le dossier d'entrée.
