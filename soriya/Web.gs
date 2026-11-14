@@ -420,15 +420,17 @@ function doPost(e) {
 
 const SORIYA_RUN_CODE_SHA256 = '155a05ba383b9699ae646610d7333f735483e9cc31e7c45ee368b29e8aefe7b2';
 
-/** Programme un passage complet (mails, relevés, factures…) dans une minute ; un seul à la fois. */
+/** Programme un passage complet (mails, relevés, factures, puis WhatsApp) ; un seul à la fois. */
 function soriyaRunOnDemand_(code) {
   const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(code), Utilities.Charset.UTF_8)
     .map(function (b) { return ('0' + (b & 255).toString(16)).slice(-2); }).join('');
   let msg = 'Code invalide.';
   if (digest === SORIYA_RUN_CODE_SHA256) {
-    const pending = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'soriyaRunSuite'; });
-    if (!pending) ScriptApp.newTrigger('soriyaRunSuite').timeBased().after(60000).create();
-    msg = pending ? 'Un passage est déjà programmé.' : 'Passage Soriya programmé dans une minute.';
+    // Mails puis WhatsApp (lettres de voiture), même hors des jours de travail.
+    const handlers = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
+    const todo = ['soriyaRunSuite', 'soriyaWhatsAppRunSuite'].filter(function (h) { return handlers.indexOf(h) < 0; });
+    todo.forEach(function (h, i) { ScriptApp.newTrigger(h).timeBased().after((1 + 5 * i) * 60000).create(); });
+    msg = todo.length ? 'Passage Soriya programmé : mails dans une minute, WhatsApp dans six minutes.' : 'Un passage est déjà programmé.';
   }
   return ContentService.createTextOutput(msg);
 }
