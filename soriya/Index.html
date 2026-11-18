@@ -615,7 +615,16 @@ function derive(d) {
   const ldvByNum = {}, confByNum = {};
   ldv.forEach(x => { const k = digits(x.number); if (k && !ldvByNum[k]) ldvByNum[k] = x; });
   conf.forEach(x => { const k = digits(x.number); if (k && !confByNum[k]) confByNum[k] = x; });
-  conf.forEach(x => { x.ldv = ldvByNum[digits(x.number)] || null; x.client = normParty(x.party); if (!x.driver && x.ldv) x.driver = x.ldv.driver; });
+  // Le chauffeur de la lettre de voiture fait foi : la confirmation peut nommer un autre chauffeur (prévu, puis remplacé).
+  conf.forEach(x => { x.ldv = ldvByNum[digits(x.number)] || null; x.client = normParty(x.party); if (x.ldv && x.ldv.driver) x.driver = x.ldv.driver; });
+  // Course faite (lettre de voiture) sans confirmation reçue : listée quand même, sans montant (payée au relevé).
+  ldv.forEach(x => { const k = digits(x.number);
+    if (!k || confByNum[k] || ldvByNum[k] !== x || x.status.indexOf("Archivé") !== 0) return;
+    const c = { type: "conf", synthetic: true, date: x.date, received: x.received, number: x.number, from: x.from, to: x.to, party: x.party,
+      consignee: x.consignee, carrier: x.carrier, goods: x.goods, price: "", amount: 0, driver: x.driver, waiting: "", services: x.services,
+      reserves: x.reserves, status: "Archivé sans confirmation — lettre de voiture reçue, montant au relevé Ecotime", confidence: x.confidence,
+      name: x.name, url: x.url, remarks: x.remarks, ldv: x, client: normParty(x.party) };
+    conf.push(c); confByNum[k] = c; });
   ldv.forEach(x => { x.conf = confByNum[digits(x.number)] || null; });
   // Planning : chauffeur affecté à la course (tant que la lettre de voiture, qui fait foi, n'est pas reçue).
   const plan = d.planning || {};
