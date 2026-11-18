@@ -16,7 +16,7 @@ const SORIYA_WEB = {
   MAX_SHARE_TOP_CLIENT: 0.8,
   TZ: 'Europe/Paris',
   // Chauffeurs proposés dans le planning (affectation des courses).
-  DRIVERS: ['CHEICK', 'VINCENT', 'MIHAI', 'MOHAMED'],
+  DRIVERS: ['CHEICK', 'VINCENT', 'MIHAI', 'MOUSSA', 'MOHAMED'],
   // Application Soriya (exécutée par gfd.logistic, qui détient la clé Claude) : répond au chat.
   SORIYA_APP_URL: 'https://script.google.com/macros/s/AKfycbw8NAz4kKY0k4aUc2VMTFNI3m_dn6LL3i1DhbCRUla1_RJUbkcQiSblA5mqUevj9qY-NA/exec',
 };
