@@ -176,6 +176,12 @@ function soriyaMigrations_() {
     soriyaPartagerInterface_();
     p.setProperty('SORIYA_SHARED_WITH', shareKey);
   }
+  // Lettres de voiture renvoyées par un autre chauffeur pour des courses déjà reçues : rangées dans « Doublons ».
+  if (p.getProperty('SORIYA_MIG_LDV_ATTRIBUTION_V1') !== 'ok') {
+    const n = soriyaLdvDoublonsAttribution_();
+    p.setProperty('SORIYA_MIG_LDV_ATTRIBUTION_V1', 'ok');
+    Logger.log('Mise à jour : %s lettre(s) de voiture en double déplacée(s) dans « Doublons ».', n);
+  }
   const props = PropertiesService.getScriptProperties();
   if (props.getProperty('SORIYA_MIG_CONFIRMATION_NAMES_V2') !== 'done') {
     const n = renommerConfirmations();
@@ -716,4 +722,34 @@ function soriyaPartagerInterface_() {
       }
     });
   });
+}
+
+/**
+ * Courses faites par un chauffeur dont la lettre de voiture a ensuite été renvoyée par un autre (même n°) :
+ * la copie de l'autre chauffeur passe dans l'onglet « Doublons » (la lettre d'origine reste au journal et fait foi).
+ * Le gérant a confirmé que ces courses sont à MOUSSA (copies renvoyées par MIHAI le 16/11).
+ */
+const SORIYA_LDV_ATTRIBUTIONS = [
+  { sender: '33759295366', numbers: ['667169', '667719', '667939', '667878', '667854'], keep: 'MOUSSA' },
+];
+
+function soriyaLdvDoublonsAttribution_() {
+  const j = soriyaJournalSpreadsheet_(soriyaRootFolder_('lettre_voiture'), 'lettre_voiture');
+  const col = function (t) { return j.headers.indexOf(t); };
+  const cSender = col('Expéditeur'), cNum = col('N° lettre de voiture'), cStatus = col('Statut');
+  const last = j.main.getLastRow();
+  if (last < 2) return 0;
+  const rows = j.main.getRange(2, 1, last - 1, j.main.getLastColumn()).getValues();
+  let moved = 0;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const sender = String(rows[i][cSender]).replace(/\D/g, ''), num = String(rows[i][cNum]).replace(/\D/g, '');
+    const rule = SORIYA_LDV_ATTRIBUTIONS.filter(function (r) { return sender.indexOf(r.sender) >= 0 && r.numbers.indexOf(num) >= 0; })[0];
+    if (!rule) continue;
+    const row = rows[i].slice();
+    row[cStatus] = 'Doublon — course de ' + rule.keep + ' (lettre déjà reçue de son numéro)';
+    j.dup.appendRow(row);
+    j.main.deleteRow(i + 2);
+    moved++;
+  }
+  return moved;
 }
