@@ -426,11 +426,15 @@ function soriyaRunOnDemand_(code) {
     .map(function (b) { return ('0' + (b & 255).toString(16)).slice(-2); }).join('');
   let msg = 'Code invalide.';
   if (digest === SORIYA_RUN_CODE_SHA256) {
-    // Mails puis WhatsApp (lettres de voiture), même hors des jours de travail.
-    const handlers = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
-    const todo = ['soriyaRunSuite', 'soriyaWhatsAppRunSuite'].filter(function (h) { return handlers.indexOf(h) < 0; });
-    todo.forEach(function (h, i) { ScriptApp.newTrigger(h).timeBased().after((1 + 5 * i) * 60000).create(); });
-    msg = todo.length ? 'Passage Soriya programmé : mails dans une minute, WhatsApp dans six minutes.' : 'Un passage est déjà programmé.';
+    // Mails puis WhatsApp (lettres de voiture), même hors des jours de travail. Un déclencheur ponctuel déjà déclenché
+    // reste listé tant qu'on ne le supprime pas : on remplace donc toujours les suites existantes.
+    const props = PropertiesService.getScriptProperties(), now = Date.now();
+    if (now - Number(props.getProperty('SORIYA_ON_DEMAND_AT') || 0) < 3 * 60000) return ContentService.createTextOutput('Un passage vient d\'être programmé : patientez quelques minutes.');
+    const suites = ['soriyaRunSuite', 'soriyaWhatsAppRunSuite'];
+    ScriptApp.getProjectTriggers().forEach(function (t) { if (suites.indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t); });
+    suites.forEach(function (h, i) { ScriptApp.newTrigger(h).timeBased().after((1 + 5 * i) * 60000).create(); });
+    props.setProperty('SORIYA_ON_DEMAND_AT', String(now));
+    msg = 'Passage Soriya programmé : mails dans une minute, WhatsApp dans six minutes.';
   }
   return ContentService.createTextOutput(msg);
 }
