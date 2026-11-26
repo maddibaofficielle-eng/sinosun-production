@@ -465,6 +465,13 @@ function soriyaJournal_(root, typeKey) {
       if (r[1] && sh === j.main) hashes.add(String(r[1])); // seuls les fichiers réellement archivés font foi
     });
   });
+  // N° des lettres de voiture déjà au journal : une même lettre renvoyée (autre photo) n'est pas comptée deux fois.
+  const numbers = new Set();
+  const numCol = j.headers.indexOf('N° lettre de voiture');
+  const num = function (v) { return String(v || '').replace(/\D/g, ''); };
+  if (typeKey === 'lettre_voiture' && numCol >= 0 && j.main.getLastRow() >= 2) {
+    j.main.getRange(2, numCol + 1, j.main.getLastRow() - 1, 1).getValues().forEach(function (r) { if (num(r[0])) numbers.add(num(r[0])); });
+  }
   function remember(row) {
     keys.add(String(row[row.length - 2]));
     if (row[row.length - 1]) hashes.add(String(row[row.length - 1]));
@@ -472,7 +479,8 @@ function soriyaJournal_(root, typeKey) {
   return {
     keys: keys,
     hashes: hashes,
-    append: function (row) { j.main.appendRow(row); remember(row); },
+    hasNumber: function (n) { return !!num(n) && numbers.has(num(n)); },
+    append: function (row) { j.main.appendRow(row); remember(row); if (numCol >= 0 && num(row[numCol])) numbers.add(num(row[numCol])); },
     appendDuplicate: function (row) { j.dup.appendRow(row); remember(row); },
   };
 }

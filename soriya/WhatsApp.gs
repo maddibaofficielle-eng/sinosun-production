@@ -234,7 +234,16 @@ function soriyaWhatsAppArchive_(file, info, inbox, root, journal, aiEnabled) {
     c.data ? 'Extraction : ' + JSON.stringify(c.data) : '',
   ].join('\n'));
 
-  journal.append(base.concat([c.name, file.getUrl(), c.status], soriyaFieldsRow_(c.data, 'lettre_voiture'), [key, hash]));
+  const row = base.concat([c.name, file.getUrl(), c.status], soriyaFieldsRow_(c.data, 'lettre_voiture'), [key, hash]);
+  // Même lettre de voiture renvoyée (autre photo, autre téléphone) : rangée dans « Doublons », pas comptée deux fois.
+  const numero = c.data && c.data.est_lettre_de_voiture !== false ? c.data.numero_lettre_voiture : '';
+  if (/^Archivé/.test(c.status) && journal.hasNumber(numero)) {
+    file.moveTo(soriyaSubFolder_(inbox, ['Doublons']));
+    row[7] = 'Doublon — lettre de voiture n° ' + numero + ' déjà reçue';
+    journal.appendDuplicate(row);
+    return { duplicate: true };
+  }
+  journal.append(row);
   return { name: c.name, url: file.getUrl(), status: c.status };
 }
 

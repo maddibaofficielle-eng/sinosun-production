@@ -17,6 +17,8 @@ const SORIYA_WEB = {
   TZ: 'Europe/Paris',
   // Chauffeurs proposés dans le planning (affectation des courses).
   DRIVERS: ['CHEICK', 'VINCENT', 'MIHAI', 'MOUSSA', 'MOHAMED'],
+  // Numéro WhatsApp → chauffeur (lettre de voiture sans nom de chauffeur lisible).
+  PHONES: { '0783794351': 'VINCENT', '0769391541': 'CHEICK', '0759295366': 'MIHAI', '0778378277': 'MOUSSA' },
   // Application Soriya (exécutée par gfd.logistic, qui détient la clé Claude) : répond au chat.
   SORIYA_APP_URL: 'https://script.google.com/macros/s/AKfycbw8NAz4kKY0k4aUc2VMTFNI3m_dn6LL3i1DhbCRUla1_RJUbkcQiSblA5mqUevj9qY-NA/exec',
 };
@@ -229,7 +231,7 @@ function soriyaWebDocs_(typeKey) {
       goods: v(r, 'Marchandise'),
       price: ldv ? '' : [v(r, 'Montant HT') || v(r, 'Prix HT'), v(r, 'Devise')].join(' ').trim(),
       amount: ldv ? 0 : (parseFloat(String(v(r, 'Montant HT') || v(r, 'Prix HT')).replace(/\s/g, '').replace(',', '.')) || 0),
-      driver: soriyaDriverName_(v(r, 'Transporteur')),
+      driver: soriyaDriverName_(v(r, 'Transporteur'), v(r, 'Expéditeur')),
       waiting: ldv ? '' : v(r, 'Attente'),
       services: v(r, 'Prestations réalisées'),
       reserves: ldv ? v(r, 'Réserves à la livraison') : '',
@@ -248,12 +250,24 @@ function soriyaWebDocs_(typeKey) {
   });
 }
 
-/** « GFD LOGISTIC / CHEICK » → « CHEICK » ; vide ou « Aucune lettre de voiture » → ''. */
-function soriyaDriverName_(carrier) {
+/**
+ * Chauffeur d'un document : « GFD LOGISTIC / CHEICK » → « CHEICK » ; « Aucune lettre de voiture » → ''.
+ * Un transporteur qui n'est pas un chauffeur (« SAS GFD-LOGISTIC, 1 avenue de Verdun… », « ECOTIME group, … »)
+ * ne devient jamais un nom de chauffeur : on cherche un chauffeur connu dans le texte (« chauffeur : Vincent »),
+ * sinon celui du numéro WhatsApp qui a envoyé la lettre ; à défaut, pas de chauffeur.
+ */
+function soriyaDriverName_(carrier, sender) {
   const c = String(carrier || '').trim();
-  if (!c || /^aucune lettre/i.test(c) || /^lettre de voiture trouvée/i.test(c)) return '';
+  if (/^aucune lettre/i.test(c) || /^lettre de voiture trouvée/i.test(c)) return '';
   const parts = c.split('/');
-  return (parts.length > 1 ? parts[parts.length - 1] : c).trim().toUpperCase();
+  const last = parts.length > 1 ? parts[parts.length - 1].trim().toUpperCase() : '';
+  if (/^[A-ZÀ-Ü][A-ZÀ-Ü' -]{1,19}$/.test(last)) return last;
+  const known = SORIYA_WEB.DRIVERS.filter(function (d) { return d !== 'MOHAMED'; });
+  const up = c.toUpperCase();
+  for (let i = 0; i < known.length; i++) if (new RegExp('\\b' + known[i] + '\\b').test(up)) return known[i];
+  const digits = String(sender || '').replace(/\D/g, '').replace(/^33/, '0');
+  const owner = SORIYA_WEB.PHONES[digits];
+  return owner && known.indexOf(owner) >= 0 ? owner : '';
 }
 
 function soriyaWebProspects_() {

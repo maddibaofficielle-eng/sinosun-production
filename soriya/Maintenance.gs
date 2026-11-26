@@ -182,6 +182,12 @@ function soriyaMigrations_() {
     p.setProperty('SORIYA_MIG_LDV_ATTRIBUTION_V1', 'ok');
     Logger.log('Mise à jour : %s lettre(s) de voiture en double déplacée(s) dans « Doublons ».', n);
   }
+  // Nettoyage de novembre : lettres renvoyées en double et bons de livraison pris pour des lettres de voiture.
+  if (p.getProperty('SORIYA_MIG_LDV_NOV_CLEAN_V1') !== 'ok') {
+    const n = soriyaLdvNettoyage_('2026-11', ['666266']);
+    p.setProperty('SORIYA_MIG_LDV_NOV_CLEAN_V1', 'ok');
+    Logger.log('Nettoyage novembre : %s ligne(s) déplacée(s) dans « Doublons ».', n);
+  }
   const props = PropertiesService.getScriptProperties();
   if (props.getProperty('SORIYA_MIG_CONFIRMATION_NAMES_V2') !== 'done') {
     const n = renommerConfirmations();
@@ -752,4 +758,39 @@ function soriyaLdvDoublonsAttribution_() {
     moved++;
   }
   return moved;
+}
+
+/**
+ * Journal des lettres de voiture, pour un mois (« 2026-11 ») : chaque n° n'y reste qu'une fois (la première lettre
+ * reçue fait foi, les suivantes passent dans « Doublons ») ; un bon de livraison lu comme lettre de voiture en sort
+ * aussi. Les n° de `keep` sont laissés tels quels (attribution à décider). @return {number} lignes déplacées
+ */
+function soriyaLdvNettoyage_(month, keep) {
+  const j = soriyaJournalSpreadsheet_(soriyaRootFolder_('lettre_voiture'), 'lettre_voiture');
+  const col = function (t) { return j.headers.indexOf(t); };
+  const cNum = col('N° lettre de voiture'), cStatus = col('Statut'), cDate = col('Date prise en charge'), cRem = col('Remarques');
+  const last = j.main.getLastRow();
+  if (last < 2) return 0;
+  const tz = Session.getScriptTimeZone();
+  const rows = j.main.getRange(2, 1, last - 1, j.main.getLastColumn()).getValues();
+  const ym = function (r) {
+    const d = r[cDate] instanceof Date ? r[cDate] : r[1] instanceof Date ? r[1] : null;
+    return d ? Utilities.formatDate(d, tz, 'yyyy-MM') : String(r[cDate] || '').slice(0, 7);
+  };
+  const seen = {}, out = [];
+  rows.forEach(function (r, i) {
+    const n = String(r[cNum]).replace(/\D/g, '');
+    if (!/^Archivé/.test(String(r[cStatus]))) return;
+    if (ym(r) === month && /^Bon de livraison/i.test(String(r[cRem]))) { out.push([i, 'Pas une lettre de voiture — bon de livraison']); return; }
+    if (!n) return;
+    if (seen[n] !== undefined && ym(r) === month && (keep || []).indexOf(n) < 0) out.push([i, 'Doublon — lettre de voiture n° ' + n + ' déjà reçue']);
+    else if (seen[n] === undefined) seen[n] = i;
+  });
+  for (let k = out.length - 1; k >= 0; k--) {
+    const row = rows[out[k][0]].slice();
+    row[cStatus] = out[k][1];
+    j.dup.appendRow(row);
+    j.main.deleteRow(out[k][0] + 2);
+  }
+  return out.length;
 }
