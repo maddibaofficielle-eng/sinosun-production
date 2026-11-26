@@ -184,7 +184,7 @@ function soriyaMigrations_() {
   }
   // Nettoyage de novembre : lettres renvoyées en double et bons de livraison pris pour des lettres de voiture.
   if (p.getProperty('SORIYA_MIG_LDV_NOV_CLEAN_V1') !== 'ok') {
-    const n = soriyaLdvNettoyage_('2026-11', ['666266']);
+    const n = soriyaLdvNettoyage_('2026-11', []); // 666266 : course de CHEICK (copie de MIHAI en double)
     p.setProperty('SORIYA_MIG_LDV_NOV_CLEAN_V1', 'ok');
     Logger.log('Nettoyage novembre : %s ligne(s) déplacée(s) dans « Doublons ».', n);
   }
